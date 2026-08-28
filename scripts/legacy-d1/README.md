@@ -7,9 +7,9 @@ SQLite file, which this app no longer uses. They are kept for reference only.
   which loads the same CSV into Postgres.
 - `import_syllabus.py` — downloads Cambridge syllabus PDFs, parses them with
   `scripts/parse_syllabus.py`, and writes `syllabus_versions` +
-  `syllabus_content`. Only the versions half is ported so far (also by
-  `import-shared-data.mjs`); the PDF-parsing half still needs a Postgres
-  target before `syllabus_content` can be populated.
+  `syllabus_content` into D1. Rows it already produced can be moved to Postgres
+  with `scripts/import-legacy-d1.mjs --shared`. Parsing *new* syllabuses still
+  runs against D1, so this needs a Postgres target before it is useful again.
 
 `scripts/parse_syllabus.py` stayed at the top level: it is pure parsing logic
 with no database dependency, and its test still runs.
