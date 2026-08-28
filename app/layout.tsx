@@ -6,6 +6,7 @@ import "./features.css";
 import "./friendly-theme.css";
 import "./exams.css";
 import "./auth.css";
+import "./brand.css";
 
 const nunito = Nunito_Sans({
   variable: "--font-friendly-sans",

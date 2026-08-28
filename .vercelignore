@@ -5,6 +5,7 @@
 # Every pattern MUST be anchored with a leading slash. These are gitignore
 # semantics: a bare `supabase/` matches at any depth and would also delete
 # `lib/supabase/`, which is runtime code.
+/brand/
 /data/
 /scripts/
 /supabase/

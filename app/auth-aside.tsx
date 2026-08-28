@@ -1,11 +1,13 @@
+import MomentumMark from "./momentum-mark";
+
 /** Marketing panel shared by the sign-in and sign-up screens. */
 export default function AuthAside() {
   return (
     <aside className="auth-aside">
       <div className="brand-lockup">
-        <div className="brand-mark">M</div>
+        <div className="brand-mark"><MomentumMark /></div>
         <div>
-          <p className="eyebrow light">Study tracker</p>
+          <p className="eyebrow light">Focus. Study. Grow.</p>
           <h1>Momentum</h1>
         </div>
       </div>

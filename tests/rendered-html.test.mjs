@@ -98,6 +98,11 @@ test("auth, onboarding and the account gate are wired", async () => {
   assert.match(onboardingApi, /availableOnboardingSubjects/);
   assert.match(onboardingApi, /completeOnboarding/);
 
+  // The brand lockup uses the drawn mark, not the placeholder letterform.
+  const aside = await read("app/auth-aside.tsx");
+  assert.match(aside, /MomentumMark/);
+  assert.ok(!aside.includes('className="brand-mark">M<'), "the placeholder M should be gone");
+
   assert.match(signup, /signUp/);
   assert.match(signup, /emailRedirectTo/);
   assert.match(signup, /check-email/);

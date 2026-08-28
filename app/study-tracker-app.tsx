@@ -5,6 +5,7 @@ import CalendarView from "./calendar";
 import FlashcardsView from "./flashcards";
 import ExamPlanner from "./exams";
 import GoalPlanner from "./goals";
+import MomentumMark from "./momentum-mark";
 import NotesView from "./notes";
 import PastPapersView, { type PaperDifficulty, type PaperMeta, type PastPaper, type PastPaperInput } from "./past-papers";
 import StudyHoursView, { formatStudyTime, type StudySession } from "./study-hours";
@@ -514,8 +515,8 @@ export default function StudyTrackerApp() {
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand-lockup">
-          <div className="brand-mark">M</div>
-          <div><p className="eyebrow light">STUDY TRACKER</p><h1>Momentum</h1></div>
+          <div className="brand-mark"><MomentumMark /></div>
+          <div><p className="eyebrow light">Focus. Study. Grow.</p><h1>Momentum</h1></div>
         </div>
         <nav aria-label="Main navigation">
           <button className={`nav-item ${activeView === "Today" ? "active" : ""}`} onClick={() => { setActiveView("Today"); setQuery(""); setSelectedReviews(new Set()); }}>
