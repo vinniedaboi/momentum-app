@@ -57,8 +57,8 @@ Copy `.env.example` to `.env.local` and fill it in:
 - `DATABASE_URL` — Supabase → Project Settings → Database → Connection string →
   **Transaction pooler** (port 6543). Serverless functions must use the pooler,
   never the direct `5432` host.
-- `NEXT_PUBLIC_SITE_URL` — `http://localhost:3000` locally, the deployed origin
-  in production.
+- `NEXT_PUBLIC_SITE_URL` — optional; leave it unset unless you want every
+  confirmation email to point at one fixed origin.
 
 Then:
 
@@ -105,13 +105,47 @@ behind it do not, so any note downloads will 404.
 
 ## Deploying to Vercel
 
-1. Push this repository to GitHub.
-2. Import it in Vercel. The framework preset is detected automatically.
-3. Add the four environment variables above to the Vercel project, setting
-   `NEXT_PUBLIC_SITE_URL` to the deployed origin.
-4. In Supabase → Authentication → URL Configuration, set the **Site URL** to the
-   deployed origin and add `https://<your-domain>/auth/callback` to the
-   redirect allowlist. Confirmation emails will not work until you do.
+1. Push this repository to GitHub and import it in Vercel. The Next.js preset is
+   detected automatically; `vercel.json` supplies the rest.
+
+2. Add two environment variables (Production, Preview and Development):
+
+   | Variable | Value |
+   | --- | --- |
+   | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → Data API |
+   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | same page |
+   | `DATABASE_URL` | Database → Connection string → **Transaction pooler** (port 6543) |
+
+   `NEXT_PUBLIC_SITE_URL` is optional — see `.env.example`. The two
+   `NEXT_PUBLIC_*` values are inlined at build time, so they must exist before
+   the first build, and changing them needs a redeploy.
+
+3. In Supabase → Authentication → URL Configuration:
+   - **Site URL** → your production origin.
+   - **Redirect URLs** → add `https://<your-domain>/auth/callback`. To let
+     preview deployments confirm sign-ups too, also add
+     `https://<your-project>-*.vercel.app/auth/callback`; or set
+     `NEXT_PUBLIC_SITE_URL` and keep the single production entry.
+
+   Confirmation emails silently fail to sign anyone in until this is done.
+
+4. Load the shared reference data once, from your machine, against the same
+   database: `npm run import:shared`.
+
+### Region
+
+The functions are pinned to `sin1` (Singapore) in `vercel.json` to sit beside
+the `ap-southeast-1` Supabase project. **If you move the database, change this
+too** — Vercel otherwise defaults to US East, and a page that issues several
+queries would pay a cross-Pacific round trip on each one.
+
+### Connection pooling
+
+Every warm function instance holds its own pool, so `lib/db.ts` drops to a
+single connection with a short idle timeout when `VERCEL` is set. That, plus
+the transaction pooler on port 6543, is what keeps a scaled-out deployment
+inside Supabase's connection limit. Never point `DATABASE_URL` at the direct
+`db.<ref>.supabase.co:5432` host from serverless.
 
 ### Email confirmation
 
@@ -119,6 +153,13 @@ Supabase requires email confirmation by default. Both paths are handled:
 with confirmation on, sign-up routes to `/check-email` and the emailed link
 lands on `/auth/callback`; with it off (Authentication → Sign In / Providers),
 the session arrives immediately and sign-up goes straight to onboarding.
+
+### What is not deployed
+
+`.vercelignore` keeps `data/`, `scripts/`, `supabase/` and `tests/` out of the
+upload — none of them are imported at runtime, and `data/` alone is 4 MB of
+catalogue CSV. The migrations and importers stay in git; they just run from a
+developer's machine, not from a function.
 
 ---
 

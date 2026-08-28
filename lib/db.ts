@@ -49,8 +49,14 @@ export function getSql(): Sql {
     // The transaction pooler (port 6543) multiplexes connections, so named
     // prepared statements cannot be reused between queries.
     prepare: false,
-    max: 5,
-    idle_timeout: 20,
+    // On Vercel every warm function instance holds its own pool, and there can
+    // be hundreds of them. One connection each keeps the fleet inside
+    // Supabase's pooler limit; locally a handful is friendlier to `next dev`,
+    // which serves many requests from a single process.
+    max: process.env.VERCEL ? 1 : 5,
+    // Idle connections are useless once a serverless instance freezes, and
+    // holding them just occupies a pooler slot.
+    idle_timeout: process.env.VERCEL ? 5 : 20,
     connect_timeout: 15,
   });
 

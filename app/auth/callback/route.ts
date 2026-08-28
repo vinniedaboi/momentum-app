@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "../../../lib/supabase/server";
+import { requestOrigin } from "../../../lib/request-origin";
 
 export const runtime = "nodejs";
 
@@ -8,7 +9,8 @@ export const runtime = "nodejs";
  * is exchanged here for the session cookies the rest of the app reads.
  */
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = request.nextUrl;
+  const { searchParams } = request.nextUrl;
+  const origin = requestOrigin(request);
   const code = searchParams.get("code");
   const next = searchParams.get("next");
   const destination = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";

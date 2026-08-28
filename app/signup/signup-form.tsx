@@ -23,13 +23,19 @@ export default function SignupForm() {
     setPending(true);
     setError(null);
 
+    // The current origin is right almost always, including on preview
+    // deployments. NEXT_PUBLIC_SITE_URL overrides it when confirmations should
+    // always land on the canonical domain — which also keeps Supabase's
+    // redirect allowlist down to a single entry.
+    const origin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || window.location.origin;
+
     const supabase = createSupabaseBrowserClient();
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: fullName.trim() },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
+        emailRedirectTo: `${origin}/auth/callback?next=/onboarding`,
       },
     });
 

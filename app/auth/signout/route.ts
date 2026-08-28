@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "../../../lib/supabase/server";
+import { requestOrigin } from "../../../lib/request-origin";
 
 export const runtime = "nodejs";
 
@@ -7,5 +8,5 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
-  return NextResponse.redirect(`${request.nextUrl.origin}/login`, { status: 303 });
+  return NextResponse.redirect(`${requestOrigin(request)}/login`, { status: 303 });
 }

@@ -124,6 +124,44 @@ test("onboarding offers every catalogued subject, not just the bundled ones", as
   assert.match(subjectsDb, /export async function createSubjects/);
 });
 
+test("is deployable to Vercel", async () => {
+  const [vercelJson, vercelIgnore, db, config, callback, signout, origin] = await Promise.all([
+    read("vercel.json"),
+    read(".vercelignore"),
+    read("lib/db.ts"),
+    read("next.config.ts"),
+    read("app/auth/callback/route.ts"),
+    read("app/auth/signout/route.ts"),
+    read("lib/request-origin.ts"),
+  ]);
+
+  // Functions must sit beside the database; Vercel otherwise defaults to US East
+  // while the Supabase project is in ap-southeast-1.
+  const parsed = JSON.parse(vercelJson);
+  assert.ok(Array.isArray(parsed.regions) && parsed.regions.length, "vercel.json needs a region");
+  assert.equal(parsed.regions[0], "sin1");
+
+  // One connection per warm instance, or a scaled-out fleet exhausts the pooler.
+  assert.ok(db.includes("process.env.VERCEL ? 1 : 5"), "pool must shrink on Vercel");
+  assert.ok(db.includes("prepare: false"), "transaction pooler forbids named prepared statements");
+
+  // postgres.js needs raw TCP, so it must stay out of the edge bundles.
+  assert.ok(config.includes('serverExternalPackages: ["postgres"]'));
+
+  // Behind a proxy request.nextUrl.origin is the internal host.
+  assert.ok(origin.includes("x-forwarded-host"));
+  assert.ok(origin.includes("x-forwarded-proto"));
+  for (const [name, source] of [["callback", callback], ["signout", signout]]) {
+    assert.ok(source.includes("requestOrigin"), `${name} should resolve the forwarded origin`);
+    assert.ok(!source.includes("nextUrl.origin"), `${name} should not redirect to the internal origin`);
+  }
+
+  // Nothing under these paths is imported at runtime.
+  for (const path of ["data/", "scripts/", "supabase/", "tests/"]) {
+    assert.ok(vercelIgnore.includes(path), `.vercelignore should exclude ${path}`);
+  }
+});
+
 test("row level security covers every table", async () => {
   const [tables, policies] = await Promise.all([
     read("supabase/migrations/0002_workspace_tables.sql"),
