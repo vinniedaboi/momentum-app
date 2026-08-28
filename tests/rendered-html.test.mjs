@@ -25,10 +25,10 @@ const WORKSPACE_DB_MODULES = [
 ];
 
 test("every workspace table is scoped to the signed-in account", async () => {
-  for (const module of WORKSPACE_DB_MODULES) {
-    const source = await read(module);
-    assert.match(source, /workspaceId: string/, `${module} should take a workspace id`);
-    assert.match(source, /workspace_id = \$\{workspaceId\}/, `${module} should filter on workspace_id`);
+  for (const path of WORKSPACE_DB_MODULES) {
+    const source = await read(path);
+    assert.match(source, /workspaceId: string/, `${path} should take a workspace id`);
+    assert.match(source, /workspace_id = \$\{workspaceId\}/, `${path} should filter on workspace_id`);
   }
 });
 
@@ -61,8 +61,8 @@ test("every API route requires a session and runs on Node", async () => {
 });
 
 test("auth, onboarding and the account gate are wired", async () => {
-  const [middleware, sessionGuard, home, onboarding, onboardingApi, signup, login, signout] = await Promise.all([
-    read("lib/supabase/middleware.ts"),
+  const [proxy, sessionGuard, home, onboarding, onboardingApi, signup, login, signout] = await Promise.all([
+    read("lib/supabase/session.ts"),
     read("lib/auth.ts"),
     read("app/page.tsx"),
     read("app/onboarding/onboarding-flow.tsx"),
@@ -73,9 +73,9 @@ test("auth, onboarding and the account gate are wired", async () => {
   ]);
 
   // getSession() trusts the cookie; getUser() revalidates it with Supabase.
-  assert.match(middleware, /supabase\.auth\.getUser\(\)/);
-  assert.doesNotMatch(middleware, /supabase\.auth\.getSession\(\)/);
-  assert.match(middleware, /status: 401/);
+  assert.match(proxy, /supabase\.auth\.getUser\(\)/);
+  assert.doesNotMatch(proxy, /supabase\.auth\.getSession\(\)/);
+  assert.match(proxy, /status: 401/);
   assert.match(sessionGuard, /Sign in to continue\./);
 
   assert.match(home, /redirect\("\/onboarding"\)/);

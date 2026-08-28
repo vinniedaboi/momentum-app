@@ -14,7 +14,7 @@ function isPublic(pathname: string) {
  * Refreshes the Supabase session cookie and gates private routes.
  *
  * The onboarding gate deliberately lives in the page layer instead: it needs a
- * profile lookup, and running that query in middleware would put a round trip
+ * profile lookup, and running that query in the proxy would put a round trip
  * in front of every asset request.
  */
 export async function updateSession(request: NextRequest) {

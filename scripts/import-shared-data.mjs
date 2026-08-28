@@ -68,7 +68,9 @@ function parseCsv(text) {
 }
 
 function loadCsv(path) {
-  const raw = readFileSync(resolve(path), "utf8").replace(/^﻿/, "");
+  const text = readFileSync(resolve(path), "utf8");
+  // Both CSVs ship with a UTF-8 BOM, which would otherwise land in the first header name.
+  const raw = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
   const [header, ...lines] = parseCsv(raw);
   const column = Object.fromEntries(header.map((name, index) => [name.trim(), index]));
   return { column, lines };
