@@ -15,6 +15,7 @@ Hand-written Availability_Notes are carried over by Record_ID so a rebuild does
 not discard them.
 """
 import csv
+import html
 import io
 import re
 import sys
@@ -79,6 +80,52 @@ PEARSON_SUBJECTS = {
     "spanish-2016": ("Spanish", ["Spanish"]),
 }
 
+EDEXCEL_IGCSE_BASE = "https://qualifications.pearson.com/en/qualifications/edexcel-international-gcses/"
+EDEXCEL_IGCSE_QUALIFICATION = "International GCSE"
+
+# Pearson renders its subject listing client-side, so the suite is named here.
+# Each page is keyed by first-teaching year, which differs per subject; the
+# specification PDF is still read off the live page.
+# Names as Pearson writes them; the slug alone would give "Mathematics a".
+EDEXCEL_IGCSE_NAME_FIXES = {
+    "English Language a": "English Language A",
+    "English Language b": "English Language B",
+    "Mathematics a": "Mathematics A",
+    "Mathematics b": "Mathematics B",
+    "Science Double Award": "Science (Double Award)",
+}
+
+EDEXCEL_IGCSE_SUBJECTS = {
+    "international-gcse-accounting-2017": ("Accounting", "ACCOUNTING"),
+    "international-gcse-bangla-2017": ("Bangla", "BANGLA"),
+    "international-gcse-biology-2017": ("Biology", "BIOLOGY"),
+    "international-gcse-chemistry-2017": ("Chemistry", "CHEMISTRY"),
+    "international-gcse-chinese-2017": ("Chinese", "CHINESE"),
+    "international-gcse-commerce-2017": ("Commerce", "COMMERCE"),
+    "international-gcse-computer-science-2017": ("Computer Science", "COMPUTER_SCIENCE"),
+    "international-gcse-economics-2017": ("Economics", "ECONOMICS"),
+    "international-gcse-english-language-a-2016": ("English Language a", "ENGLISH_LANGUAGE_A"),
+    "international-gcse-english-language-b-2016": ("English Language b", "ENGLISH_LANGUAGE_B"),
+    "international-gcse-english-literature-2016": ("English Literature", "ENGLISH_LITERATURE"),
+    "international-gcse-french-2017": ("French", "FRENCH"),
+    "international-gcse-further-pure-mathematics-2017": ("Further Pure Mathematics", "FURTHER_PURE_MATHEMATICS"),
+    "international-gcse-geography-2017": ("Geography", "GEOGRAPHY"),
+    "international-gcse-global-citizenship-2017": ("Global Citizenship", "GLOBAL_CITIZENSHIP"),
+    "international-gcse-history-2017": ("History", "HISTORY"),
+    "international-gcse-human-biology-2017": ("Human Biology", "HUMAN_BIOLOGY"),
+    "international-gcse-information-and-communication-technology-2017": ("Information and Communication Technology", "INFORMATION_AND_COMMUNICATION_TECHNOLOGY"),
+    "international-gcse-islamic-studies-2017": ("Islamic Studies", "ISLAMIC_STUDIES"),
+    "international-gcse-mathematics-a-2016": ("Mathematics a", "MATHEMATICS_A"),
+    "international-gcse-mathematics-b-2016": ("Mathematics b", "MATHEMATICS_B"),
+    "international-gcse-pakistan-studies-2017": ("Pakistan Studies", "PAKISTAN_STUDIES"),
+    "international-gcse-physics-2017": ("Physics", "PHYSICS"),
+    "international-gcse-religious-studies-2017": ("Religious Studies", "RELIGIOUS_STUDIES"),
+    "international-gcse-science-double-award-2017": ("Science Double Award", "SCIENCE_DOUBLE_AWARD"),
+    "international-gcse-sinhala-2017": ("Sinhala", "SINHALA"),
+    "international-gcse-spanish-2017": ("Spanish", "SPANISH"),
+    "international-gcse-swahili-2017": ("Swahili", "SWAHILI"),
+}
+
 PDF_LINK = re.compile(r"/Images/(\d+)-((\d{4})(?:-(\d{4}))?)-syllabus\.pdf")
 COLUMNS = [
     "Record_ID", "Exam_Board", "Qualification", "Subject_Name", "Syllabus_Code",
@@ -126,16 +173,18 @@ def catalogue_subjects():
 def listing(qualification):
     """Maps syllabus code -> (slug, official subject name) for one qualification."""
     slug_prefix, url, pattern = LISTINGS[qualification]
-    html = fetch(url).decode("utf-8", "ignore")
+    markup = fetch(url).decode("utf-8", "ignore")
     anchor = re.compile(
         r'<a[^>]+href="[^"]*?/programmes-and-qualifications/(' + pattern + r'-(\d{4}))/"[^>]*>(.*?)</a>',
         re.S | re.I,
     )
     found = OrderedDict()
-    for slug, code, label in anchor.findall(html):
+    for slug, code, label in anchor.findall(markup):
         if code in found:
             continue
-        name = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", label)).strip()
+        name = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", label))).strip()
+        # Listing labels carry the code and sometimes a "New" badge.
+        name = re.sub(r"\s*(?:New|Updated)$", "", name, flags=re.I).strip()
         name = re.sub(r"\s*[-(]\s*\d{4}\)?$", "", name).strip()
         found[code] = (slug, name, slug_prefix)
     return found
@@ -143,9 +192,9 @@ def listing(qualification):
 
 def versions_for(slug):
     """Every still-examinable syllabus PDF linked from a subject page."""
-    html = fetch(SITE + "/programmes-and-qualifications/" + slug + "/", 45).decode("utf-8", "ignore")
+    markup = fetch(SITE + "/programmes-and-qualifications/" + slug + "/", 45).decode("utf-8", "ignore")
     found = {}
-    for asset, window, year_from, year_to in PDF_LINK.findall(html):
+    for asset, window, year_from, year_to in PDF_LINK.findall(markup):
         start, end = int(year_from), int(year_to or year_from)
         if end < CURRENT_YEAR:
             continue  # already examined out
@@ -156,8 +205,8 @@ def versions_for(slug):
 def pearson_spec(slug):
     """The specification PDF on a Pearson subject page, told apart from the teaching
     guides and sample-assessment material that sit beside it."""
-    html = fetch(PEARSON_BASE + slug + ".html", 45).decode("utf-8", "ignore")
-    candidates = sorted(set(re.findall(r"(/content/dam/pdf/[^\"'>]*?\.pdf)", html)))
+    markup = fetch(PEARSON_BASE + slug + ".html", 45).decode("utf-8", "ignore")
+    candidates = sorted(set(re.findall(r"(/content/dam/pdf/[^\"'>]*?\.pdf)", markup)))
 
     def score(path):
         name, folder = path.rsplit("/", 1)[-1].lower(), path.rsplit("/", 1)[0].lower()
@@ -245,6 +294,73 @@ def pearson_rows(notes, today):
     return rows
 
 
+def spec_pdf(page_url, folder):
+    """The specification PDF on a Pearson subject page, told apart from the
+    teaching guides and sample assessments beside it."""
+    markup = fetch(page_url, 45).decode("utf-8", "ignore")
+    pattern = r"(/content/dam/pdf/" + folder + r"[^\"'>]*?\.pdf)"
+    candidates = sorted(set(re.findall(pattern, markup)))
+
+    def score(path):
+        name, parent = path.rsplit("/", 1)[-1].lower(), path.rsplit("/", 1)[0].lower()
+        points = 0
+        if "spec" in name:
+            points += 10
+        if "specification" in parent:
+            points += 8
+        if re.search(r"guide|onboard|sams|faq|checklist|sample|arrangements", name):
+            points -= 20
+        if "/general/" in parent:
+            points -= 12
+        return points
+
+    ranked = sorted(candidates, key=score, reverse=True)
+    return ranked[0] if ranked and score(ranked[0]) > 0 else None
+
+
+def edexcel_igcse_rows(notes, today):
+    """Edexcel's International GCSEs, which the paper catalogue does not cover -
+    they arrive as syllabus-only subjects."""
+    rows = []
+    print("{}: {} subjects".format(EDEXCEL_IGCSE_QUALIFICATION, len(EDEXCEL_IGCSE_SUBJECTS)))
+    for slug, (raw_name, code) in sorted(EDEXCEL_IGCSE_SUBJECTS.items()):
+        name = EDEXCEL_IGCSE_NAME_FIXES.get(raw_name, raw_name)
+        page = EDEXCEL_IGCSE_BASE + slug + ".html"
+        try:
+            path = spec_pdf(page, "International(?:%20| )GCSE/")
+        except Exception as error:  # noqa: BLE001
+            print("  {:<38} FAILED: {}".format(name[:36], error))
+            continue
+        if not path:
+            print("  {:<38} no specification PDF linked".format(name[:36]))
+            continue
+        url = SITE_PEARSON + urllib.parse.quote(path)
+        record_id = "edexcel-igcse-" + slug.replace("international-gcse-", "")
+        year = int(re.search(r"(\d{4})$", slug).group(1))
+        rows.append({
+            "Record_ID": record_id,
+            "Exam_Board": PEARSON_BOARD,
+            "Qualification": EDEXCEL_IGCSE_QUALIFICATION,
+            "Subject_Name": name,
+            "Syllabus_Code": "IG-" + code,
+            "Exam_Year_From": year,
+            "Exam_Year_To": "",
+            "Is_Current_In_2026": "true",
+            "Is_Latest_Published_Version": "true",
+            "Syllabus_PDF_URL": url,
+            "Syllabus_Page_URL": page,
+            "PotatoPapers_Subject_Filter": "",
+            "PotatoPapers_Catalogue_URL": "",
+            "PotatoPapers_Paper_Record_Count": 0,
+            "PotatoPapers_Has_Catalogue_Records": "false",
+            "Availability_Notes": notes.get(record_id, ""),
+            "Source_Verification": verify(url),
+            "Verified_On": today,
+        })
+        print("  {:<38} {}".format(name[:36], path.rsplit("/", 1)[-1][:44]))
+    return rows
+
+
 def existing_notes():
     if not DIRECTORY.exists():
         return {}
@@ -300,6 +416,7 @@ def main():
             print("  {} {:<32} {}".format(code, name[:30], windows))
 
     rows.extend(pearson_rows(notes, today))
+    rows.extend(edexcel_igcse_rows(notes, today))
 
     rows.sort(key=lambda row: (row["Exam_Board"], row["Qualification"], row["Subject_Name"],
                                str(row["Exam_Year_From"])))

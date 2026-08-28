@@ -24,6 +24,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from parse_outline import parse as parse_outline  # noqa: E402
 from parse_pearson import parse as parse_pearson  # noqa: E402
 from parse_syllabus import parse as parse_cambridge  # noqa: E402
 
@@ -112,16 +113,24 @@ def main():
     order = sorted(by_code.items(),
                    key=lambda item: (item[1][0]["Exam_Board"], item[1][0]["Subject_Name"]))
     for code, group in order:
-        chapters, points, chosen = [], [], group[0]
+        chapters, points, chosen, how = [], [], group[0], ""
         for attempt in group:
             try:
-                found = parser_for(attempt["Exam_Board"])(pdf_text(download(attempt["Syllabus_PDF_URL"])))
+                text = pdf_text(download(attempt["Syllabus_PDF_URL"]))
             except Exception as error:  # noqa: BLE001
                 print("  {:<30} {:<10} FAILED: {}".format(attempt["Subject_Name"][:28], code, error))
                 continue
-            chapters, points, chosen = found[0], found[1], attempt
+            # Numbered spec points where they exist; otherwise read the headings
+            # and bullets, which is how the humanities syllabuses are written.
+            for reader, label in ((parser_for(attempt["Exam_Board"]), ""),
+                                  (parse_outline, " outline")):
+                found = reader(text)
+                if found[1]:
+                    chapters, points, chosen, how = found[0], found[1], attempt, label
+                    break
             if points:
                 break
+            chosen = attempt
 
         record_id = chosen["Record_ID"]
         seq = 0
@@ -143,6 +152,7 @@ def main():
         if points:
             parsed += 1
         note = "" if chosen is group[0] else "  (fell back to {})".format(window(chosen))
+        note += how
         flag = "review" if any(PLACEHOLDER.match(title) for _, title, _ in chapters) else "ok"
         print("  {:<30} {:<10} {:>3} chapters {:>4} points  [{}]{}".format(
             chosen["Subject_Name"][:28], code, len(chapters), len(points), flag, note))
