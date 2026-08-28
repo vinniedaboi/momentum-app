@@ -53,5 +53,66 @@ Learning outcomes
         self.assertEqual([row[2] for row in chapters], ["AS", "A2"])
 
 
+    def test_igcse_prefixed_codes_carry_core_and_extended_levels(self):
+        """IGCSE Maths-family syllabuses head the section "Syllabus content" and
+        encode Core/Extended in the code itself."""
+        text = """
+Cambridge syllabus for 2026 Syllabus content
+C1
+Number
+C1.1 Types of number
+Learning outcomes
+E1
+Number
+E1.1 Types of number
+Learning outcomes
+4 Details of the assessment
+"""
+        chapters, points = parse(text)
+
+        self.assertEqual(chapters, [("C1", "Number", "Core"), ("E1", "Number", "Extended")])
+        self.assertEqual(points, [
+            ("C1.1", "C1", "Types of number", "Core"),
+            ("E1.1", "E1", "Types of number", "Extended"),
+        ])
+
+    def test_repeated_column_label_is_stripped_from_titles(self):
+        """The IGCSE sciences print Core/Supplement in a column that lands at the
+        end of the extracted title."""
+        text = """
+Cambridge syllabus for 2026 Syllabus content
+1
+Cell biology
+1.1 Diffusion Core
+Learning outcomes
+1.2 Osmosis Core
+Learning outcomes
+1.3 Active transport Supplement
+Learning outcomes
+4 Details of the assessment
+"""
+        _, points = parse(text)
+
+        self.assertEqual(points, [
+            ("1.1", "1", "Diffusion", "Core"),
+            ("1.2", "1", "Osmosis", "Core"),
+            ("1.3", "1", "Active transport", "Supplement"),
+        ])
+
+    def test_lone_trailing_core_is_kept(self):
+        """One "Core" is more likely part of a real title than a column label."""
+        text = """
+Cambridge syllabus for 2026 Subject content
+1
+Plate tectonics
+1.1 The Earth's Core
+Learning outcomes
+4 Details of the assessment
+"""
+        _, points = parse(text)
+
+        self.assertEqual([row[2] for row in points], ["The Earth's Core"])
+
+
 if __name__ == "__main__":
     unittest.main()

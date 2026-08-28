@@ -2,6 +2,10 @@
 //
 //   node scripts/import-shared-data.mjs
 //   node scripts/import-shared-data.mjs --catalogue data/paper-catalogue.csv
+//   node scripts/import-shared-data.mjs --skip-content
+//
+// The parsed syllabus trees come from data/syllabus-content.json, which is not
+// committed - generate it first with `python scripts/parse_syllabus_content.py`.
 //
 // Both tables are the same for every account, so this runs once per environment
 // rather than per user. Re-running replaces the table contents; the per-user
@@ -14,6 +18,7 @@ import postgres from "postgres";
 const DEFAULTS = {
   catalogue: "data/paper-catalogue.csv",
   versions: "data/syllabus-versions.csv",
+  content: "data/syllabus-content.json",
 };
 
 const SEASON_CODES = {
@@ -202,6 +207,26 @@ function versionRecords(path) {
   return records;
 }
 
+/**
+ * Replacing syllabus_versions cascades the content away, so a run without the
+ * parsed JSON would silently empty the table. Fail loudly instead.
+ */
+function contentRecords(path) {
+  let raw;
+  try {
+    raw = readFileSync(resolve(path), "utf8");
+  } catch {
+    throw new Error(
+      `${path} is missing, and importing without it would delete the syllabus content `
+      + "already loaded. Run `python scripts/parse_syllabus_content.py` first, "
+      + "or pass --skip-content to load only the directory and catalogue.",
+    );
+  }
+  const records = JSON.parse(raw);
+  if (!Array.isArray(records)) throw new Error(`${path} should contain an array of rows.`);
+  return records;
+}
+
 async function replaceTable(sql, table, records, columns) {
   await sql.begin(async (tx) => {
     await tx`DELETE FROM ${tx(table)}`;
@@ -224,6 +249,24 @@ try {
     "year_from", "year_to", "is_current", "is_latest", "pdf_url", "page_url", "notes",
   ]);
   console.log(`syllabus_versions: ${versions.length} rows`);
+
+  if (process.argv.includes("--skip-content")) {
+    console.log("syllabus_content: skipped (--skip-content)");
+  } else {
+    const content = contentRecords(readArg("content", DEFAULTS.content));
+    // The directory is the authority on a version's syllabus code; the parsed JSON
+    // only needs to say which version each row belongs to.
+    const codeFor = new Map(versions.map((version) => [version.record_id, version.syllabus_code]));
+    const usable = content
+      .filter((row) => codeFor.has(row.record_id))
+      .map((row) => ({ ...row, syllabus_code: codeFor.get(row.record_id) }));
+    await replaceTable(sql, "syllabus_content", usable, [
+      "record_id", "syllabus_code", "seq", "code", "kind", "parent_code", "title", "academic_level",
+    ]);
+    const dropped = content.length - usable.length;
+    console.log(`syllabus_content: ${usable.length} rows`
+      + (dropped ? ` (${dropped} skipped for versions not in the directory)` : ""));
+  }
 
   const { records, skipped } = catalogueRecords(readArg("catalogue", DEFAULTS.catalogue));
   await replaceTable(sql, "catalogue_papers", records, [

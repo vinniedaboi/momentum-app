@@ -38,3 +38,6 @@ yarn-error.log*
 __pycache__/
 *.py[cod]
 *.tsbuildinfo
+
+# generated syllabus trees (exam-board content, regenerate with scripts/parse_syllabus_content.py)
+data/syllabus-content.json

@@ -11,9 +11,26 @@ import sys
 import unicodedata
 
 BOILERPLATE = re.compile(r"^(learning outcomes|candidates should be able to|notes and guidance|key concept)", re.I)
-POINT_CODE = re.compile(r"^(\d{1,2}\.\d{1,2})(?!\.)\s*(.*)$")
-CHAPTER_CODE = re.compile(r"^(\d{1,2})(?:\s+(.*))?$")
+POINT_CODE = re.compile(r"^([A-Z]{0,2}\d{1,2}\.\d{1,2})(?!\.)\s*(.*)$")
+CHAPTER_CODE = re.compile(r"^([A-Z]{0,2}\d{1,2})(?:\s+(.*))?$")
 STAGE_HEADING = re.compile(r"^(AS|A) Level (?:subject )?content$", re.I)
+
+# Cambridge IGCSE splits its content into Core and Extended/Supplement rather
+# than the AS/A2 stages the A Level syllabuses use. The Maths-family syllabuses
+# encode that in the code itself (C1.1, E1.1); the sciences put it in a column
+# that lands at the end of the extracted title.
+LEVEL_PREFIX = {"C": "Core", "E": "Extended"}
+LEVEL_SUFFIX = re.compile(r"\s+(Core|Supplement|Extended)$", re.I)
+
+
+def code_key(code):
+    """Sort key that orders C1.2 before C1.10 and keeps Core ahead of Extended."""
+    prefix = re.match(r"^[A-Z]*", code).group(0)
+    return (prefix, [int(re.sub(r"\D", "", part) or 0) for part in code.split(".")])
+
+
+def level_from_code(code):
+    return LEVEL_PREFIX.get(re.match(r"^[A-Z]*", code).group(0))
 
 
 def content_region(lines):
@@ -26,12 +43,12 @@ def content_region(lines):
     """
     start = None
     for index, line in enumerate(lines):
-        if re.search(r"syllabus for .*subject content\s*$", line.strip(), re.I):
+        if re.search(r"syllabus for .*(?:subject|syllabus) content\s*$", line.strip(), re.I):
             start = index + 1
             break
     if start is None:
         for index, line in enumerate(lines):
-            if index > 40 and re.match(r"^(AS Level |A Level )?subject content\s*$", line.strip(), re.I):
+            if index > 40 and re.match(r"^(?:AS Level |A Level )?(?:subject|syllabus) content\s*$", line.strip(), re.I):
                 start = index + 1
                 break
     if start is None:
@@ -48,7 +65,7 @@ def content_region(lines):
 
     # Drop the running headers themselves so they do not look like content.
     return [line for line in lines[start:end]
-            if not re.search(r"syllabus for .*(subject content|details of)", line.strip(), re.I)]
+            if not re.search(r"syllabus for .*(?:subject content|syllabus content|details of)", line.strip(), re.I)]
 
 
 def looks_like_title(text):
@@ -191,20 +208,29 @@ def parse(text):
         if code not in point_titles and looks_like_title(title):
             point_titles[code] = title
             point_line[code] = index
-            point_stage[code] = stage_at(markers, index)
+            point_stage[code] = stage_at(markers, index) or level_from_code(code)
+
+    # A repeated trailing "Core"/"Supplement" is the column label bleeding into
+    # the title, not part of it; a lone one is more likely genuine ("Earth's Core").
+    tagged = [code for code, title in point_titles.items() if LEVEL_SUFFIX.search(title)]
+    if len(tagged) >= 3:
+        for code in tagged:
+            match = LEVEL_SUFFIX.search(point_titles[code])
+            point_titles[code] = point_titles[code][:match.start()].strip()
+            point_stage[code] = point_stage[code] or match.group(1).title()
 
     # Pass 2: derive each chapter's title from the line just above its first point.
-    chapter_nums = sorted({code.split(".")[0] for code in point_titles}, key=int)
+    chapter_nums = sorted({code.split(".")[0] for code in point_titles}, key=code_key)
     chapters = []
     for num in chapter_nums:
         firsts = sorted((c for c in point_titles if c.split(".")[0] == num),
-                        key=lambda value: int(value.split(".")[1]))
+                        key=lambda value: int(re.sub(r"\D", "", value.split(".")[1]) or 0))
         anchor = point_line[firsts[0]]
         title = explicit_chapter_title(lines, num, anchor)
         chapters.append((num, title or f"Topic {num}", point_stage[firsts[0]]))
 
     points = sorted(((code, code.split(".")[0], point_titles[code], point_stage[code]) for code in point_titles),
-                    key=lambda item: [int(part) for part in item[0].split(".")])
+                    key=lambda item: code_key(item[0]))
     return chapters, points
 
 
