@@ -23,11 +23,12 @@ export default function SignupForm() {
     setPending(true);
     setError(null);
 
-    // The current origin is right almost always, including on preview
-    // deployments. NEXT_PUBLIC_SITE_URL overrides it when confirmations should
-    // always land on the canonical domain — which also keeps Supabase's
-    // redirect allowlist down to a single entry.
-    const origin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || window.location.origin;
+    // The origin the user actually signed up on is the only one their session
+    // can land on. NEXT_PUBLIC_SITE_URL is inlined at build time, so a stale or
+    // local value silently sends every production confirmation to the wrong
+    // host — and preview deployments each need their own origin anyway. Same
+    // reasoning as lib/request-origin.ts on the receiving end.
+    const origin = window.location.origin;
 
     const supabase = createSupabaseBrowserClient();
     const { data, error: signUpError } = await supabase.auth.signUp({
