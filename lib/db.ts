@@ -64,6 +64,31 @@ export function getSql(): Sql {
   return client;
 }
 
+/**
+ * Awaits database work one item at a time.
+ *
+ * `Promise.all` is the obvious tool for independent queries and is safe almost
+ * everywhere — but not against this pool. On Vercel `max` is 1, and issuing
+ * concurrent queries on that single connection *after it has already served a
+ * query* deadlocks: nothing rejects, nothing times out, the request simply
+ * never returns and the function is killed with no status code in the log.
+ *
+ * The first query of a request is not enough to trigger it, which is what makes
+ * this so easy to miss — a page whose very first act is `Promise.all` is fine,
+ * and the same call placed after any other query hangs forever. It does not
+ * reproduce locally either, where `max` is 5.
+ *
+ * Sequential costs a few hundred milliseconds and always completes. Prefer it
+ * over `Promise.all` for anything that touches the database.
+ */
+export async function series<T extends readonly (() => Promise<unknown>)[]>(
+  tasks: readonly [...T],
+): Promise<{ -readonly [K in keyof T]: Awaited<ReturnType<T[K]>> }> {
+  const results: unknown[] = [];
+  for (const task of tasks) results.push(await task());
+  return results as { -readonly [K in keyof T]: Awaited<ReturnType<T[K]>> };
+}
+
 /** ISO-8601 UTC, the timestamp format every text timestamp column stores. */
 export function nowIso() {
   return new Date().toISOString();

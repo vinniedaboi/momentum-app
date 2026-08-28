@@ -1,4 +1,5 @@
 import { catalogueSubjectDirectory } from "./catalogue-db";
+import { series } from "./db";
 import { getSyllabusVersions } from "./syllabus-db";
 import { STARTER_SUBJECTS, subjectSlug, type SubjectTone } from "./subjects-db";
 import { templateTopicCount } from "./topics-db";
@@ -68,7 +69,10 @@ const BUNDLED_BY_CODE = new Map(
 );
 
 export async function availableOnboardingSubjects(): Promise<OnboardingSubject[]> {
-  const [directory, versions] = await Promise.all([catalogueSubjectDirectory(), getSyllabusVersions()]);
+  const [directory, versions] = await series([
+    () => catalogueSubjectDirectory(),
+    () => getSyllabusVersions(),
+  ]);
 
   // Best parsed version per syllabus code — current first, then latest, and
   // never one whose PDF has not been parsed yet.

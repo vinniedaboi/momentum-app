@@ -1,4 +1,4 @@
-import { getSql } from "./db";
+import { getSql, series } from "./db";
 
 /**
  * Read access to the shared Cambridge past-paper catalogue. This table is the
@@ -211,26 +211,26 @@ export async function catalogueFacets(qualification?: string, subject?: string) 
       params as never[],
     );
 
-  const [qualifications, subjects, years, seasons, components, variants, difficulties, totals] = await Promise.all([
-    sql<{ value: string; count: number }[]>`
+  const [qualifications, subjects, years, seasons, components, variants, difficulties, totals] = await series([
+    () => sql<{ value: string; count: number }[]>`
       SELECT qualification AS value, COUNT(*)::int AS count
       FROM catalogue_papers GROUP BY qualification ORDER BY qualification
     `,
-    sql.unsafe<{ value: string; code: string; count: number }[]>(
+    () => sql.unsafe<{ value: string; code: string; count: number }[]>(
       `SELECT subject AS value, syllabus_code AS code, COUNT(*)::int AS count
        FROM catalogue_papers ${qualification ? "WHERE qualification = $1" : ""}
        GROUP BY subject, syllabus_code ORDER BY subject`,
       (qualification ? [qualification] : []) as never[],
     ),
-    sql.unsafe<{ value: number }[]>(
+    () => sql.unsafe<{ value: number }[]>(
       `SELECT DISTINCT year AS value FROM catalogue_papers ${where} ORDER BY value DESC`,
       params as never[],
     ),
-    distinct("season_code"),
-    distinct("component", `${and} component IS NOT NULL`),
-    distinct("variant", `${and} variant IS NOT NULL AND variant <> ''`),
-    distinct("difficulty", `${and} difficulty IS NOT NULL`),
-    sql<{ total: number }[]>`SELECT COUNT(*)::int AS total FROM catalogue_papers`,
+    () => distinct("season_code"),
+    () => distinct("component", `${and} component IS NOT NULL`),
+    () => distinct("variant", `${and} variant IS NOT NULL AND variant <> ''`),
+    () => distinct("difficulty", `${and} difficulty IS NOT NULL`),
+    () => sql<{ total: number }[]>`SELECT COUNT(*)::int AS total FROM catalogue_papers`,
   ]);
 
   const values = (rows: { value: unknown }[]) => rows.map((row) => String(row.value));

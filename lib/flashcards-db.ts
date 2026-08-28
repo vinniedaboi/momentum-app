@@ -1,4 +1,4 @@
-import { getSql, nowIso } from "./db";
+import { getSql, nowIso, series } from "./db";
 
 export type Flashcard = {
   id: number;
@@ -37,13 +37,13 @@ function mapCard(row: Record<string, unknown>): Flashcard {
 
 export async function getFlashcardDecks(workspaceId: string) {
   const sql = getSql();
-  const [deckRows, cardRows] = await Promise.all([
-    sql<Record<string, unknown>[]>`
+  const [deckRows, cardRows] = await series([
+    () => sql<Record<string, unknown>[]>`
       SELECT * FROM flashcard_decks
       WHERE workspace_id = ${workspaceId}
       ORDER BY updated_at DESC, id DESC
     `,
-    sql<Record<string, unknown>[]>`
+    () => sql<Record<string, unknown>[]>`
       SELECT * FROM flashcards
       WHERE workspace_id = ${workspaceId}
       ORDER BY created_at, id
