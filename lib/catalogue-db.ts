@@ -169,7 +169,10 @@ export async function catalogueSubjectDirectory(): Promise<CatalogueSubject[]> {
         SELECT c2.syllabus_code FROM catalogue_papers c2
         WHERE c2.qualification = c1.qualification AND c2.subject = c1.subject
         GROUP BY c2.syllabus_code
-        ORDER BY COUNT(*) DESC, LENGTH(c2.syllabus_code)
+        -- Edexcel subjects spread evenly across their unit codes, so ties are the
+        -- rule rather than the exception; without the final sort the subject's code
+        -- varies between queries and stops matching its syllabus.
+        ORDER BY COUNT(*) DESC, LENGTH(c2.syllabus_code), c2.syllabus_code
         LIMIT 1
       ) AS code,
       COUNT(*)::int AS papers,

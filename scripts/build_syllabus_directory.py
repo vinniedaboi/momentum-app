@@ -191,9 +191,10 @@ def edexcel_papers():
         if label:
             codes.setdefault(subject, {})
             codes[subject][label] = codes[subject].get(label, 0) + 1
-    # Most papers first, then shortest - matching catalogueSubjectDirectory().
+    # Most papers first, then shortest, then alphabetical - matching
+    # catalogueSubjectDirectory(). Ties are common, so the last key matters.
     chosen = {
-        subject: sorted(tally.items(), key=lambda item: (-item[1], len(item[0])))[0][0]
+        subject: sorted(tally.items(), key=lambda item: (-item[1], len(item[0]), item[0]))[0][0]
         for subject, tally in codes.items()
     }
     url = next((r["PotatoPapers_Catalogue_URL"] for r in rows if r["Board"] == PEARSON_BOARD), "")
