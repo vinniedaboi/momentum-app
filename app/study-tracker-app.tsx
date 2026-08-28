@@ -132,6 +132,33 @@ export default function StudyTrackerApp() {
   const [paperSaving, setPaperSaving] = useState(false);
   const [paperBusyIds, setPaperBusyIds] = useState<Set<number>>(new Set());
   const [timelineTopicId, setTimelineTopicId] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // The mobile drawer is a layer over the page: Escape closes it, and the page
+  // behind it must not scroll while it is open.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [menuOpen]);
+
+  // Every nav entry does the same three things, and on mobile a fourth: the
+  // drawer has to close behind the choice. Threading that through eleven inline
+  // handlers is how they drift apart.
+  function selectView(view: ActiveView) {
+    setActiveView(view);
+    setQuery("");
+    setSelectedReviews(new Set());
+    setMenuOpen(false);
+  }
   const today = localDate();
 
   async function refreshTopics() {
@@ -512,50 +539,59 @@ export default function StudyTrackerApp() {
   }).format(new Date());
 
   return (
-    <main className="app-shell">
-      <aside className="sidebar">
+    <main className={`app-shell${menuOpen ? " menu-open" : ""}`}>
+      {/* Backdrop for the drawer; display:none above the mobile breakpoint. */}
+      <button
+        type="button"
+        className="mobile-scrim"
+        // Not focusable while closed: it covers nothing and would be a dead tab stop.
+        tabIndex={menuOpen ? 0 : -1}
+        aria-label="Close navigation"
+        onClick={() => setMenuOpen(false)}
+      />
+      <aside className="sidebar" id="main-navigation">
         <div className="brand-lockup">
           <div className="brand-mark"><MomentumMark /></div>
           <div><p className="eyebrow light">Focus. Study. Grow.</p><h1>Momentum</h1></div>
         </div>
         <nav aria-label="Main navigation">
-          <button className={`nav-item ${activeView === "Today" ? "active" : ""}`} onClick={() => { setActiveView("Today"); setQuery(""); setSelectedReviews(new Set()); }}>
+          <button className={`nav-item ${activeView === "Today" ? "active" : ""}`} onClick={() => selectView("Today")}>
             <span className="nav-label"><i className="nav-symbol">◉</i>Review board</span>
             {(overdue.length + dueToday.length + dueTaskCount) > 0 && <b>{overdue.length + dueToday.length + dueTaskCount}</b>}
           </button>
-          <button className={`nav-item ${activeView === "Tasks" ? "active" : ""}`} onClick={() => { setActiveView("Tasks"); setQuery(""); setSelectedReviews(new Set()); }}>
+          <button className={`nav-item ${activeView === "Tasks" ? "active" : ""}`} onClick={() => selectView("Tasks")}>
             <span className="nav-label"><i className="nav-symbol task-symbol">✓</i>Tasks</span>
             <small>{tasks.filter((task) => !task.completed).length} open</small>
           </button>
-          <button className={`nav-item ${activeView === "Hours" ? "active" : ""}`} onClick={() => { setActiveView("Hours"); setQuery(""); setSelectedReviews(new Set()); }}>
+          <button className={`nav-item ${activeView === "Hours" ? "active" : ""}`} onClick={() => selectView("Hours")}>
             <span className="nav-label"><i className="nav-symbol hours-symbol">◷</i>Study hours</span>
             <small>{formatStudyTime(todayStudyMinutes)}</small>
           </button>
-          <button className={`nav-item ${activeView === "Papers" ? "active" : ""}`} onClick={() => { setActiveView("Papers"); setQuery(""); setSelectedReviews(new Set()); }}>
+          <button className={`nav-item ${activeView === "Papers" ? "active" : ""}`} onClick={() => selectView("Papers")}>
             <span className="nav-label"><i className="nav-symbol paper-symbol">▧</i>Past papers</span>
             <small>{donePaperCount ? `${donePaperCount} done` : "Scores"}</small>
           </button>
-          <button className={`nav-item ${activeView === "Goals" ? "active" : ""}`} onClick={() => { setActiveView("Goals"); setQuery(""); setSelectedReviews(new Set()); }}>
+          <button className={`nav-item ${activeView === "Goals" ? "active" : ""}`} onClick={() => selectView("Goals")}>
             <span className="nav-label"><i className="nav-symbol goal-symbol">◎</i>Syllabus goals</span>
             <small>Timeline</small>
           </button>
-          <button className={`nav-item ${activeView === "Exams" ? "active" : ""}`} onClick={() => { setActiveView("Exams"); setQuery(""); setSelectedReviews(new Set()); }}>
+          <button className={`nav-item ${activeView === "Exams" ? "active" : ""}`} onClick={() => selectView("Exams")}>
             <span className="nav-label"><i className="nav-symbol goal-symbol">◈</i>Exams</span>
             <small>Countdown</small>
           </button>
-          <button className={`nav-item ${activeView === "Calendar" ? "active" : ""}`} onClick={() => { setActiveView("Calendar"); setQuery(""); setSelectedReviews(new Set()); }}>
+          <button className={`nav-item ${activeView === "Calendar" ? "active" : ""}`} onClick={() => selectView("Calendar")}>
             <span className="nav-label"><i className="nav-symbol utility-symbol">▦</i>Calendar</span>
             <small>Plan</small>
           </button>
-          <button className={`nav-item ${activeView === "Flashcards" ? "active" : ""}`} onClick={() => { setActiveView("Flashcards"); setQuery(""); setSelectedReviews(new Set()); }}>
+          <button className={`nav-item ${activeView === "Flashcards" ? "active" : ""}`} onClick={() => selectView("Flashcards")}>
             <span className="nav-label"><i className="nav-symbol utility-symbol">◇</i>Flashcards</span>
             <small>Study</small>
           </button>
-          <button className={`nav-item ${activeView === "Notes" ? "active" : ""}`} onClick={() => { setActiveView("Notes"); setQuery(""); setSelectedReviews(new Set()); }}>
+          <button className={`nav-item ${activeView === "Notes" ? "active" : ""}`} onClick={() => selectView("Notes")}>
             <span className="nav-label"><i className="nav-symbol utility-symbol">▤</i>Notes library</span>
             <small>Files</small>
           </button>
-          <button className={`nav-item ${activeView === "Subjects" ? "active" : ""}`} onClick={() => { setActiveView("Subjects"); setQuery(""); setSelectedReviews(new Set()); }}>
+          <button className={`nav-item ${activeView === "Subjects" ? "active" : ""}`} onClick={() => selectView("Subjects")}>
             <span className="nav-label"><i className="nav-symbol utility-symbol">⚙</i>Subjects</span>
             <small>Setup</small>
           </button>
@@ -566,7 +602,7 @@ export default function StudyTrackerApp() {
             const a2Points = subjectPoints.filter((topic) => getTopicStage(topic, topics, subject) === "A2");
             const stagePercent = (stagePoints: Topic[]) => syllabusProgress(stagePoints).percent;
             return (
-              <button key={subject.id} className={`nav-item ${viewSubjectId(activeView) === subject.id ? "active" : ""}`} onClick={() => { setActiveView({ subjectId: subject.id }); setQuery(""); setSelectedReviews(new Set()); }}>
+              <button key={subject.id} className={`nav-item ${viewSubjectId(activeView) === subject.id ? "active" : ""}`} onClick={() => selectView({ subjectId: subject.id })}>
                 <span className="nav-label"><i className={`subject-pin ${subject.tone}`} />{subject.name}</span>
                 <small className="stage-progress">AS {stagePercent(asPoints)}% · A2 {stagePercent(a2Points)}%</small>
               </button>
@@ -717,6 +753,52 @@ export default function StudyTrackerApp() {
 
       {message && <div className="toast" role="status"><span>✓</span>{message}</div>}
       {timelineTopic && <TopicTimeline topic={timelineTopic} topics={topics} subjects={subjectLookup} onClose={() => setTimelineTopicId(null)} onMessage={setMessage} onTopicUpdated={(topicId, updatedAt) => setTopics((current) => current.map((topic) => topic.id === topicId ? { ...topic, updatedAt } : topic))} />}
+      {/* Mobile only. The four most-used destinations, plus the drawer for the
+          rest — ten sidebar entries do not fit across a phone. */}
+      <nav className="bottom-nav" aria-label="Primary">
+        <button
+          className={`bottom-nav-item ${activeView === "Today" ? "active" : ""}`}
+          aria-current={activeView === "Today" ? "page" : undefined}
+          onClick={() => selectView("Today")}
+        >
+          <i aria-hidden="true">◉</i>
+          <span>Today</span>
+          {overdue.length + dueToday.length + dueTaskCount > 0 && <b>{overdue.length + dueToday.length + dueTaskCount}</b>}
+        </button>
+        <button
+          className={`bottom-nav-item ${activeView === "Tasks" ? "active" : ""}`}
+          aria-current={activeView === "Tasks" ? "page" : undefined}
+          onClick={() => selectView("Tasks")}
+        >
+          <i aria-hidden="true">✓</i>
+          <span>Tasks</span>
+        </button>
+        <button
+          className={`bottom-nav-item ${activeView === "Hours" ? "active" : ""}`}
+          aria-current={activeView === "Hours" ? "page" : undefined}
+          onClick={() => selectView("Hours")}
+        >
+          <i aria-hidden="true">◷</i>
+          <span>Hours</span>
+        </button>
+        <button
+          className={`bottom-nav-item ${activeView === "Papers" ? "active" : ""}`}
+          aria-current={activeView === "Papers" ? "page" : undefined}
+          onClick={() => selectView("Papers")}
+        >
+          <i aria-hidden="true">▧</i>
+          <span>Papers</span>
+        </button>
+        <button
+          className={`bottom-nav-item ${menuOpen ? "active" : ""}`}
+          aria-expanded={menuOpen}
+          aria-controls="main-navigation"
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <i aria-hidden="true">☰</i>
+          <span>More</span>
+        </button>
+      </nav>
     </main>
   );
 }
