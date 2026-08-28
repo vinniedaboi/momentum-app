@@ -1,8 +1,12 @@
 # Nothing here is imported by the app; these only run from a developer's
 # machine. Keeping them out of the upload also keeps the 4 MB paper catalogue
 # CSV out of every deployment.
-data/
-scripts/
-supabase/
-tests/
-FEATURES.md
+#
+# Every pattern MUST be anchored with a leading slash. These are gitignore
+# semantics: a bare `supabase/` matches at any depth and would also delete
+# `lib/supabase/`, which is runtime code.
+/data/
+/scripts/
+/supabase/
+/tests/
+/FEATURES.md

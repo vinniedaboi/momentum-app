@@ -156,9 +156,52 @@ test("is deployable to Vercel", async () => {
     assert.ok(!source.includes("nextUrl.origin"), `${name} should not redirect to the internal origin`);
   }
 
-  // Nothing under these paths is imported at runtime.
-  for (const path of ["data/", "scripts/", "supabase/", "tests/"]) {
-    assert.ok(vercelIgnore.includes(path), `.vercelignore should exclude ${path}`);
+  // .vercelignore uses gitignore semantics, where an unanchored `supabase/`
+  // also matches `lib/supabase/` — which is runtime code, and which broke a
+  // real deployment. Every pattern must be anchored to the repository root.
+  const patterns = vercelIgnore
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"));
+
+  assert.ok(patterns.length, ".vercelignore should list something");
+  for (const pattern of patterns) {
+    assert.ok(pattern.startsWith("/"), `.vercelignore pattern "${pattern}" must start with /`);
+    assert.ok(!pattern.includes("*"), `.vercelignore pattern "${pattern}" must be a literal path`);
+  }
+  for (const path of ["/data/", "/scripts/", "/supabase/", "/tests/"]) {
+    assert.ok(patterns.includes(path), `.vercelignore should exclude ${path}`);
+  }
+
+  // Walk what would actually be uploaded and prove no runtime file is dropped.
+  const excluded = (file) =>
+    patterns.some((pattern) => {
+      const bare = pattern.slice(1);
+      return bare.endsWith("/") ? file.startsWith(bare) : file === bare;
+    });
+
+  const root = new URL("../", import.meta.url);
+  const walk = async (dir, prefix = "") => {
+    const found = [];
+    for (const entry of await readdir(new URL(dir, root), { withFileTypes: true })) {
+      if (["node_modules", ".next", ".git", ".vercel"].includes(entry.name)) continue;
+      const path = `${prefix}${entry.name}`;
+      if (entry.isDirectory()) found.push(...await walk(`${path}/`, `${path}/`));
+      else found.push(path);
+    }
+    return found;
+  };
+
+  const runtimeFiles = (await walk("")).filter(
+    (file) => file.startsWith("app/") || file.startsWith("lib/") || file === "proxy.ts",
+  );
+  assert.ok(runtimeFiles.length > 40, "expected to find the app and lib trees");
+
+  const dropped = runtimeFiles.filter(excluded);
+  assert.deepEqual(dropped, [], `.vercelignore would drop runtime files: ${dropped.join(", ")}`);
+  // The specific files the first deployment lost.
+  for (const file of ["lib/supabase/server.ts", "lib/supabase/client.ts", "lib/supabase/session.ts"]) {
+    assert.ok(!excluded(file), `${file} must reach the deployment`);
   }
 });
 

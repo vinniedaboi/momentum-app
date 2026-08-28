@@ -139,6 +139,17 @@ the `ap-southeast-1` Supabase project. **If you move the database, change this
 too** — Vercel otherwise defaults to US East, and a page that issues several
 queries would pay a cross-Pacific round trip on each one.
 
+The **build** region is separate and not configurable on every plan; a log line
+saying `Running build in Washington, D.C.` is expected and says nothing about
+where the functions run. Confirm the function region under Project Settings →
+Functions after the first deploy.
+
+### .vercelignore
+
+Patterns use gitignore semantics, so an unanchored `supabase/` also matches
+`lib/supabase/`. Every pattern here is anchored with a leading `/`, and
+`npm test` walks the tree to prove no runtime file is dropped.
+
 ### Connection pooling
 
 Every warm function instance holds its own pool, so `lib/db.ts` drops to a
