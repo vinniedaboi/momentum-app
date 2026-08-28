@@ -8,7 +8,8 @@ import { subjectName, type Subject } from "./subjects";
 import { getTopicStage } from "./syllabus-stage";
 
 type Goal = { subjectId: string; stage: "AS" | "A2"; startDate: string; targetDate: string; paceMode: "steady" | "front-loaded" | "finish-line" };
-type CalendarEvent = { id: string; date: string; kind: "review" | "goal-task" | "task" | "study" | "goal" | "milestone"; title: string; detail: string };
+type Exam = { id: number; subjectId: string; title: string; stage: "AS" | "A2" | null; examDate: string; topics: Array<{ topicId: string; reviseOn: string | null }> };
+type CalendarEvent = { id: string; date: string; kind: "review" | "goal-task" | "task" | "study" | "goal" | "milestone" | "exam" | "exam-task"; title: string; detail: string };
 
 function addDays(date: string, days: number) {
   const value = new Date(`${date}T00:00:00Z`);
@@ -41,6 +42,7 @@ export default function CalendarView({ topics, subjects, sessions, tasks, today,
   onMessage: (message: string) => void;
 }) {
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [exams, setExams] = useState<Exam[]>([]);
   const [month, setMonth] = useState(`${today.slice(0, 7)}-01`);
   const [selectedDate, setSelectedDate] = useState(today);
 
@@ -52,6 +54,14 @@ export default function CalendarView({ topics, subjects, sessions, tasks, today,
       })
       .then((data) => setGoals(data.goals))
       .catch(() => onMessage("Goal milestones could not be added to the calendar."));
+
+    fetch("/api/exams")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("load");
+        return response.json() as Promise<{ exams: Exam[] }>;
+      })
+      .then((data) => setExams(data.exams))
+      .catch(() => onMessage("Exams could not be added to the calendar."));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lookup = subjects;
@@ -98,8 +108,30 @@ export default function CalendarView({ topics, subjects, sessions, tasks, today,
         items.push({ id: `milestone-${goal.subjectId}-${goal.stage}-${chapter.id}`, date, kind: "milestone", title: `${chapter.code} · ${chapter.title}`, detail: `${subjectName(lookup, goal.subjectId)} ${goal.stage} milestone` });
       });
     });
+    const topicById = new Map(topics.map((topic) => [topic.id, topic]));
+    exams.forEach((exam) => {
+      items.push({
+        id: `exam-${exam.id}`,
+        date: exam.examDate,
+        kind: "exam",
+        title: exam.title,
+        detail: `${subjectName(lookup, exam.subjectId)}${exam.stage ? ` ${exam.stage}` : ""} exam`,
+      });
+      exam.topics.forEach((entry) => {
+        if (!entry.reviseOn) return;
+        const topic = topicById.get(entry.topicId);
+        if (!topic) return;
+        items.push({
+          id: `exam-task-${exam.id}-${entry.topicId}`,
+          date: entry.reviseOn,
+          kind: "exam-task",
+          title: `${topic.code} · ${topic.title}`,
+          detail: `${exam.title} revision`,
+        });
+      });
+    });
     return items;
-  }, [goals, lookup, sessions, tasks, topics]);
+  }, [exams, goals, lookup, sessions, tasks, topics]);
 
   const calendarDays = useMemo(() => {
     const startOffset = new Date(`${month}T00:00:00Z`).getUTCDay();
@@ -127,7 +159,7 @@ export default function CalendarView({ topics, subjects, sessions, tasks, today,
   return <div className="calendar-page">
     <section className="calendar-panel panel-card">
       <div className="calendar-toolbar"><button onClick={() => moveMonth(-1)} aria-label="Previous month">‹</button><div><p className="eyebrow">STUDY CALENDAR</p><h3>{monthLabel}</h3></div><button onClick={() => moveMonth(1)} aria-label="Next month">›</button></div>
-      <div className="calendar-legend"><span className="review">Review</span><span className="goal-task">Goal plan</span><span className="task">Task</span><span className="study">Study log</span><span className="milestone">Milestone</span><span className="goal">Goal</span><button onClick={() => { setMonth(`${today.slice(0, 7)}-01`); setSelectedDate(today); }}>Today</button></div>
+      <div className="calendar-legend"><span className="review">Review</span><span className="goal-task">Goal plan</span><span className="task">Task</span><span className="study">Study log</span><span className="milestone">Milestone</span><span className="goal">Goal</span><span className="exam-task">Exam revision</span><span className="exam">Exam</span><button onClick={() => { setMonth(`${today.slice(0, 7)}-01`); setSelectedDate(today); }}>Today</button></div>
       <div className="calendar-weekdays">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <span key={day}>{day}</span>)}</div>
       <div className="calendar-grid">{calendarDays.map((date) => {
         const dayEvents = byDate.get(date) ?? [];

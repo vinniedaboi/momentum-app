@@ -82,7 +82,28 @@ Pick a finish date. Momentum builds the plan.
 **Why it matters:** "finish the syllabus by March" becomes a specific list of
 what to do on a specific day.
 
-### 4. Past papers
+### 4. Exam planner
+
+Syllabus goals pace a whole stage. An assessment rarely covers a whole stage,
+so the exam planner asks which topics it actually includes.
+
+- Add any mock or real paper with its date, and Momentum counts down to it
+- **Tick the topics it covers** — a whole chapter at once, or individual spec
+  points; part-selected chapters show how many are in
+- The selection is spread across the run-up, using the same steady /
+  front-loaded / finish-line pacing as syllabus goals
+- Topics already at Covered or Exam Ready drop off the plan, so it only lists
+  work still to do
+- Progress, days remaining, and how many revision dates have slipped, per exam
+- Revision dates and the exam day both appear on the calendar
+
+A topic can sit in several exams at once — a mock and the real paper — and each
+keeps its own dates, independently of any syllabus goal.
+
+**Why it matters:** "the mock is in three weeks and covers chapters 1 to 6" is
+the question students actually ask. A whole-syllabus plan cannot answer it.
+
+### 5. Past papers
 
 A full record of every attempt, and what it tells you.
 
@@ -95,7 +116,7 @@ A full record of every attempt, and what it tells you.
 **Why it matters:** the same three topics usually cost the marks. Momentum makes
 that pattern impossible to miss.
 
-### 5. Paper catalogue
+### 6. Paper catalogue
 
 A searchable directory of Cambridge past papers, built in.
 
@@ -107,7 +128,7 @@ A searchable directory of Cambridge past papers, built in.
 
 **Why it matters:** no more hunting across three websites for a mark scheme.
 
-### 6. Flashcards
+### 7. Flashcards
 
 Recall practice tied to the syllabus.
 
@@ -119,7 +140,7 @@ Recall practice tied to the syllabus.
 
 **Why it matters:** recall practice that knows which chapter it belongs to.
 
-### 7. Study hours
+### 8. Study hours
 
 Time logging that feeds the schedule.
 
@@ -131,7 +152,7 @@ Time logging that feeds the schedule.
 **Why it matters:** one action instead of two. Log the session; the schedule
 updates itself.
 
-### 8. Tasks
+### 9. Tasks
 
 Everything that is not a review.
 
@@ -140,18 +161,18 @@ Everything that is not a review.
 - Filter by subject or label
 - Due tasks surface on the review board alongside topic reviews
 
-### 9. Notes library
+### 10. Notes library
 
 - Upload PDFs, Word and PowerPoint files, text and images, up to 20 MB each
 - Filed by subject, stage and chapter
 - Stored privately per account
 
-### 10. Calendar
+### 11. Calendar
 
 One month view combining reviews due, task deadlines, logged study sessions,
-goal milestones and scheduled syllabus points.
+goal milestones, scheduled syllabus points, exam revision and exam days.
 
-### 11. Subject management
+### 12. Subject management
 
 - Add any subject, with its exam board, qualification and syllabus code
 - Import a syllabus from the built-in directory, or bring your own
@@ -160,7 +181,7 @@ goal milestones and scheduled syllabus points.
 - Reorder, recolour and archive subjects
 - Deleting a subject shows exactly how much data goes with it, first
 
-### 12. Accounts and onboarding
+### 13. Accounts and onboarding
 
 - Email and password sign-up, with confirmation
 - Three-step setup: your details → pick your subjects → done

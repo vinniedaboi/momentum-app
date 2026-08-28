@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import "./features.css";
 import "./friendly-theme.css";
+import "./exams.css";
 import "./auth.css";
 
 const nunito = Nunito_Sans({

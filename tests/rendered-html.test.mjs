@@ -22,6 +22,7 @@ const WORKSPACE_DB_MODULES = [
   "lib/flashcards-db.ts",
   "lib/past-papers-db.ts",
   "lib/notes-db.ts",
+  "lib/exams-db.ts",
 ];
 
 test("every workspace table is scoped to the signed-in account", async () => {
@@ -205,18 +206,69 @@ test("is deployable to Vercel", async () => {
   }
 });
 
-test("row level security covers every table", async () => {
-  const [tables, policies] = await Promise.all([
-    read("supabase/migrations/0002_workspace_tables.sql"),
-    read("supabase/migrations/0004_rls_policies.sql"),
+test("the exam planner schedules a chosen subset without touching goal plans", async () => {
+  const [examsDb, examsApi, examsUi, pacing, goalsDb, shell, calendar, migration] = await Promise.all([
+    read("lib/exams-db.ts"),
+    read("app/api/exams/route.ts"),
+    read("app/exams.tsx"),
+    read("lib/pacing.ts"),
+    read("lib/goals-db.ts"),
+    read("app/study-tracker-app.tsx"),
+    read("app/calendar.tsx"),
+    read("supabase/migrations/0007_exams.sql"),
   ]);
 
-  const created = [...tables.matchAll(/create table public\.(\w+)/g)].map((match) => match[1]);
-  assert.ok(created.length >= 12, "expected the full workspace schema");
+  // An exam covers part of a syllabus, and a topic can sit in several exams,
+  // so dates live in exam_topics rather than in topics.goal_due.
+  assert.match(migration, /create table public\.exam_topics/);
+  assert.match(migration, /revise_on text/);
+  assert.ok(!/goal_due\s*=/.test(examsDb), "the exam planner must not write goal_due");
+  assert.match(examsDb, /UPDATE exam_topics SET revise_on/);
+
+  // Both planners share one implementation of the pacing maths.
+  assert.match(pacing, /export function pacedDates/);
+  assert.match(examsDb, /pacedDates/);
+  assert.match(goalsDb, /pacedDates/);
+  assert.ok(!goalsDb.includes("function snapToStudyDay"), "pacing maths should not be duplicated");
+
+  // Finished topics drop off the plan; selections cannot cross subjects.
+  assert.match(examsDb, /topic\.covered \|\| topic\.status === "Exam Ready"/);
+  assert.match(examsDb, /A selected topic is not in this subject/);
+
+  assert.match(examsApi, /withWorkspace/);
+  assert.match(examsApi, /Pick the topics this exam covers/);
+
+  assert.match(examsUi, /Topics this exam covers/);
+  assert.match(examsUi, /Plan an exam/);
+  assert.match(examsUi, /indeterminate = some/);   // part-selected chapters
+  assert.match(examsUi, /Select all/);
+  assert.match(examsUi, /countdownLabel/);
+
+  // Wired into the shell and onto the calendar.
+  assert.match(shell, /ExamPlanner/);
+  assert.match(shell, /activeView === "Exams"/);
+  assert.match(calendar, /"exam-task"/);
+  assert.match(calendar, /fetch\("\/api\/exams"\)/);
+});
+
+test("row level security covers every table", async () => {
+  const dir = new URL("../supabase/migrations/", import.meta.url);
+  const files = (await readdir(dir)).filter((name) => name.endsWith(".sql")).sort();
+  const sql = (await Promise.all(files.map((name) => read(`supabase/migrations/${name}`)))).join("\n");
+
+  const created = [...sql.matchAll(/create table public\.(\w+)/g)].map((match) => match[1]);
+  assert.ok(created.length >= 14, `expected the full schema, found ${created.length}`);
+
   for (const table of created) {
-    assert.ok(policies.includes(`'${table}'`), `${table} is missing an RLS policy`);
+    // Either listed in the bulk DO block, or given its own policy.
+    const covered = sql.includes(`'${table}'`) || sql.includes(`on public.${table}`);
+    assert.ok(covered, `${table} is missing an RLS policy`);
+    assert.ok(
+      sql.includes(`alter table public.${table} enable row level security`) || sql.includes(`'${table}'`),
+      `${table} does not enable row level security`,
+    );
   }
-  assert.match(policies, /workspace_id = \(select auth\.uid\(\)\)/);
+  assert.match(sql, /workspace_id = \(select auth\.uid\(\)\)/);
 });
 
 test("adds a subject and imports its syllabus in one workflow", async () => {
@@ -312,7 +364,7 @@ test("includes durable tracking, goals, grouped reviews, subject tasks, study ho
   assert.match(goalsDatabase, /study_days/);
   assert.match(goalsDatabase, /pace_mode/);
   assert.match(goalsDatabase, /scheduleStudyGoal/);
-  assert.match(goalsDatabase, /snapToStudyDay/);
+  assert.match(goalsDatabase, /pacedDates/);
   assert.match(goalsDatabase, /UPDATE topics SET goal_due/);
   assert.match(goalsDatabase, /clearStudyGoalSchedule/);
   assert.match(goalsDatabase, /schedule_applied_at/);

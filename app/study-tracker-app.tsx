@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import CalendarView from "./calendar";
 import FlashcardsView from "./flashcards";
+import ExamPlanner from "./exams";
 import GoalPlanner from "./goals";
 import NotesView from "./notes";
 import PastPapersView, { type PaperDifficulty, type PaperMeta, type PastPaper, type PastPaperInput } from "./past-papers";
@@ -43,7 +44,7 @@ export type Topic = {
   updatedAt: string;
 };
 
-type ActiveView = "Today" | "Tasks" | "Calendar" | "Flashcards" | "Notes" | "Goals" | "Hours" | "Papers" | "Subjects" | { subjectId: string };
+type ActiveView = "Today" | "Tasks" | "Calendar" | "Flashcards" | "Notes" | "Goals" | "Exams" | "Hours" | "Papers" | "Subjects" | { subjectId: string };
 
 function viewSubjectId(view: ActiveView) {
   return typeof view === "object" ? view.subjectId : null;
@@ -537,6 +538,10 @@ export default function StudyTrackerApp() {
             <span className="nav-label"><i className="nav-symbol goal-symbol">◎</i>Syllabus goals</span>
             <small>Timeline</small>
           </button>
+          <button className={`nav-item ${activeView === "Exams" ? "active" : ""}`} onClick={() => { setActiveView("Exams"); setQuery(""); setSelectedReviews(new Set()); }}>
+            <span className="nav-label"><i className="nav-symbol goal-symbol">◈</i>Exams</span>
+            <small>Countdown</small>
+          </button>
           <button className={`nav-item ${activeView === "Calendar" ? "active" : ""}`} onClick={() => { setActiveView("Calendar"); setQuery(""); setSelectedReviews(new Set()); }}>
             <span className="nav-label"><i className="nav-symbol utility-symbol">▦</i>Calendar</span>
             <small>Plan</small>
@@ -582,10 +587,10 @@ export default function StudyTrackerApp() {
         <header className="topbar">
           <div>
             <p className="eyebrow">{dayHeading.toUpperCase()}</p>
-            <h2>{query ? "Search results" : activeView === "Today" ? "Your review board" : activeView === "Tasks" ? "Your tasks" : activeView === "Hours" ? "Study hours" : activeView === "Papers" ? "Past papers" : activeView === "Goals" ? "Syllabus goals" : activeView === "Calendar" ? "Study calendar" : activeView === "Flashcards" ? "Flashcard maker" : activeView === "Notes" ? "Notes library" : activeView === "Subjects" ? "Subjects" : subjectName(subjectLookup, viewSubjectId(activeView))}</h2>
-            <p className="muted">{query ? `Matching “${query}” across your syllabus.` : activeView === "Today" ? "Know exactly what to review, without hunting through rows." : activeView === "Tasks" ? "Keep subject work and everything else on one list." : activeView === "Hours" ? "Log your YPT time and see your daily study rhythm." : activeView === "Papers" ? "Log every attempt, watch the scores move, and see where marks keep going." : activeView === "Goals" ? "Turn a finish date into a chapter-by-chapter plan." : activeView === "Calendar" ? "See reviews, tasks, study sessions, milestones and deadlines in one place." : activeView === "Flashcards" ? "Create focused decks and test your recall." : activeView === "Notes" ? "Keep your study files organised by subject and stage." : activeView === "Subjects" ? "Add the subjects you study, and set how each one is structured." : "Work chapter by chapter, or update one syllabus point at a time."}</p>
+            <h2>{query ? "Search results" : activeView === "Today" ? "Your review board" : activeView === "Tasks" ? "Your tasks" : activeView === "Hours" ? "Study hours" : activeView === "Papers" ? "Past papers" : activeView === "Goals" ? "Syllabus goals" : activeView === "Exams" ? "Exam planner" : activeView === "Calendar" ? "Study calendar" : activeView === "Flashcards" ? "Flashcard maker" : activeView === "Notes" ? "Notes library" : activeView === "Subjects" ? "Subjects" : subjectName(subjectLookup, viewSubjectId(activeView))}</h2>
+            <p className="muted">{query ? `Matching “${query}” across your syllabus.` : activeView === "Today" ? "Know exactly what to review, without hunting through rows." : activeView === "Tasks" ? "Keep subject work and everything else on one list." : activeView === "Hours" ? "Log your YPT time and see your daily study rhythm." : activeView === "Papers" ? "Log every attempt, watch the scores move, and see where marks keep going." : activeView === "Goals" ? "Turn a finish date into a chapter-by-chapter plan." : activeView === "Exams" ? "Pick the topics an assessment actually covers, and get a revision run-up." : activeView === "Calendar" ? "See reviews, tasks, study sessions, milestones and deadlines in one place." : activeView === "Flashcards" ? "Create focused decks and test your recall." : activeView === "Notes" ? "Keep your study files organised by subject and stage." : activeView === "Subjects" ? "Add the subjects you study, and set how each one is structured." : "Work chapter by chapter, or update one syllabus point at a time."}</p>
           </div>
-          {!(["Tasks", "Hours", "Papers", "Goals", "Calendar", "Flashcards", "Notes", "Subjects"] as ActiveView[]).includes(activeView) && <label className="search-box">
+          {!(["Tasks", "Hours", "Papers", "Goals", "Exams", "Calendar", "Flashcards", "Notes", "Subjects"] as ActiveView[]).includes(activeView) && <label className="search-box">
             <span className="search-icon">⌕</span>
             <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search topics" placeholder="Search topic, chapter or code" />
             {query && <button onClick={() => setQuery("")} aria-label="Clear search">×</button>}
@@ -602,6 +607,8 @@ export default function StudyTrackerApp() {
           <CalendarView topics={topics} subjects={subjectLookup} sessions={studySessions} tasks={tasks} today={today} onMessage={setMessage} />
         ) : activeView === "Goals" ? (
           <GoalPlanner topics={topics} subjects={subjects} sessions={studySessions} today={today} onMessage={setMessage} onScheduleChanged={refreshTopics} />
+        ) : activeView === "Exams" ? (
+          <ExamPlanner topics={topics} subjects={subjects} today={today} onMessage={setMessage} />
         ) : activeView === "Papers" ? (
           papersError ? <section className="empty-state"><strong>Your past papers could not load.</strong><p>Refresh the page to try again.</p></section> :
           <PastPapersView papers={pastPapers} meta={paperMeta} today={today} saving={paperSaving} busyIds={paperBusyIds} onAdd={addPastPaper} onUpdate={updatePastPaper} onDelete={deletePastPaper} onSaveMeta={savePaperMeta} />

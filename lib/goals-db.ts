@@ -1,4 +1,5 @@
 import { getSql, nowIso, type SqlClient } from "./db";
+import { pacedDates, type PaceMode } from "./pacing";
 import { getTopicStage } from "../app/syllabus-stage";
 import { getSubject } from "./subjects-db";
 
@@ -9,7 +10,7 @@ export type StudyGoal = {
   targetDate: string;
   weeklyHours: number;
   studyDays: number;
-  paceMode: "steady" | "front-loaded" | "finish-line";
+  paceMode: PaceMode;
   scheduleAppliedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -26,34 +27,6 @@ type ScheduleTopic = {
   status: string;
   covered: boolean;
 };
-
-function addDays(date: string, days: number) {
-  const value = new Date(`${date}T00:00:00Z`);
-  value.setUTCDate(value.getUTCDate() + days);
-  return value.toISOString().slice(0, 10);
-}
-
-function daysBetween(from: string, to: string) {
-  return Math.max(1, Math.round((Date.parse(to) - Date.parse(from)) / 86400000));
-}
-
-function paceFraction(fraction: number, mode: StudyGoal["paceMode"]) {
-  if (mode === "front-loaded") return Math.pow(fraction, 1.3);
-  if (mode === "finish-line") return Math.pow(fraction, 0.72);
-  return fraction;
-}
-
-/** Pushes a scheduled offset onto the nearest day the learner actually studies. */
-function snapToStudyDay(offset: number, studyDays: number) {
-  if (studyDays >= 7) return offset;
-  const allowed = studyDays === 1
-    ? [0]
-    : Array.from({ length: studyDays }, (_, index) => Math.round(index * 6 / (studyDays - 1)));
-  const week = Math.floor(offset / 7);
-  const day = offset % 7;
-  const next = allowed.find((allowedDay) => allowedDay >= day);
-  return next == null ? (week + 1) * 7 + allowed[0] : week * 7 + next;
-}
 
 function mapGoal(row: Record<string, unknown>): StudyGoal {
   return {
@@ -108,18 +81,21 @@ async function scheduleStudyGoal(executor: SqlClient, workspaceId: string, goal:
     .filter((topic) => topic.kind === "point");
   if (!points.length) return;
 
-  const totalDays = daysBetween(goal.startDate, goal.targetDate);
   const now = nowIso();
+  const schedule = pacedDates(points.length, {
+    startDate: goal.startDate,
+    endDate: goal.targetDate,
+    paceMode: goal.paceMode,
+    studyDays: goal.studyDays,
+  });
+
   const ids: string[] = [];
   const dueDates: (string | null)[] = [];
-
   points.forEach((point, index) => {
-    const progress = (index + 1) / points.length;
-    const rawOffset = Math.round(totalDays * paceFraction(progress, goal.paceMode));
-    const scheduledDate = addDays(goal.startDate, snapToStudyDay(rawOffset, goal.studyDays));
+    // Finished points drop off the plan, so it only ever shows work left.
     const complete = point.covered || point.status === "Exam Ready";
     ids.push(point.id);
-    dueDates.push(complete ? null : scheduledDate > goal.targetDate ? goal.targetDate : scheduledDate);
+    dueDates.push(complete ? null : schedule[index]);
   });
 
   // One statement rather than a per-point round trip: a full A Level syllabus
@@ -184,7 +160,7 @@ export async function saveStudyGoal(workspaceId: string, input: {
   targetDate: string;
   weeklyHours: number;
   studyDays: number;
-  paceMode: "steady" | "front-loaded" | "finish-line";
+  paceMode: PaceMode;
 }) {
   const sql = getSql();
   const now = nowIso();
