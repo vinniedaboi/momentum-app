@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getStudySession } from "../../lib/auth";
 import { ensureProfile } from "../../lib/profile-db";
-import { STARTER_SUBJECTS } from "../../lib/subjects-db";
-import { templateTopicCount } from "../../lib/topics-db";
+import { availableOnboardingSubjects } from "../../lib/onboarding-catalogue";
 import OnboardingFlow from "./onboarding-flow";
 
 export const metadata: Metadata = {
@@ -17,19 +16,23 @@ export default async function OnboardingPage() {
   const profile = await ensureProfile(session.workspaceId, session.email);
   if (profile.onboardedAt) redirect("/");
 
-  const starterSubjects = STARTER_SUBJECTS.map((subject) => ({
-    id: subject.id,
+  // Trimmed to what the picker renders; the server re-resolves the full record
+  // from the key when the form is submitted.
+  const subjects = (await availableOnboardingSubjects()).map((subject) => ({
+    key: subject.key,
     name: subject.name,
-    tone: subject.tone,
-    syllabusCode: subject.syllabusCode,
     qualification: subject.qualification,
-    topicCount: templateTopicCount(subject.id),
+    syllabusCode: subject.syllabusCode,
+    tone: subject.tone,
+    source: subject.source,
+    topicCount: subject.topicCount,
+    papers: subject.papers,
   }));
 
   return (
     <main className="onboarding-shell">
       <OnboardingFlow
-        starterSubjects={starterSubjects}
+        subjects={subjects}
         defaultName={profile.fullName ?? ""}
         currentYear={new Date().getFullYear()}
       />

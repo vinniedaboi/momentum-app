@@ -1,19 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-export type StarterSubject = {
-  id: string;
+export type PickableSubject = {
+  key: string;
   name: string;
-  tone: string;
+  qualification: string;
   syllabusCode: string | null;
-  qualification: string | null;
+  tone: string;
+  source: "bundled" | "official" | "empty";
   topicCount: number;
+  papers: number;
 };
 
 type Props = {
-  starterSubjects: StarterSubject[];
+  subjects: PickableSubject[];
   defaultName: string;
   /** Resolved on the server: reading the clock during render is not allowed. */
   currentYear: number;
@@ -22,29 +24,58 @@ type Props = {
 const QUALIFICATIONS = [
   "Cambridge International AS & A Level",
   "Cambridge IGCSE",
-  "Edexcel International A Level",
+  "International A Level",
   "IB Diploma",
   "Other",
 ];
 
-export default function OnboardingFlow({ starterSubjects, defaultName, currentYear }: Props) {
+const MAX_SUBJECTS = 12;
+
+export default function OnboardingFlow({ subjects, defaultName, currentYear }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [fullName, setFullName] = useState(defaultName);
   const [qualification, setQualification] = useState(QUALIFICATIONS[0]);
   const [targetYear, setTargetYear] = useState(String(currentYear + 1));
   const [weeklyHours, setWeeklyHours] = useState("10");
-  const [selected, setSelected] = useState<string[]>(["mathematics", "physics"]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  const chosen = starterSubjects.filter((subject) => selected.includes(subject.id));
-  const totalTopics = chosen.reduce((sum, subject) => sum + subject.topicCount, 0);
+  const groups = useMemo(() => {
+    const names: string[] = [];
+    for (const subject of subjects) {
+      if (!names.includes(subject.qualification)) names.push(subject.qualification);
+    }
+    return names;
+  }, [subjects]);
 
-  function toggleSubject(id: string) {
-    setSelected((current) =>
-      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+  // Default the browsing tab to whatever the learner said they study.
+  const [tab, setTab] = useState(() => groups.find((name) => name === qualification) ?? groups[0] ?? "");
+
+  const byKey = useMemo(() => new Map(subjects.map((subject) => [subject.key, subject])), [subjects]);
+  const chosen = selected.map((key) => byKey.get(key)).filter((subject) => subject !== undefined);
+  const totalTopics = chosen.reduce((sum, subject) => sum + subject.topicCount, 0);
+  const withSyllabus = chosen.filter((subject) => subject.topicCount > 0).length;
+
+  // A search spans every qualification; otherwise the tab scopes the list.
+  const query = search.trim().toLowerCase();
+  const visible = useMemo(() => {
+    const pool = query ? subjects : subjects.filter((subject) => subject.qualification === tab);
+    if (!query) return pool;
+    return pool.filter((subject) =>
+      subject.name.toLowerCase().includes(query) || (subject.syllabusCode ?? "").includes(query),
     );
+  }, [subjects, tab, query]);
+
+  function toggleSubject(key: string) {
+    setError(null);
+    setSelected((current) => {
+      if (current.includes(key)) return current.filter((value) => value !== key);
+      if (current.length >= MAX_SUBJECTS) return current;
+      return [...current, key];
+    });
   }
 
   function goNext() {
@@ -72,7 +103,7 @@ export default function OnboardingFlow({ starterSubjects, defaultName, currentYe
         qualification,
         targetYear: Number(targetYear),
         weeklyHoursTarget: Number(weeklyHours),
-        subjectIds: selected,
+        subjectKeys: selected,
       }),
     });
 
@@ -121,7 +152,10 @@ export default function OnboardingFlow({ starterSubjects, defaultName, currentYe
               <select
                 id="qualification"
                 value={qualification}
-                onChange={(event) => setQualification(event.target.value)}
+                onChange={(event) => {
+                  setQualification(event.target.value);
+                  if (groups.includes(event.target.value)) setTab(event.target.value);
+                }}
               >
                 {QUALIFICATIONS.map((option) => (
                   <option key={option} value={option}>{option}</option>
@@ -162,32 +196,92 @@ export default function OnboardingFlow({ starterSubjects, defaultName, currentYe
         <>
           <h2>Which subjects are you tracking?</h2>
           <p className="muted">
-            Each one arrives with its full syllabus tree — every chapter and spec
-            point, ready to mark off.
+            {subjects.length} subjects across {groups.length} qualifications. Ones
+            with a syllabus arrive with every chapter and spec point loaded.
           </p>
 
-          <div className="subject-picker">
-            {starterSubjects.map((subject) => (
-              <button
-                key={subject.id}
-                type="button"
-                className="subject-option"
-                aria-pressed={selected.includes(subject.id)}
-                onClick={() => toggleSubject(subject.id)}
-              >
-                <span className={`large-subject-pin ${subject.tone}`} aria-hidden="true" />
-                <span>
-                  <strong>{subject.name}</strong>
-                  <small>
-                    {subject.syllabusCode ? `${subject.syllabusCode} · ` : ""}
-                    {subject.topicCount
-                      ? `${subject.topicCount} syllabus rows`
-                      : "Blank subject, add your own topics"}
-                  </small>
-                </span>
-              </button>
-            ))}
+          <div className="picker-controls">
+            <div className="picker-tabs" role="tablist" aria-label="Qualification">
+              {groups.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  role="tab"
+                  aria-selected={!query && tab === name}
+                  className={!query && tab === name ? "active" : ""}
+                  onClick={() => { setTab(name); setSearch(""); }}
+                >
+                  {name}
+                  <b>{subjects.filter((subject) => subject.qualification === name).length}</b>
+                </button>
+              ))}
+            </div>
+
+            <label className="picker-search">
+              <span aria-hidden="true">⌕</span>
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search all subjects or a syllabus code"
+                aria-label="Search subjects"
+              />
+            </label>
           </div>
+
+          {chosen.length ? (
+            <div className="picker-chips">
+              {chosen.map((subject) => (
+                <button
+                  key={subject.key}
+                  type="button"
+                  className="picker-chip"
+                  onClick={() => toggleSubject(subject.key)}
+                  aria-label={`Remove ${subject.name}`}
+                >
+                  <i className={`subject-pin ${subject.tone}`} aria-hidden="true" />
+                  {subject.name}
+                  <span aria-hidden="true">×</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="subject-picker">
+            {visible.map((subject) => {
+              const isSelected = selected.includes(subject.key);
+              return (
+                <button
+                  key={subject.key}
+                  type="button"
+                  className="subject-option"
+                  aria-pressed={isSelected}
+                  disabled={!isSelected && selected.length >= MAX_SUBJECTS}
+                  onClick={() => toggleSubject(subject.key)}
+                >
+                  <span className={`large-subject-pin ${subject.tone}`} aria-hidden="true" />
+                  <span>
+                    <strong>{subject.name}</strong>
+                    <small>
+                      {subject.syllabusCode ? `${subject.syllabusCode} · ` : ""}
+                      {subject.papers ? `${subject.papers.toLocaleString("en-GB")} past papers` : "No papers yet"}
+                    </small>
+                    <em className={`syllabus-tag ${subject.source}`}>
+                      {subject.topicCount
+                        ? `${subject.topicCount.toLocaleString("en-GB")} syllabus rows`
+                        : "Syllabus can be added later"}
+                    </em>
+                  </span>
+                </button>
+              );
+            })}
+            {!visible.length ? <p className="muted">No subjects match that search.</p> : null}
+          </div>
+
+          <p className="muted picker-count">
+            {selected.length} of {MAX_SUBJECTS} selected
+            {totalTopics ? ` · ${totalTopics.toLocaleString("en-GB")} syllabus rows will load` : ""}
+          </p>
         </>
       ) : null}
 
@@ -205,7 +299,15 @@ export default function OnboardingFlow({ starterSubjects, defaultName, currentYe
               <span>Subjects</span>
               <strong>{chosen.map((subject) => subject.name).join(", ") || "None"}</strong>
             </div>
-            <div><span>Syllabus rows loaded</span><strong>{totalTopics.toLocaleString("en-GB")}</strong></div>
+            <div>
+              <span>Syllabus rows loading</span>
+              <strong>
+                {totalTopics.toLocaleString("en-GB")}
+                {withSyllabus < chosen.length
+                  ? ` · ${chosen.length - withSyllabus} subject${chosen.length - withSyllabus === 1 ? "" : "s"} without one yet`
+                  : ""}
+              </strong>
+            </div>
           </div>
         </>
       ) : null}

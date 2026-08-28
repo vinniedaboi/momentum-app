@@ -302,3 +302,141 @@
 }
 
 .sidebar-account button:hover { background: rgba(255, 255, 255, .1); color: #fff; }
+
+/* ---------- Subject picker (onboarding step 2) ----------
+   The list spans every qualification in the catalogue, so it needs tabs, a
+   search and a running count rather than a handful of cards. */
+
+.onboarding-card { width: min(880px, 100%); }
+
+.picker-controls {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.picker-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.picker-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.picker-tabs button:hover { border-color: #b6cfc2; color: var(--ink); }
+
+.picker-tabs button.active {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fffdf8;
+}
+
+.picker-tabs button b {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--soft-sage);
+  color: var(--navy);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.picker-tabs button.active b { background: rgba(255, 255, 255, .18); color: #fffdf8; }
+
+.picker-search {
+  position: relative;
+  display: block;
+}
+
+.picker-search span {
+  position: absolute;
+  left: 14px;
+  top: 11px;
+  font-size: 20px;
+  color: #758578;
+  transform: rotate(-15deg);
+}
+
+.picker-search input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px 0 40px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.picker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 14px;
+  border-radius: 14px;
+  background: var(--soft-sage);
+  border: 1px solid #cfe0d4;
+}
+
+.picker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 8px;
+  border: 1px solid #bcd4c4;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.picker-chip:hover { border-color: var(--red); color: var(--red); }
+.picker-chip span { color: var(--muted); font-size: 15px; line-height: 1; }
+.picker-chip:hover span { color: var(--red); }
+
+/* The grid scrolls rather than pushing the Continue button off screen. */
+.subject-picker {
+  max-height: min(46vh, 420px);
+  overflow-y: auto;
+  padding: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: #bcd4c4 transparent;
+}
+
+.subject-option:disabled { opacity: .45; cursor: not-allowed; }
+.subject-option:disabled:hover { border-color: var(--line); }
+
+.subject-option em {
+  display: block;
+  margin-top: 6px;
+  font-style: normal;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  color: var(--muted);
+}
+
+.subject-option em.bundled { color: var(--teal); }
+.subject-option em.official { color: var(--blue); }
+
+.picker-count {
+  margin: 14px 0 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}

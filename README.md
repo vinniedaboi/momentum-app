@@ -133,6 +133,8 @@ the session arrives immediately and sign-up goes straight to onboarding.
 | `npm test` | Source-level guardrails: tenancy scoping, auth wiring, RLS coverage, UI copy |
 | `npm run import:shared` | Load the catalogue and syllabus CSVs into Postgres |
 | `npm run import:legacy` | Migrate the old Cloudflare D1 database into one account |
+| `npm run seed:demo -- --email <a>` | Fill an account with demo study history for recording |
+| `npm run smoke -- <workspace-uuid>` | Exercise the data layer against real Postgres (writes to that workspace) |
 
 ---
 

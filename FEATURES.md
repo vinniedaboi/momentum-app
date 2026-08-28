@@ -164,7 +164,12 @@ goal milestones and scheduled syllabus points.
 
 - Email and password sign-up, with confirmation
 - Three-step setup: your details → pick your subjects → done
-- Chosen subjects arrive **with their full syllabus tree already loaded**
+- **52 subjects to choose from**, across Cambridge International AS & A Level,
+  Cambridge IGCSE and Edexcel International A Level — searchable, and filtered
+  by qualification
+- 11 of them arrive **with their full official syllabus tree already loaded**,
+  every chapter and spec point in order; the rest are created ready for a
+  syllabus to be imported later
 - Every account is fully isolated: separate data, enforced in the application
   layer and again by database row-level security
 
@@ -200,9 +205,13 @@ A five-beat script for UGC and product video. Total runtime ~90 seconds.
 
 - Use a fresh account so onboarding is genuine
 - Pick Mathematics and Physics at the subject step — enough syllabus to look
-  substantial, few enough to stay readable
-- Before filming, log two or three past papers and a couple of study sessions so
-  the analytics views are not empty
+  substantial, few enough to stay readable. Both are bundled subjects, so they
+  load the richest trees
+- Before filming, populate the account so the analytics views are not empty.
+  `npm run seed:demo -- --email <account>` writes a fortnight of study sessions,
+  four past papers on a rising score curve, a flashcard deck at mixed mastery,
+  tasks and a paced goal — all through the app's own data layer, so the review
+  schedule lands exactly as real use would leave it
 - Record at 1440×900 or larger; the sidebar and review queue both need width
 
 ### Beat 1 — The empty-hands problem (0:00–0:10)
@@ -214,8 +223,9 @@ Show the four counters. Let **Overdue** land.
 
 ### Beat 2 — Setup is instant (0:10–0:25)
 
-Cut to the onboarding subject picker. Select two subjects, showing the syllabus
-row counts on each card. Hit **Finish setup**.
+Cut to the onboarding subject picker. Type a subject name into the search to
+show the breadth — 52 subjects across three qualifications — then select two,
+showing the syllabus row counts on each card. Hit **Finish setup**.
 
 Land on a fully populated syllabus tree. *"Your whole syllabus, already in
 there."*

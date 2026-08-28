@@ -84,8 +84,17 @@ test("auth, onboarding and the account gate are wired", async () => {
   assert.match(onboarding, /Which subjects are you tracking\?/);
   assert.match(onboarding, /syllabus rows/);
   assert.match(onboarding, /Finish setup/);
-  assert.match(onboardingApi, /createStarterSubjects/);
+  // The picker spans every qualification, so it needs tabs, search and chips.
+  assert.match(onboarding, /picker-tabs/);
+  assert.match(onboarding, /Search all subjects or a syllabus code/);
+  assert.match(onboarding, /picker-chip/);
+  assert.match(onboarding, /subjectKeys/);
+  assert.match(onboardingApi, /createSubjects/);
+  // Both syllabus sources must be wired: bundled templates and parsed PDFs.
   assert.match(onboardingApi, /seedSubjectTopicsFromTemplate/);
+  assert.match(onboardingApi, /getSyllabusContent/);
+  assert.match(onboardingApi, /importSubjectTopics/);
+  assert.match(onboardingApi, /availableOnboardingSubjects/);
   assert.match(onboardingApi, /completeOnboarding/);
 
   assert.match(signup, /signUp/);
@@ -95,6 +104,24 @@ test("auth, onboarding and the account gate are wired", async () => {
   // A GET sign-out would fire from any embedded image.
   assert.match(signout, /export async function POST/);
   assert.doesNotMatch(signout, /export async function GET/);
+});
+
+test("onboarding offers every catalogued subject, not just the bundled ones", async () => {
+  const [catalogue, subjectsDb] = await Promise.all([
+    read("lib/onboarding-catalogue.ts"),
+    read("lib/subjects-db.ts"),
+  ]);
+
+  // The three syllabus sources, richest first.
+  assert.match(catalogue, /"bundled" \| "official" \| "empty"/);
+  assert.match(catalogue, /catalogueSubjectDirectory/);
+  assert.match(catalogue, /getSyllabusVersions/);
+  assert.match(catalogue, /templateTopicCount/);
+  // One card per syllabus code, so Mathematics cannot appear twice.
+  assert.match(catalogue, /seenCodes/);
+  // Bundled ids are canonical: Further Mathematics maps to further-math.
+  assert.match(catalogue, /subjectId: bundled\?\.id \?\? subjectSlug/);
+  assert.match(subjectsDb, /export async function createSubjects/);
 });
 
 test("row level security covers every table", async () => {

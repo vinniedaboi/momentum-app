@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "import:shared": "node scripts/import-shared-data.mjs",
-    "import:legacy": "node scripts/import-legacy-d1.mjs"
+    "import:legacy": "node scripts/import-legacy-d1.mjs",
+    "seed:demo": "node --import ./scripts/ts-resolve.mjs --env-file=.env.local scripts/seed-demo.ts",
+    "smoke": "node --import ./scripts/ts-resolve.mjs --env-file=.env.local scripts/smoke.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.5",

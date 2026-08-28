@@ -174,15 +174,22 @@ export async function addSubject(workspaceId: string, input: SubjectInput) {
   return mapSubject(rows[0]);
 }
 
-/** Creates the chosen starter subjects during onboarding. Ignores duplicates. */
-export async function createStarterSubjects(workspaceId: string, ids: string[]) {
+export type SubjectSpec = SubjectInput & { id: string };
+
+/**
+ * Creates subjects with ids chosen by the caller, used by onboarding. Unlike
+ * `addSubject` the id is not derived from the name: a bundled subject has to
+ * keep its canonical id so the seeded topic ids line up with it.
+ *
+ * Duplicates are ignored, so re-running onboarding is harmless.
+ */
+export async function createSubjects(workspaceId: string, specs: SubjectSpec[]) {
   const sql = getSql();
-  const chosen = STARTER_SUBJECTS.filter((subject) => ids.includes(subject.id));
-  if (!chosen.length) return [];
+  if (!specs.length) return [];
   const now = nowIso();
 
   await sql.begin(async (tx) => {
-    for (const [index, subject] of chosen.entries()) {
+    for (const [index, subject] of specs.entries()) {
       await tx`
         INSERT INTO subjects (
           workspace_id, id, name, short_name, tone, board, qualification, syllabus_code,

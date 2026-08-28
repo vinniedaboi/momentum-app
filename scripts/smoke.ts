@@ -3,28 +3,29 @@
  * Run with:  node --env-file=.env.local scripts/smoke.ts <workspace-uuid>
  */
 import {
-  addSubject, createStarterSubjects, deleteSubject, getSubject, getSubjects,
-  isKnownSubject, reorderSubjects, subjectUsage, updateSubject,
-} from "../lib/subjects-db.ts";
+  addSubject, createSubjects, deleteSubject, getSubject, getSubjects,
+  isKnownSubject, reorderSubjects, STARTER_SUBJECTS, subjectUsage, updateSubject,
+} from "../lib/subjects-db";
+import { availableOnboardingSubjects } from "../lib/onboarding-catalogue";
 import {
   getTopics, importSubjectTopics, seedSubjectTopicsFromTemplate,
   updateSelectedStudyTracking, updateStudyTracking,
-} from "../lib/topics-db.ts";
-import { addTopicProgressNote, getChapterActivity, getTopicActivity } from "../lib/topic-activity-db.ts";
-import { addStudyTask, deleteStudyTask, getStudyTasks, updateStudyTask } from "../lib/tasks-db.ts";
-import { addStudySession, deleteStudySession, getStudySessions } from "../lib/study-hours-db.ts";
-import { deleteStudyGoal, getStudyGoals, saveStudyGoal } from "../lib/goals-db.ts";
+} from "../lib/topics-db";
+import { addTopicProgressNote, getChapterActivity, getTopicActivity } from "../lib/topic-activity-db";
+import { addStudyTask, deleteStudyTask, getStudyTasks, updateStudyTask } from "../lib/tasks-db";
+import { addStudySession, deleteStudySession, getStudySessions } from "../lib/study-hours-db";
+import { deleteStudyGoal, getStudyGoals, saveStudyGoal } from "../lib/goals-db";
 import {
   createFlashcard, createFlashcardDeck, createFlashcards, deleteFlashcardDeck,
   getFlashcardDecks, resetDeckProgress, updateFlashcardMastery,
-} from "../lib/flashcards-db.ts";
+} from "../lib/flashcards-db";
 import {
   addPastPaper, deletePastPaper, getPaperMeta, getPastPapers, savePaperMeta, updatePastPaper,
-} from "../lib/past-papers-db.ts";
-import { catalogueFacets, catalogueRowsByIds, catalogueSubjectDirectory, queryCatalogue } from "../lib/catalogue-db.ts";
-import { getSyllabusContent, getSyllabusVersions } from "../lib/syllabus-db.ts";
-import { completeOnboarding, ensureProfile, getProfile } from "../lib/profile-db.ts";
-import { getSql } from "../lib/db.ts";
+} from "../lib/past-papers-db";
+import { catalogueFacets, catalogueRowsByIds, catalogueSubjectDirectory, queryCatalogue } from "../lib/catalogue-db";
+import { getSyllabusContent, getSyllabusVersions } from "../lib/syllabus-db";
+import { completeOnboarding, ensureProfile, getProfile } from "../lib/profile-db";
+import { getSql } from "../lib/db";
 
 const ws = process.argv[2];
 if (!ws) throw new Error("pass the workspace uuid");
@@ -45,10 +46,18 @@ expect(profile0, "profile exists");
 ok("ensureProfile / getProfile", profile0!.email);
 
 console.log("\nsubjects");
-await createStarterSubjects(ws, ["mathematics", "physics", "general"]);
+const starterIds = ["mathematics", "physics", "general"];
+await createSubjects(
+  ws,
+  STARTER_SUBJECTS.filter((s) => starterIds.includes(s.id)).map((s) => ({
+    id: s.id, name: s.name, shortName: s.shortName, tone: s.tone, board: s.board,
+    qualification: s.qualification, syllabusCode: s.syllabusCode,
+    stages: s.stages, paperStages: s.paperStages,
+  })),
+);
 const subjects = await getSubjects(ws);
 expect(subjects.length === 3, "3 starter subjects");
-ok("createStarterSubjects", subjects.map((s) => s.id).join(", "));
+ok("createSubjects", subjects.map((s) => s.id).join(", "));
 expect(await isKnownSubject(ws, "physics"), "physics known");
 expect(!(await isKnownSubject(ws, "nope")), "unknown rejected");
 ok("isKnownSubject");
@@ -230,6 +239,19 @@ expect((await getTopics(ws)).every((t) => t.subjectId !== custom.id), "topics ca
 ok("deleteSubject cascades topics");
 
 console.log("\nonboarding");
+const offered = await availableOnboardingSubjects();
+expect(offered.length > 20, "catalogue offers the full subject list");
+const offeredWithSyllabus = offered.filter((s) => s.topicCount > 0);
+expect(offeredWithSyllabus.length >= 11, "subjects with a parsed syllabus");
+expect(new Set(offered.map((s) => s.key)).size === offered.length, "pick keys are unique");
+expect(offered.some((s) => s.source === "bundled"), "bundled source present");
+expect(offered.some((s) => s.source === "official"), "official source present");
+ok("availableOnboardingSubjects", `${offered.length} subjects, ${offeredWithSyllabus.length} with a syllabus`);
+// A subject covered by both a bundled template and a parsed PDF must appear once.
+const maths = offered.filter((s) => s.name === "Mathematics");
+expect(maths.length === 1, "no duplicate Mathematics card");
+ok("richest source wins", `Mathematics -> ${maths[0].source}, ${maths[0].topicCount} rows`);
+
 const done = await completeOnboarding(ws, {
   fullName: "Smoke Test", examBoard: "CAIE",
   qualification: "Cambridge International AS & A Level",
