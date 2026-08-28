@@ -1,15 +1,18 @@
 """Parses the official syllabus PDFs into data/syllabus-content.json.
 
   python scripts/parse_syllabus_content.py
-  python scripts/parse_syllabus_content.py --versions data/syllabus-versions.csv
+  python scripts/parse_syllabus_content.py --only-missing
 
 The directory in data/syllabus-versions.csv is factual metadata and is committed.
 The parsed chapter/point tree is not: it is exam-board content, so it is generated
 here and loaded straight into Postgres by scripts/import-shared-data.mjs, which
 reads the JSON this writes.
 
-Only the version a student sits in CURRENT_YEAR is parsed, falling back to the
-latest published one, matching what the app offers to import.
+The version a student sits in CURRENT_YEAR is preferred, but a syllabus that yields
+nothing falls through to the next one. Cambridge rewrites sometimes add numbered
+spec points where the outgoing version had none — History 9489 and Sociology 0495
+are both like that — and offering the neighbouring version beats offering nothing,
+as long as the app keeps showing which years it covers.
 """
 import argparse
 import csv
@@ -33,6 +36,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_VERSIONS = ROOT / "data" / "syllabus-versions.csv"
 DEFAULT_OUT = ROOT / "data" / "syllabus-content.json"
+PLACEHOLDER = re.compile(r"^(Topic|Unit|Chapter) \d+$")
 
 
 def truthy(value):
@@ -56,41 +60,70 @@ def download(url):
         return response.read()
 
 
-def target_versions(rows):
-    """One version per syllabus code: the one current now, else the latest."""
-    chosen = {}
+def candidates(rows):
+    """Every version of each syllabus, in the order worth trying: the one current
+    now, then the latest published, then the rest newest first."""
+    grouped = {}
     for row in rows:
-        code = row["Syllabus_Code"]
-        existing = chosen.get(code)
-        if (existing is None
-                or (truthy(row["Is_Current_In_2026"]) and not truthy(existing["Is_Current_In_2026"]))
-                or (not truthy(existing["Is_Current_In_2026"])
-                    and truthy(row["Is_Latest_Published_Version"])
-                    and not truthy(existing["Is_Latest_Published_Version"]))):
-            chosen[code] = row
-    return list(chosen.values())
+        grouped.setdefault(row["Syllabus_Code"], []).append(row)
+
+    def rank(row):
+        return (
+            0 if truthy(row["Is_Current_In_2026"]) else 1,
+            0 if truthy(row["Is_Latest_Published_Version"]) else 1,
+            -int(row["Exam_Year_From"] or 0),
+        )
+
+    return {code: sorted(group, key=rank) for code, group in grouped.items()}
+
+
+def window(row):
+    return "{}-{}".format(row["Exam_Year_From"], row["Exam_Year_To"] or row["Exam_Year_From"])
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--versions", default=str(DEFAULT_VERSIONS))
     parser.add_argument("--out", default=str(DEFAULT_OUT))
+    parser.add_argument("--only-missing", action="store_true",
+                        help="keep the existing JSON and retry only syllabuses with no content")
     args = parser.parse_args()
 
     rows = list(csv.DictReader(io.open(args.versions, encoding="utf-8-sig")))
-    targets = target_versions(rows)
-    print("Parsing {} of {} syllabus versions\n".format(len(targets), len(rows)))
+    by_code = candidates(rows)
 
     records = []
-    parsed = 0
-    for row in sorted(targets, key=lambda item: (item["Exam_Board"], item["Subject_Name"])):
-        record_id, code = row["Record_ID"], row["Syllabus_Code"]
-        try:
-            chapters, points = parser_for(row["Exam_Board"])(pdf_text(download(row["Syllabus_PDF_URL"])))
-        except Exception as error:  # noqa: BLE001
-            print("  {:<32} {:<18} FAILED: {}".format(row["Subject_Name"][:30], code, error))
-            continue
+    if args.only_missing:
+        # Keep what already parsed and retry only the syllabuses that came up empty.
+        existing = json.loads(Path(args.out).read_text(encoding="utf-8"))
+        # The directory is the authority on a version's code, so re-stamp what was
+        # parsed before deciding what is still missing; a subject recoded since the
+        # last run would otherwise be parsed twice into colliding rows.
+        code_by_record = {row["Record_ID"]: row["Syllabus_Code"] for row in rows}
+        records = [dict(row, syllabus_code=code_by_record.get(row["record_id"], row["syllabus_code"]))
+                   for row in existing if row["record_id"] in code_by_record]
+        done = {row["syllabus_code"] for row in records}
+        by_code = {code: group for code, group in by_code.items() if code not in done}
+        print("Retrying {} syllabuses with no content\n".format(len(by_code)))
+    else:
+        print("Parsing {} syllabuses from {} versions\n".format(len(by_code), len(rows)))
 
+    parsed = 0
+    order = sorted(by_code.items(),
+                   key=lambda item: (item[1][0]["Exam_Board"], item[1][0]["Subject_Name"]))
+    for code, group in order:
+        chapters, points, chosen = [], [], group[0]
+        for attempt in group:
+            try:
+                found = parser_for(attempt["Exam_Board"])(pdf_text(download(attempt["Syllabus_PDF_URL"])))
+            except Exception as error:  # noqa: BLE001
+                print("  {:<30} {:<10} FAILED: {}".format(attempt["Subject_Name"][:28], code, error))
+                continue
+            chapters, points, chosen = found[0], found[1], attempt
+            if points:
+                break
+
+        record_id = chosen["Record_ID"]
         seq = 0
         for chapter_code, title, level in chapters:
             records.append({
@@ -109,12 +142,13 @@ def main():
 
         if points:
             parsed += 1
-        flag = "review" if any(re.match(r"^(Topic|Unit|Chapter) \d+$", title) for _, title, _ in chapters) else "ok"
-        print("  {:<32} {:<18} {:>3} chapters {:>4} points  [{}]".format(
-            row["Subject_Name"][:30], code, len(chapters), len(points), flag))
+        note = "" if chosen is group[0] else "  (fell back to {})".format(window(chosen))
+        flag = "review" if any(PLACEHOLDER.match(title) for _, title, _ in chapters) else "ok"
+        print("  {:<30} {:<10} {:>3} chapters {:>4} points  [{}]{}".format(
+            chosen["Subject_Name"][:28], code, len(chapters), len(points), flag, note))
 
     Path(args.out).write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
-    print("\n{} rows for {} syllabuses with content -> {}".format(
+    print("\n{} rows, {} syllabuses with content -> {}".format(
         len(records), parsed, Path(args.out).relative_to(ROOT)))
     print("Load them with: npm run import:shared")
 
