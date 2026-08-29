@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import type { Topic } from "./study-tracker-app";
 import { syllabusProgress } from "./syllabus-progress";
 import { subjectName, type Subject } from "./subjects";
+import Icon from "./icons";
+import { apiMessage } from "./data/api";
+import { studyApi } from "./data/endpoints";
 
 type TopicActivity = {
   id: number;
@@ -60,11 +63,8 @@ export default function TopicTimeline({ topic, topics, subjects, onClose, onMess
 
   useEffect(() => {
     const query = isChapter ? `?topicId=${encodeURIComponent(topic.id)}&scope=chapter` : `?topicId=${encodeURIComponent(topic.id)}`;
-    fetch(`/api/topic-activity${query}`)
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ activity: TopicActivity[] }>;
-      })
+    studyApi.topicActivity
+      .list<{ activity: TopicActivity[] }>(query)
       .then((data) => setActivity(data.activity))
       .catch(() => onMessage(isChapter ? "This chapter’s timeline could not load." : "This topic’s timeline could not load."))
       .finally(() => setLoading(false));
@@ -88,13 +88,10 @@ export default function TopicTimeline({ topic, topics, subjects, onClose, onMess
     event.preventDefault();
     setSaving(true);
     try {
-      const response = await fetch("/api/topic-activity", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ topicId: topic.id, note }),
+      const data = await studyApi.topicActivity.addNote<{ activity: TopicActivity; updatedAt: string }>({
+        topicId: topic.id,
+        note,
       });
-      const data = await response.json() as { activity?: TopicActivity; updatedAt?: string; error?: string };
-      if (!response.ok || !data.activity || !data.updatedAt) throw new Error(data.error ?? "save");
       const saved: TopicActivity = isChapter
         ? { ...data.activity, topicCode: topic.code, topicTitle: topic.title, topicKind: "chapter" }
         : data.activity;
@@ -103,7 +100,7 @@ export default function TopicTimeline({ topic, topics, subjects, onClose, onMess
       setNote("");
       onMessage(isChapter ? "Chapter progress update added" : "Progress update added");
     } catch (error) {
-      onMessage(error instanceof Error && error.message !== "save" ? error.message : "Your progress update could not be saved.");
+      onMessage(apiMessage(error, "Your progress update could not be saved."));
     } finally {
       setSaving(false);
     }
@@ -112,7 +109,7 @@ export default function TopicTimeline({ topic, topics, subjects, onClose, onMess
   return <div className="timeline-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <aside className="topic-timeline-drawer" role="dialog" aria-modal="true" aria-labelledby="topic-timeline-title">
       <header>
-        <button className="timeline-close" onClick={onClose} aria-label={isChapter ? "Close chapter timeline" : "Close topic timeline"}>×</button>
+        <button className="timeline-close" onClick={onClose} aria-label={isChapter ? "Close chapter timeline" : "Close topic timeline"}><Icon name="close" /></button>
         <p className="eyebrow">{isChapter ? "CHAPTER TIMELINE" : "TOPIC TIMELINE"}</p>
         <span>{subjectName(subjects, topic.subjectId)} · {topic.code}{isChapter ? ` · ${points.length} syllabus point${points.length === 1 ? "" : "s"}` : ""}</span>
         <h3 id="topic-timeline-title">{topic.title}</h3>
@@ -144,7 +141,7 @@ export default function TopicTimeline({ topic, topics, subjects, onClose, onMess
           <button type="button" className={scope === "own" ? "active" : ""} onClick={() => setScope("own")}>Chapter only<b>{ownCount}</b></button>
         </div>}
         {loading ? <div className="timeline-loading"><i /><i /><i /></div> : visibleActivity.length ? <div className="topic-history-list">{visibleActivity.map((item) => <article className={item.eventType} key={item.id}>
-          <div className="history-marker"><i>{item.eventType === "note" ? "+" : item.eventType === "review" ? "✓" : "↗"}</i></div>
+          <div className="history-marker"><i><Icon name={item.eventType === "note" ? "plus" : item.eventType === "review" ? "check" : "trending"} /></i></div>
           <div>
             <strong>{activityTitle(item)}</strong>
             {isChapter && <small className="history-source">{item.topicId === topic.id ? "Whole chapter" : `${item.topicCode ?? ""} ${item.topicTitle ?? ""}`.trim()}</small>}
@@ -152,7 +149,7 @@ export default function TopicTimeline({ topic, topics, subjects, onClose, onMess
             <time dateTime={item.occurredAt}>{fullMoment(item.occurredAt)}</time>
           </div>
         </article>)}</div> : <div className="timeline-empty">
-          <span>○</span>
+          <span><Icon name="circle" /></span>
           <strong>No history yet</strong>
           <p>{isChapter && scope === "own" ? "Add a chapter update above, or switch to the whole chapter to see topic activity." : "Your next status change, review, or note will appear here."}</p>
         </div>}

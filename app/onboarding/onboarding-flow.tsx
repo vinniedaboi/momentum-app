@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Icon from "../icons";
+import { apiMessage } from "../data/api";
+import { studyApi } from "../data/endpoints";
 
 export type PickableSubject = {
   key: string;
@@ -95,21 +98,16 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
     setPending(true);
     setError(null);
 
-    const response = await fetch("/api/onboarding", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
+    try {
+      await studyApi.onboarding.complete({
         fullName: fullName.trim(),
         qualification,
         targetYear: Number(targetYear),
         weeklyHoursTarget: Number(weeklyHours),
         subjectKeys: selected,
-      }),
-    });
-
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({ error: "Setup could not be completed." }));
-      setError(body.error ?? "Setup could not be completed.");
+      });
+    } catch (failure) {
+      setError(apiMessage(failure, "Setup could not be completed."));
       setPending(false);
       return;
     }
@@ -218,7 +216,7 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
             </div>
 
             <label className="picker-search">
-              <span aria-hidden="true">⌕</span>
+              <Icon name="search" />
               <input
                 type="search"
                 value={search}
@@ -241,7 +239,7 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
                 >
                   <i className={`subject-pin ${subject.tone}`} aria-hidden="true" />
                   {subject.name}
-                  <span aria-hidden="true">×</span>
+                  <Icon name="close" />
                 </button>
               ))}
             </div>

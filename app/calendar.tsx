@@ -6,6 +6,9 @@ import type { Topic } from "./study-tracker-app";
 import type { StudyTask } from "./tasks";
 import { subjectName, type Subject } from "./subjects";
 import { getTopicStage } from "./syllabus-stage";
+import Icon from "./icons";
+import { api } from "./data/api";
+import { studyApi } from "./data/endpoints";
 
 type Goal = { subjectId: string; stage: "AS" | "A2"; startDate: string; targetDate: string; paceMode: "steady" | "front-loaded" | "finish-line" };
 type Exam = { id: number; subjectId: string; title: string; stage: "AS" | "A2" | null; examDate: string; topics: Array<{ topicId: string; reviseOn: string | null }> };
@@ -47,19 +50,11 @@ export default function CalendarView({ topics, subjects, sessions, tasks, today,
   const [selectedDate, setSelectedDate] = useState(today);
 
   useEffect(() => {
-    fetch("/api/goals")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ goals: Goal[] }>;
-      })
+    api.get<{ goals: Goal[] }>(studyApi.goals.path)
       .then((data) => setGoals(data.goals))
       .catch(() => onMessage("Goal milestones could not be added to the calendar."));
 
-    fetch("/api/exams")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ exams: Exam[] }>;
-      })
+    api.get<{ exams: Exam[] }>(studyApi.exams.path)
       .then((data) => setExams(data.exams))
       .catch(() => onMessage("Exams could not be added to the calendar."));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -158,7 +153,7 @@ export default function CalendarView({ topics, subjects, sessions, tasks, today,
 
   return <div className="calendar-page">
     <section className="calendar-panel panel-card">
-      <div className="calendar-toolbar"><button onClick={() => moveMonth(-1)} aria-label="Previous month">‹</button><div><p className="eyebrow">STUDY CALENDAR</p><h3>{monthLabel}</h3></div><button onClick={() => moveMonth(1)} aria-label="Next month">›</button></div>
+      <div className="calendar-toolbar"><button onClick={() => moveMonth(-1)} aria-label="Previous month"><Icon name="chevron-left" /></button><div><p className="eyebrow">STUDY CALENDAR</p><h3>{monthLabel}</h3></div><button onClick={() => moveMonth(1)} aria-label="Next month"><Icon name="chevron-right" /></button></div>
       <div className="calendar-legend"><span className="review">Review</span><span className="goal-task">Goal plan</span><span className="task">Task</span><span className="study">Study log</span><span className="milestone">Milestone</span><span className="goal">Goal</span><span className="exam-task">Exam revision</span><span className="exam">Exam</span><button onClick={() => { setMonth(`${today.slice(0, 7)}-01`); setSelectedDate(today); }}>Today</button></div>
       <div className="calendar-weekdays">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <span key={day}>{day}</span>)}</div>
       <div className="calendar-grid">{calendarDays.map((date) => {
@@ -168,6 +163,6 @@ export default function CalendarView({ topics, subjects, sessions, tasks, today,
         </button>;
       })}</div>
     </section>
-    <aside className="calendar-agenda panel-card"><p className="eyebrow">SELECTED DAY</p><h3>{selectedLabel}</h3>{selectedEvents.length ? <div className="agenda-list">{selectedEvents.map((event) => <article key={event.id}><i className={event.kind} /><div><strong>{event.title}</strong><span>{event.detail}</span></div></article>)}</div> : <div className="agenda-empty"><span>○</span><strong>Nothing scheduled</strong><p>Select another day or enjoy the space.</p></div>}</aside>
+    <aside className="calendar-agenda panel-card"><p className="eyebrow">SELECTED DAY</p><h3>{selectedLabel}</h3>{selectedEvents.length ? <div className="agenda-list">{selectedEvents.map((event) => <article key={event.id}><i className={event.kind} /><div><strong>{event.title}</strong><span>{event.detail}</span></div></article>)}</div> : <div className="agenda-empty"><span><Icon name="circle" /></span><strong>Nothing scheduled</strong><p>Select another day or enjoy the space.</p></div>}</aside>
   </div>;
 }

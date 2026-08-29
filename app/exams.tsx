@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { Topic } from "./study-tracker-app";
 import { subjectName, type Subject } from "./subjects";
 import { getTopicStage, subjectHasStages, type SyllabusStage } from "./syllabus-stage";
+import { api, apiMessage } from "./data/api";
+import { studyApi } from "./data/endpoints";
 
 type PaceMode = "steady" | "front-loaded" | "finish-line";
 
@@ -112,11 +114,7 @@ export default function ExamPlanner({ topics, subjects, today, onMessage }: {
   const topicLookup = useMemo(() => new Map(topics.map((topic) => [topic.id, topic])), [topics]);
 
   useEffect(() => {
-    fetch("/api/exams")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ exams: Exam[] }>;
-      })
+    api.get<{ exams: Exam[] }>(studyApi.exams.path)
       .then((data) => setExams(data.exams))
       .catch(() => onMessage("Your exams could not load."))
       .finally(() => setLoading(false));
@@ -216,23 +214,19 @@ export default function ExamPlanner({ topics, subjects, today, onMessage }: {
     };
 
     try {
-      const response = await fetch("/api/exams", {
-        method: form.id ? "PATCH" : "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json() as { exam?: Exam; error?: string };
-      if (!response.ok || !data.exam) throw new Error(data.error ?? "save");
+      const { exam: saved } = form.id
+        ? await studyApi.exams.update<{ exam: Exam }>(payload)
+        : await studyApi.exams.create<{ exam: Exam }>(payload);
 
       setExams((current) => {
-        const rest = current.filter((exam) => exam.id !== data.exam!.id);
-        return [...rest, data.exam!].sort((a, b) => a.examDate.localeCompare(b.examDate) || a.id - b.id);
+        const rest = current.filter((exam) => exam.id !== saved.id);
+        return [...rest, saved].sort((a, b) => a.examDate.localeCompare(b.examDate) || a.id - b.id);
       });
       onMessage(form.id ? "Exam plan updated." : "Exam plan created.");
       setForm(null);
       setSelected(new Set());
     } catch (error) {
-      onMessage(error instanceof Error && error.message !== "save" ? error.message : "That exam could not be saved.");
+      onMessage(apiMessage(error, "That exam could not be saved."));
     } finally {
       setSaving(false);
     }
@@ -241,8 +235,7 @@ export default function ExamPlanner({ topics, subjects, today, onMessage }: {
   async function remove(exam: Exam) {
     setBusyId(exam.id);
     try {
-      const response = await fetch(`/api/exams?id=${exam.id}`, { method: "DELETE" });
-      if (!response.ok && response.status !== 204) throw new Error("delete");
+      await studyApi.exams.remove(exam.id);
       setExams((current) => current.filter((item) => item.id !== exam.id));
       if (openPlanId === exam.id) setOpenPlanId(null);
       onMessage(`“${exam.title}” removed.`);

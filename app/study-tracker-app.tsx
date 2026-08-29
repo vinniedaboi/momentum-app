@@ -15,35 +15,14 @@ import { activeSubjects, subjectById, subjectName, type Subject } from "./subjec
 import { getTopicStage, type SyllabusStage } from "./syllabus-stage";
 import TasksView, { DueTasksPanel, type StudyTask, type TaskInput } from "./tasks";
 import TopicTimeline from "./topic-timeline";
+import Icon from "./icons";
+import { STATUSES, type StudyStatus, type Topic } from "./topics";
+import { apiMessage } from "./data/api";
+import { studyApi } from "./data/endpoints";
+import { useStudyWorkspace } from "./data/use-workspace";
 
-const STATUSES = ["Not Started", "Learning", "Practising", "Covered", "Exam Ready"] as const;
-type StudyStatus = (typeof STATUSES)[number];
-
-export type Topic = {
-  id: string;
-  subjectId: string;
-  sourceRow: number;
-  paper: string | null;
-  academicLevel: string | null;
-  retake: boolean;
-  section: string | null;
-  code: string;
-  title: string;
-  kind: "chapter" | "point";
-  parentId: string | null;
-  inScope: boolean;
-  status: StudyStatus;
-  confidence: number | null;
-  reviewedOn: string | null;
-  reviewedAt: string | null;
-  reviewDue: string | null;
-  goalDue: string | null;
-  examQuestions: number;
-  lastTestPct: number | null;
-  priority: string | null;
-  notes: string | null;
-  updatedAt: string;
-};
+// Re-exported so the eight views that import `Topic` from here keep working.
+export type { Topic };
 
 type ActiveView = "Today" | "Tasks" | "Calendar" | "Flashcards" | "Notes" | "Goals" | "Exams" | "Hours" | "Papers" | "Subjects" | { subjectId: string };
 
@@ -109,12 +88,17 @@ function compactMoment(value: string | null) {
 }
 
 export default function StudyTrackerApp() {
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [studySessions, setStudySessions] = useState<StudySession[]>([]);
-  const [tasks, setTasks] = useState<StudyTask[]>([]);
-  const [pastPapers, setPastPapers] = useState<PastPaper[]>([]);
-  const [paperMeta, setPaperMeta] = useState<PaperMeta[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
+
+  // Loading lives in useStudyWorkspace; this component only renders what it
+  // holds and splices write results back into it.
+  const workspace = useStudyWorkspace(setMessage);
+  const { value: subjects, setValue: setSubjects } = workspace.subjects;
+  const { value: topics, setValue: setTopics, failed: loadError, reload: refreshTopics } = workspace.topics;
+  const { value: studySessions, setValue: setStudySessions, failed: hoursError } = workspace.sessions;
+  const { value: tasks, setValue: setTasks } = workspace.tasks;
+  const { value: pastPapers, setValue: setPastPapers, failed: papersError } = workspace.papers;
+  const { value: paperMeta, setValue: setPaperMeta } = workspace.paperMeta;
   const [activeView, setActiveView] = useState<ActiveView>("Today");
   const [queueFilter, setQueueFilter] = useState<QueueFilter>("all");
   const [query, setQuery] = useState("");
@@ -122,13 +106,9 @@ export default function StudyTrackerApp() {
   const [updating, setUpdating] = useState<Set<string>>(new Set());
   const [selectedReviews, setSelectedReviews] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<StudyStatus>("Practising");
-  const [message, setMessage] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState(false);
-  const [hoursError, setHoursError] = useState(false);
   const [hoursSaving, setHoursSaving] = useState(false);
   const [taskAdding, setTaskAdding] = useState(false);
   const [taskBusyIds, setTaskBusyIds] = useState<Set<number>>(new Set());
-  const [papersError, setPapersError] = useState(false);
   const [paperSaving, setPaperSaving] = useState(false);
   const [paperBusyIds, setPaperBusyIds] = useState<Set<number>>(new Set());
   const [timelineTopicId, setTimelineTopicId] = useState<string | null>(null);
@@ -160,80 +140,6 @@ export default function StudyTrackerApp() {
     setMenuOpen(false);
   }
   const today = localDate();
-
-  async function refreshTopics() {
-    try {
-      const response = await fetch("/api/topics");
-      if (!response.ok) throw new Error("load");
-      const data = await response.json() as { topics: Topic[] };
-      setTopics(data.topics);
-      setLoadError(false);
-    } catch {
-      setLoadError(true);
-    }
-  }
-
-  useEffect(() => {
-    fetch("/api/goals")
-      .catch(() => null)
-      .then(() => fetch("/api/topics"))
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ topics: Topic[] }>;
-      })
-      .then((data) => { setTopics(data.topics); setLoadError(false); })
-      .catch(() => setLoadError(true));
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/subjects")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ subjects: Subject[] }>;
-      })
-      .then((data) => setSubjects(data.subjects))
-      .catch(() => setMessage("Your subjects could not load."));
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/tasks")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ tasks: StudyTask[] }>;
-      })
-      .then((data) => setTasks(data.tasks))
-      .catch(() => setMessage("Your tasks could not load."));
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/study-hours")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ sessions: StudySession[] }>;
-      })
-      .then((data) => setStudySessions(data.sessions))
-      .catch(() => setHoursError(true));
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/past-papers")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ papers: PastPaper[] }>;
-      })
-      .then((data) => setPastPapers(data.papers))
-      .catch(() => setPapersError(true));
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/paper-meta")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ meta: PaperMeta[] }>;
-      })
-      .then((data) => setPaperMeta(data.meta))
-      .catch(() => null);
-  }, []);
 
   useEffect(() => {
     if (!message) return;
@@ -301,13 +207,7 @@ export default function StudyTrackerApp() {
       : [topic.id];
     setUpdating((current) => new Set([...current, ...ids]));
     try {
-      const response = await fetch("/api/topics", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id: topic.id, ...options }),
-      });
-      if (!response.ok) throw new Error("save");
-      const data = await response.json() as { topics: Topic[] };
+      const data = await studyApi.topics.update<{ topics: Topic[] }>({ id: topic.id, ...options });
       const changed = new Map(data.topics.map((item) => [item.id, item]));
       setTopics((current) => current.map((item) => changed.get(item.id) ?? item));
       const label = options.wholeChapter ? "Chapter schedule updated" : options.reviewedNow ? "Review logged and next date scheduled" : "Status updated and tracking started";
@@ -328,13 +228,7 @@ export default function StudyTrackerApp() {
     if (!ids.length) return;
     setUpdating((current) => new Set([...current, ...ids]));
     try {
-      const response = await fetch("/api/topics", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ids, ...options }),
-      });
-      if (!response.ok) throw new Error("save");
-      const data = await response.json() as { topics: Topic[] };
+      const data = await studyApi.topics.update<{ topics: Topic[] }>({ ids, ...options });
       const changed = new Map(data.topics.map((item) => [item.id, item]));
       setTopics((current) => current.map((item) => changed.get(item.id) ?? item));
       setSelectedReviews(new Set());
@@ -368,13 +262,7 @@ export default function StudyTrackerApp() {
   }) {
     setHoursSaving(true);
     try {
-      const response = await fetch("/api/study-hours", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      if (!response.ok) throw new Error("save");
-      const data = await response.json() as { session: StudySession; reviewedTopics: Topic[] };
+      const data = await studyApi.studyHours.log<{ session: StudySession; reviewedTopics: Topic[] }>(input);
       setStudySessions((current) => [data.session, ...current]);
       if (data.reviewedTopics.length) {
         const reviewedById = new Map(data.reviewedTopics.map((topic) => [topic.id, topic]));
@@ -394,8 +282,7 @@ export default function StudyTrackerApp() {
 
   async function deleteStudySession(id: number) {
     try {
-      const response = await fetch(`/api/study-hours?id=${id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("delete");
+      await studyApi.studyHours.remove(id);
       setStudySessions((current) => current.filter((session) => session.id !== id));
       setMessage("Study log removed");
     } catch {
@@ -406,14 +293,12 @@ export default function StudyTrackerApp() {
   async function addTask(input: TaskInput) {
     setTaskAdding(true);
     try {
-      const response = await fetch("/api/tasks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
-      const data = await response.json() as { task?: StudyTask; error?: string };
-      if (!response.ok || !data.task) throw new Error(data.error ?? "save");
-      setTasks((current) => [...current, data.task!]);
+      const data = await studyApi.tasks.create<{ task: StudyTask }>(input);
+      setTasks((current) => [...current, data.task]);
       setMessage(`${subjectName(subjectLookup, input.subjectId)} task added`);
       return true;
     } catch (error) {
-      setMessage(error instanceof Error && error.message !== "save" ? error.message : "Your task could not be saved.");
+      setMessage(apiMessage(error, "Your task could not be saved."));
       return false;
     } finally {
       setTaskAdding(false);
@@ -423,14 +308,12 @@ export default function StudyTrackerApp() {
   async function updateTask(id: number, input: Partial<TaskInput> & { completed?: boolean }) {
     setTaskBusyIds((current) => new Set(current).add(id));
     try {
-      const response = await fetch("/api/tasks", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, ...input }) });
-      const data = await response.json() as { task?: StudyTask; error?: string };
-      if (!response.ok || !data.task) throw new Error(data.error ?? "save");
-      setTasks((current) => current.map((task) => task.id === id ? data.task! : task));
+      const data = await studyApi.tasks.update<{ task: StudyTask }>({ id, ...input });
+      setTasks((current) => current.map((task) => task.id === id ? data.task : task));
       setMessage(input.completed === true ? "Task completed" : input.completed === false ? "Task reopened" : "Task updated");
       return true;
     } catch (error) {
-      setMessage(error instanceof Error && error.message !== "save" ? error.message : "Your task could not be updated.");
+      setMessage(apiMessage(error, "Your task could not be updated."));
       return false;
     } finally {
       setTaskBusyIds((current) => { const next = new Set(current); next.delete(id); return next; });
@@ -440,8 +323,7 @@ export default function StudyTrackerApp() {
   async function deleteTask(id: number) {
     setTaskBusyIds((current) => new Set(current).add(id));
     try {
-      const response = await fetch(`/api/tasks?id=${id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("delete");
+      await studyApi.tasks.remove(id);
       setTasks((current) => current.filter((task) => task.id !== id));
       setMessage("Task deleted");
     } catch {
@@ -454,14 +336,12 @@ export default function StudyTrackerApp() {
   async function addPastPaper(input: PastPaperInput) {
     setPaperSaving(true);
     try {
-      const response = await fetch("/api/past-papers", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
-      const data = await response.json() as { paper?: PastPaper; error?: string };
-      if (!response.ok || !data.paper) throw new Error(data.error ?? "save");
-      setPastPapers((current) => [data.paper!, ...current].sort((a, b) => b.attemptDate.localeCompare(a.attemptDate) || b.id - a.id));
+      const data = await studyApi.pastPapers.create<{ paper: PastPaper }>(input);
+      setPastPapers((current) => [data.paper, ...current].sort((a, b) => b.attemptDate.localeCompare(a.attemptDate) || b.id - a.id));
       setMessage(input.status === "planned" ? "Past paper added to your plan" : `${subjectName(subjectLookup, input.subject)} ${input.paper} logged`);
       return true;
     } catch (error) {
-      setMessage(error instanceof Error && error.message !== "save" ? error.message : "That past paper could not be saved.");
+      setMessage(apiMessage(error, "That past paper could not be saved."));
       return false;
     } finally {
       setPaperSaving(false);
@@ -472,16 +352,14 @@ export default function StudyTrackerApp() {
     setPaperSaving(true);
     setPaperBusyIds((current) => new Set(current).add(id));
     try {
-      const response = await fetch("/api/past-papers", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, ...input }) });
-      const data = await response.json() as { paper?: PastPaper; error?: string };
-      if (!response.ok || !data.paper) throw new Error(data.error ?? "save");
+      const data = await studyApi.pastPapers.update<{ paper: PastPaper }>({ id, ...input });
       setPastPapers((current) => current
-        .map((paper) => paper.id === id ? data.paper! : paper)
+        .map((paper) => paper.id === id ? data.paper : paper)
         .sort((a, b) => b.attemptDate.localeCompare(a.attemptDate) || b.id - a.id));
       setMessage("Past paper updated");
       return true;
     } catch (error) {
-      setMessage(error instanceof Error && error.message !== "save" ? error.message : "That past paper could not be updated.");
+      setMessage(apiMessage(error, "That past paper could not be updated."));
       return false;
     } finally {
       setPaperSaving(false);
@@ -491,20 +369,14 @@ export default function StudyTrackerApp() {
 
   async function savePaperMeta(paperId: string, difficulty: PaperDifficulty | null, resourceUrl: string | null) {
     try {
-      const response = await fetch("/api/paper-meta", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ paperId, difficulty, resourceUrl }),
-      });
-      const data = await response.json() as { meta?: PaperMeta; error?: string };
-      if (!response.ok || !data.meta) throw new Error(data.error ?? "save");
+      const data = await studyApi.paperMeta.save<{ meta: PaperMeta }>({ paperId, difficulty, resourceUrl });
       setPaperMeta((current) => {
         const rest = current.filter((item) => item.paperId !== paperId);
-        return data.meta!.difficulty || data.meta!.resourceUrl ? [...rest, data.meta!] : rest;
+        return data.meta.difficulty || data.meta.resourceUrl ? [...rest, data.meta] : rest;
       });
       return true;
     } catch (error) {
-      setMessage(error instanceof Error && error.message !== "save" ? error.message : "Those paper details could not be saved.");
+      setMessage(apiMessage(error, "Those paper details could not be saved."));
       return false;
     }
   }
@@ -512,8 +384,7 @@ export default function StudyTrackerApp() {
   async function deletePastPaper(id: number) {
     setPaperBusyIds((current) => new Set(current).add(id));
     try {
-      const response = await fetch(`/api/past-papers?id=${id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("delete");
+      await studyApi.pastPapers.remove(id);
       setPastPapers((current) => current.filter((paper) => paper.id !== id));
       setMessage("Past paper removed");
     } catch {
@@ -556,43 +427,43 @@ export default function StudyTrackerApp() {
         </div>
         <nav aria-label="Main navigation">
           <button className={`nav-item ${activeView === "Today" ? "active" : ""}`} onClick={() => selectView("Today")}>
-            <span className="nav-label"><i className="nav-symbol">◉</i>Review board</span>
+            <span className="nav-label"><Icon name="review" className="nav-symbol" />Review board</span>
             {(overdue.length + dueToday.length + dueTaskCount) > 0 && <b>{overdue.length + dueToday.length + dueTaskCount}</b>}
           </button>
           <button className={`nav-item ${activeView === "Tasks" ? "active" : ""}`} onClick={() => selectView("Tasks")}>
-            <span className="nav-label"><i className="nav-symbol task-symbol">✓</i>Tasks</span>
+            <span className="nav-label"><Icon name="tasks" className="nav-symbol task-symbol" />Tasks</span>
             <small>{tasks.filter((task) => !task.completed).length} open</small>
           </button>
           <button className={`nav-item ${activeView === "Hours" ? "active" : ""}`} onClick={() => selectView("Hours")}>
-            <span className="nav-label"><i className="nav-symbol hours-symbol">◷</i>Study hours</span>
+            <span className="nav-label"><Icon name="hours" className="nav-symbol hours-symbol" />Study hours</span>
             <small>{formatStudyTime(todayStudyMinutes)}</small>
           </button>
           <button className={`nav-item ${activeView === "Papers" ? "active" : ""}`} onClick={() => selectView("Papers")}>
-            <span className="nav-label"><i className="nav-symbol paper-symbol">▧</i>Past papers</span>
+            <span className="nav-label"><Icon name="papers" className="nav-symbol paper-symbol" />Past papers</span>
             <small>{donePaperCount ? `${donePaperCount} done` : "Scores"}</small>
           </button>
           <button className={`nav-item ${activeView === "Goals" ? "active" : ""}`} onClick={() => selectView("Goals")}>
-            <span className="nav-label"><i className="nav-symbol goal-symbol">◎</i>Syllabus goals</span>
+            <span className="nav-label"><Icon name="goals" className="nav-symbol goal-symbol" />Syllabus goals</span>
             <small>Timeline</small>
           </button>
           <button className={`nav-item ${activeView === "Exams" ? "active" : ""}`} onClick={() => selectView("Exams")}>
-            <span className="nav-label"><i className="nav-symbol goal-symbol">◈</i>Exams</span>
+            <span className="nav-label"><Icon name="exams" className="nav-symbol goal-symbol" />Exams</span>
             <small>Countdown</small>
           </button>
           <button className={`nav-item ${activeView === "Calendar" ? "active" : ""}`} onClick={() => selectView("Calendar")}>
-            <span className="nav-label"><i className="nav-symbol utility-symbol">▦</i>Calendar</span>
+            <span className="nav-label"><Icon name="calendar" className="nav-symbol utility-symbol" />Calendar</span>
             <small>Plan</small>
           </button>
           <button className={`nav-item ${activeView === "Flashcards" ? "active" : ""}`} onClick={() => selectView("Flashcards")}>
-            <span className="nav-label"><i className="nav-symbol utility-symbol">◇</i>Flashcards</span>
+            <span className="nav-label"><Icon name="flashcards" className="nav-symbol utility-symbol" />Flashcards</span>
             <small>Study</small>
           </button>
           <button className={`nav-item ${activeView === "Notes" ? "active" : ""}`} onClick={() => selectView("Notes")}>
-            <span className="nav-label"><i className="nav-symbol utility-symbol">▤</i>Notes library</span>
+            <span className="nav-label"><Icon name="notes" className="nav-symbol utility-symbol" />Notes library</span>
             <small>Files</small>
           </button>
           <button className={`nav-item ${activeView === "Subjects" ? "active" : ""}`} onClick={() => selectView("Subjects")}>
-            <span className="nav-label"><i className="nav-symbol utility-symbol">⚙</i>Subjects</span>
+            <span className="nav-label"><Icon name="subjects" className="nav-symbol utility-symbol" />Subjects</span>
             <small>Setup</small>
           </button>
           <p className="nav-section">SUBJECTS</p>
@@ -613,7 +484,7 @@ export default function StudyTrackerApp() {
           <span className="pulse-dot" />
           <div><strong>Auto scheduling is on</strong><p>Goals → daily plan<br />Learning → 3 days<br />Practising → 7 days<br />Covered → 10 days<br />Exam ready → 14 days</p></div>
         </div>
-        <div className="save-state"><span>●</span> Your progress saves automatically</div>
+        <div className="save-state"><span className="save-dot" />  Your progress saves automatically</div>
         {/* Plain form post so signing out works without client-side auth state. */}
         <form action="/auth/signout" method="post" className="sidebar-account">
           <button type="submit">Sign out</button>
@@ -628,9 +499,9 @@ export default function StudyTrackerApp() {
             <p className="muted">{query ? `Matching “${query}” across your syllabus.` : activeView === "Today" ? "Know exactly what to review, without hunting through rows." : activeView === "Tasks" ? "Keep subject work and everything else on one list." : activeView === "Hours" ? "Log your YPT time and see your daily study rhythm." : activeView === "Papers" ? "Log every attempt, watch the scores move, and see where marks keep going." : activeView === "Goals" ? "Turn a finish date into a chapter-by-chapter plan." : activeView === "Exams" ? "Pick the topics an assessment actually covers, and get a revision run-up." : activeView === "Calendar" ? "See reviews, tasks, study sessions, milestones and deadlines in one place." : activeView === "Flashcards" ? "Create focused decks and test your recall." : activeView === "Notes" ? "Keep your study files organised by subject and stage." : activeView === "Subjects" ? "Add the subjects you study, and set how each one is structured." : "Work chapter by chapter, or update one syllabus point at a time."}</p>
           </div>
           {!(["Tasks", "Hours", "Papers", "Goals", "Exams", "Calendar", "Flashcards", "Notes", "Subjects"] as ActiveView[]).includes(activeView) && <label className="search-box">
-            <span className="search-icon">⌕</span>
+            <Icon name="search" className="search-icon" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search topics" placeholder="Search topic, chapter or code" />
-            {query && <button onClick={() => setQuery("")} aria-label="Clear search">×</button>}
+            {query && <button onClick={() => setQuery("")} aria-label="Clear search"><Icon name="close" /></button>}
           </label>}
         </header>
 
@@ -679,7 +550,7 @@ export default function StudyTrackerApp() {
             </section>
 
             <section className="hours-glance">
-              <div className="hours-glance-mark">◷</div>
+              <div className="hours-glance-mark"><Icon name="hours" /></div>
               <div><p className="eyebrow">STUDY HOURS</p><strong>{formatStudyTime(todayStudyMinutes)} today</strong><span>{formatStudyTime(weekStudyMinutes)} in the last 7 days</span></div>
               <button onClick={() => setActiveView("Hours")}>{todayStudyMinutes ? "Add more time" : "Log today’s YPT time"}</button>
             </section>
@@ -718,7 +589,7 @@ export default function StudyTrackerApp() {
                   })}
                 </div>
               ) : (
-                <div className="empty-state compact"><span className="success-ring">✓</span><strong>No reviews in this queue</strong><p>Choose a subject and change a status to start its schedule.</p></div>
+                <div className="empty-state compact"><span className="success-ring"><Icon name="check" /></span><strong>No reviews in this queue</strong><p>Choose a subject and change a status to start its schedule.</p></div>
               )}
               {selectedReviews.size > 0 && (
                 <div className="bulk-review-bar" aria-label="Bulk review actions">
@@ -751,7 +622,7 @@ export default function StudyTrackerApp() {
         )}
       </section>
 
-      {message && <div className="toast" role="status"><span>✓</span>{message}</div>}
+      {message && <div className="toast" role="status"><span><Icon name="check" /></span>{message}</div>}
       {timelineTopic && <TopicTimeline topic={timelineTopic} topics={topics} subjects={subjectLookup} onClose={() => setTimelineTopicId(null)} onMessage={setMessage} onTopicUpdated={(topicId, updatedAt) => setTopics((current) => current.map((topic) => topic.id === topicId ? { ...topic, updatedAt } : topic))} />}
       {/* Mobile only. The four most-used destinations, plus the drawer for the
           rest — ten sidebar entries do not fit across a phone. */}
@@ -761,7 +632,7 @@ export default function StudyTrackerApp() {
           aria-current={activeView === "Today" ? "page" : undefined}
           onClick={() => selectView("Today")}
         >
-          <i aria-hidden="true">◉</i>
+          <Icon name="review" />
           <span>Today</span>
           {overdue.length + dueToday.length + dueTaskCount > 0 && <b>{overdue.length + dueToday.length + dueTaskCount}</b>}
         </button>
@@ -770,7 +641,7 @@ export default function StudyTrackerApp() {
           aria-current={activeView === "Tasks" ? "page" : undefined}
           onClick={() => selectView("Tasks")}
         >
-          <i aria-hidden="true">✓</i>
+          <Icon name="tasks" />
           <span>Tasks</span>
         </button>
         <button
@@ -778,7 +649,7 @@ export default function StudyTrackerApp() {
           aria-current={activeView === "Hours" ? "page" : undefined}
           onClick={() => selectView("Hours")}
         >
-          <i aria-hidden="true">◷</i>
+          <Icon name="hours" />
           <span>Hours</span>
         </button>
         <button
@@ -786,7 +657,7 @@ export default function StudyTrackerApp() {
           aria-current={activeView === "Papers" ? "page" : undefined}
           onClick={() => selectView("Papers")}
         >
-          <i aria-hidden="true">▧</i>
+          <Icon name="papers" />
           <span>Papers</span>
         </button>
         <button
@@ -795,7 +666,7 @@ export default function StudyTrackerApp() {
           aria-controls="main-navigation"
           onClick={() => setMenuOpen((open) => !open)}
         >
-          <i aria-hidden="true">☰</i>
+          <Icon name="menu" />
           <span>More</span>
         </button>
       </nav>
@@ -919,7 +790,7 @@ function SubjectView({ subject, subjects, topics, today, openChapters, updating,
             <article className={`chapter-card ${isOpen ? "open" : ""}`} key={chapter.id}>
               <header className="chapter-header">
                 <button className="chapter-toggle" onClick={() => toggleChapter(chapter.id)} aria-expanded={isOpen}>
-                  <span className="chevron">›</span>
+                  <Icon name="chevron-right" className="chevron" />
                   <span className="chapter-code">{chapter.code}</span>
                   <span className="chapter-title"><small>{chapter.section ?? chapter.paper ?? subject.name}</small><strong>{chapter.title}</strong></span>
                 </button>

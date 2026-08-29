@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { Topic } from "./study-tracker-app";
 import { SUBJECT_TONES, type Subject, type SubjectInput, type SubjectTone } from "./subjects";
+import Icon from "./icons";
+import { api, apiMessage } from "./data/api";
+import { studyApi } from "./data/endpoints";
 
 type CatalogueSubject = { qualification: string; board: string; subject: string; code: string; papers: number; hasStages: boolean };
 
@@ -232,21 +235,15 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
   const [pickSubject, setPickSubject] = useState("");
 
   useEffect(() => {
-    fetch("/api/paper-catalogue?directory=1")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ subjects: CatalogueSubject[] }>;
-      })
+    studyApi.paperCatalogue
+      .directory<{ subjects: CatalogueSubject[] }>()
       .then((data) => setDirectory(data.subjects))
       .catch(() => null);
   }, []);
 
   useEffect(() => {
-    fetch("/api/syllabus")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ versions: SyllabusVersion[] }>;
-      })
+    studyApi.syllabus
+      .versions<{ versions: SyllabusVersion[] }>()
       .then((data) => setVersions(data.versions))
       .catch(() => null);
   }, []);
@@ -266,8 +263,7 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
     setOfficialLoading(true);
     setOfficialChapters([]);
     try {
-      const response = await fetch(`/api/syllabus?content=${encodeURIComponent(version.recordId)}`);
-      const data = await response.json() as { content?: SyllabusContentRow[] };
+      const data = await studyApi.syllabus.content<{ content?: SyllabusContentRow[] }>(version.recordId);
       const content = data.content ?? [];
       const chapters = content.filter((row) => row.kind === "chapter").map((chapter) => ({
         code: chapter.code,
@@ -317,8 +313,7 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
   }
 
   async function refresh() {
-    const response = await fetch("/api/subjects");
-    const data = await response.json() as { subjects?: Subject[] };
+    const data = await api.get<{ subjects?: Subject[] }>(studyApi.subjects.path);
     if (data.subjects) onChanged(data.subjects);
   }
 
@@ -339,25 +334,17 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
     let createdSubject: Subject | null = null;
     let creationCompleted = false;
     try {
-      const response = await fetch("/api/subjects", {
-        method: editingId ? "PATCH" : "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(editingId ? { id: editingId, ...draft } : draft),
-      });
-      const data = await response.json() as { subject?: Subject; error?: string };
-      if (!response.ok || !data.subject) throw new Error(data.error ?? "save");
+      const data = editingId
+        ? await studyApi.subjects.update<{ subject: Subject }>({ id: editingId, ...draft })
+        : await studyApi.subjects.create<{ subject: Subject }>(draft);
       createdSubject = data.subject;
 
       let importSummary = "";
       if (!editingId && prepared) {
         const orphans = prepared.rows.filter((row) => row.kind === "point" && row.parentCode && !prepared.rows.some((other) => other.kind === "chapter" && other.code === row.parentCode)).length;
-        const topicsResponse = await fetch("/api/topics", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ subjectId: data.subject.id, topics: prepared.rows }),
+        const topicsData = await studyApi.topics.import<{ imported: { chapters: number; points: number } }>({
+          subjectId: data.subject.id, topics: prepared.rows,
         });
-        const topicsData = await topicsResponse.json() as { imported?: { chapters: number; points: number }; error?: string };
-        if (!topicsResponse.ok || !topicsData.imported) throw new Error(topicsData.error ?? "import");
         const notes = [prepared.skipped ? `${prepared.skipped} row${prepared.skipped === 1 ? "" : "s"} skipped` : "", orphans ? `${orphans} point${orphans === 1 ? "" : "s"} had no matching chapter` : ""].filter(Boolean);
         importSummary = `${topicsData.imported.chapters} chapters and ${topicsData.imported.points} points imported${notes.length ? ` (${notes.join(", ")})` : ""}`;
         creationCompleted = true;
@@ -373,10 +360,10 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
       setImportMode("text");
     } catch (error) {
       if (!editingId && createdSubject && !creationCompleted) {
-        await fetch(`/api/subjects?id=${encodeURIComponent(createdSubject.id)}`, { method: "DELETE" }).catch(() => null);
+        await studyApi.subjects.remove(createdSubject.id).catch(() => null);
       }
       const fallback = !editingId && createdSubject ? "The syllabus could not be imported, so the subject was not added." : "That subject could not be saved.";
-      onMessage(error instanceof Error && !["save", "import"].includes(error.message) ? error.message : fallback);
+      onMessage(apiMessage(error, fallback));
     } finally {
       setSaving(false);
       setImporting(false);
@@ -385,12 +372,7 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
 
   async function toggleArchived(subject: Subject) {
     try {
-      const response = await fetch("/api/subjects", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id: subject.id, archived: !subject.archived }),
-      });
-      if (!response.ok) throw new Error("save");
+      await studyApi.subjects.update({ id: subject.id, archived: !subject.archived });
       await refresh();
       onMessage(subject.archived ? `${subject.name} restored` : `${subject.name} archived`);
     } catch {
@@ -405,12 +387,7 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
     if (target < 0 || target >= ordered.length) return;
     [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
     try {
-      const response = await fetch("/api/subjects", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ order: ordered.map((item) => item.id) }),
-      });
-      if (!response.ok) throw new Error("save");
+      await studyApi.subjects.update({ order: ordered.map((item) => item.id) });
       await refresh();
     } catch {
       onMessage("That order could not be saved.");
@@ -419,8 +396,7 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
 
   async function remove(subject: Subject) {
     try {
-      const response = await fetch(`/api/subjects?id=${encodeURIComponent(subject.id)}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("delete");
+      await studyApi.subjects.remove(subject.id);
       await refresh();
       onMessage(`${subject.name} and its data were removed`);
       setConfirmDelete(null);
@@ -458,13 +434,9 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
     const orphans = rows.filter((row) => row.kind === "point" && row.parentCode && !rows.some((other) => other.kind === "chapter" && other.code === row.parentCode)).length;
     setImporting(true);
     try {
-      const response = await fetch("/api/topics", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ subjectId: subject.id, topics: rows }),
+      const data = await studyApi.topics.import<{ imported: { chapters: number; points: number } }>({
+        subjectId: subject.id, topics: rows,
       });
-      const data = await response.json() as { imported?: { chapters: number; points: number }; error?: string };
-      if (!response.ok || !data.imported) throw new Error(data.error ?? "import");
       await refresh();
       const notes = [skipped ? `${skipped} row${skipped === 1 ? "" : "s"} skipped` : "", orphans ? `${orphans} point${orphans === 1 ? "" : "s"} had no matching chapter` : ""].filter(Boolean);
       onMessage(`${subject.name}: ${data.imported.chapters} chapters, ${data.imported.points} points imported${notes.length ? ` (${notes.join(", ")})` : ""}`);
@@ -472,7 +444,7 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
       setImportText("");
       setOfficialChapters([]);
     } catch (error) {
-      onMessage(error instanceof Error && error.message !== "import" ? error.message : "That syllabus could not be imported.");
+      onMessage(apiMessage(error, "That syllabus could not be imported."));
     } finally {
       setImporting(false);
     }
@@ -589,7 +561,7 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
                 const next = { ...draft.paperStages };
                 delete next[paper];
                 setDraft({ ...draft, paperStages: next });
-              }}>×</button>
+              }}><Icon name="close" /></button>
             </span>)}
           </div>
           <div className="custom-label-input">
@@ -671,8 +643,8 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
               </small>
             </div>
             <div className="subject-row-order">
-              <button onClick={() => move(subject, -1)} disabled={index === 0} aria-label={`Move ${subject.name} up`}>↑</button>
-              <button onClick={() => move(subject, 1)} disabled={index === ordered.length - 1} aria-label={`Move ${subject.name} down`}>↓</button>
+              <button onClick={() => move(subject, -1)} disabled={index === 0} aria-label={`Move ${subject.name} up`}><Icon name="arrow-up" /></button>
+              <button onClick={() => move(subject, 1)} disabled={index === ordered.length - 1} aria-label={`Move ${subject.name} down`}><Icon name="arrow-down" /></button>
             </div>
             <div className="subject-row-actions">
               {subject.stages.length > 0 && <button onClick={() => {
@@ -687,7 +659,7 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
               }}>{topicCount ? "Replace syllabus" : "Import syllabus"}</button>}
               <button onClick={() => startEdit(subject)}>Edit</button>
               <button onClick={() => toggleArchived(subject)}>{subject.archived ? "Restore" : "Archive"}</button>
-              <button className="delete" onClick={() => setConfirmDelete(subject.id)} aria-label={`Delete ${subject.name}`}>×</button>
+              <button className="delete" onClick={() => setConfirmDelete(subject.id)} aria-label={`Delete ${subject.name}`}><Icon name="close" /></button>
             </div>
             {importFor === subject.id && (() => {
               const official = subject.syllabusCode ? officialFor.get(subject.syllabusCode) : undefined;

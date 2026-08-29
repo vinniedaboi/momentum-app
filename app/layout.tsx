@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { Fraunces, Geist_Mono, Nunito_Sans } from "next/font/google";
+import { Fraunces, Nunito_Sans } from "next/font/google";
 import { headers } from "next/headers";
+import "./tokens.css";
 import "./globals.css";
 import "./features.css";
 import "./friendly-theme.css";
@@ -15,11 +16,6 @@ const nunito = Nunito_Sans({
 
 const fraunces = Fraunces({
   variable: "--font-friendly-display",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
@@ -47,7 +43,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${nunito.variable} ${fraunces.variable} ${geistMono.variable} antialiased`}
+        className={`${nunito.variable} ${fraunces.variable} antialiased`}
       >
         {children}
       </body>

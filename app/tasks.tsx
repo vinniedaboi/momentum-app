@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { subjectName, type Subject } from "./subjects";
+import Icon from "./icons";
 
 export type TaskPriority = "low" | "medium" | "high";
 export const TASK_LABEL_PRESETS = ["Homework", "Revision", "Past Paper", "Test Prep", "Coursework", "Admin", "Personal"] as const;
@@ -109,7 +110,7 @@ export default function TasksView({ tasks, subjects, today, adding, busyIds, onA
           <div>{(["open", "completed", "all"] as const).map((value) => <button className={filter === value ? "active" : ""} onClick={() => setFilter(value)} key={value}>{value === "open" ? "Open" : value === "completed" ? "Done" : "All"}</button>)}</div>
         </div>
       </div>
-      {visible.length ? <div className="task-list">{visible.map((task) => <TaskRow key={task.id} task={task} subjects={options} lookup={lookup} today={today} busy={busyIds.has(task.id)} onUpdate={onUpdate} onDelete={onDelete} />)}</div> : <div className="empty-state compact"><span className="success-ring">✓</span><strong>{filter === "completed" ? "No completed tasks yet" : "Your task list is clear"}</strong><p>Add a subject task above whenever something comes up.</p></div>}
+      {visible.length ? <div className="task-list">{visible.map((task) => <TaskRow key={task.id} task={task} subjects={options} lookup={lookup} today={today} busy={busyIds.has(task.id)} onUpdate={onUpdate} onDelete={onDelete} />)}</div> : <div className="empty-state compact"><span className="success-ring"><Icon name="check" /></span><strong>{filter === "completed" ? "No completed tasks yet" : "Your task list is clear"}</strong><p>Add a subject task above whenever something comes up.</p></div>}
     </section>
   </div>;
 }
@@ -142,12 +143,12 @@ function TaskRow({ task, subjects, lookup, today, busy, onUpdate, onDelete }: {
 
   const dateState = !task.completed && task.dueDate < today ? "overdue" : task.dueDate === today ? "due" : "soon";
   return <article className={`task-row ${task.completed ? "completed" : ""}`}>
-    <button className="task-check" aria-label={task.completed ? `Reopen ${task.title}` : `Complete ${task.title}`} disabled={busy} onClick={() => onUpdate(task.id, { completed: !task.completed })}>{task.completed ? "✓" : ""}</button>
+    <button className="task-check" aria-label={task.completed ? `Reopen ${task.title}` : `Complete ${task.title}`} disabled={busy} onClick={() => onUpdate(task.id, { completed: !task.completed })}>{task.completed ? <Icon name="check" /> : null}</button>
     <i className={`subject-pin ${lookup.get(task.subjectId)?.tone ?? "slate"}`} />
     <div className="task-copy"><strong>{task.title}</strong><span>{subjectName(lookup, task.subjectId)}</span>{task.labels.length > 0 && <div className="task-labels">{task.labels.map((label) => <b key={label}>{label}</b>)}</div>}</div>
     <span className={`priority-badge ${task.priority}`}>{task.priority}</span>
     <span className={`date-badge ${dateState}`}>{readableDate(task.dueDate, today)}</span>
-    <div className="task-row-actions"><button disabled={busy} onClick={() => { setDraft({ title: task.title, subjectId: task.subjectId, dueDate: task.dueDate, priority: task.priority, labels: task.labels }); setEditing(true); }}>Edit</button><button className="delete" disabled={busy} onClick={() => onDelete(task.id)} aria-label={`Delete ${task.title}`}>×</button></div>
+    <div className="task-row-actions"><button disabled={busy} onClick={() => { setDraft({ title: task.title, subjectId: task.subjectId, dueDate: task.dueDate, priority: task.priority, labels: task.labels }); setEditing(true); }}>Edit</button><button className="delete" disabled={busy} onClick={() => onDelete(task.id)} aria-label={`Delete ${task.title}`}><Icon name="close" /></button></div>
   </article>;
 }
 
@@ -190,6 +191,6 @@ function LabelPicker({ labels, onChange, compact = false }: { labels: string[]; 
   return <div className={`task-label-picker ${compact ? "compact" : ""}`}>
     <div className="task-label-presets">{TASK_LABEL_PRESETS.map((label) => <button type="button" aria-pressed={labels.includes(label)} className={labels.includes(label) ? "active" : ""} onClick={() => toggle(label)} key={label}>{label}</button>)}</div>
     <div className="custom-label-input"><input value={custom} onChange={(event) => setCustom(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustom(); } }} maxLength={24} placeholder="Custom label" aria-label="Custom task label" /><button type="button" onClick={addCustom} disabled={!custom.trim() || labels.length >= 5}>Add</button></div>
-    {labels.length > 0 && <div className="selected-task-labels">{labels.map((label) => <button type="button" onClick={() => toggle(label)} aria-label={`Remove ${label} label`} key={label}>{label}<span>×</span></button>)}</div>}
+    {labels.length > 0 && <div className="selected-task-labels">{labels.map((label) => <button type="button" onClick={() => toggle(label)} aria-label={`Remove ${label} label`} key={label}>{label}<Icon name="close" /></button>)}</div>}
   </div>;
 }

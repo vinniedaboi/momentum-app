@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { type Subject } from "./subjects";
 import { getTopicStage, type SyllabusStage } from "./syllabus-stage";
 import type { Topic } from "./study-tracker-app";
+import Icon from "./icons";
+import { api, apiMessage } from "./data/api";
+import { studyApi } from "./data/endpoints";
 
 
 type NoteFile = {
@@ -49,11 +52,7 @@ export default function NotesView({ topics, subjects, onMessage }: { topics: Top
   const chapterById = useMemo(() => new Map(topics.filter((topic) => topic.kind === "chapter").map((topic) => [topic.id, topic])), [topics]);
 
   useEffect(() => {
-    fetch("/api/notes")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ notes: NoteFile[] }>;
-      })
+    api.get<{ notes: NoteFile[] }>(studyApi.notes.path)
       .then((data) => setNotes(data.notes))
       .catch(() => onMessage("Your notes library could not load."));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -68,15 +67,13 @@ export default function NotesView({ topics, subjects, onMessage }: { topics: Top
     form.set("stage", stage);
     form.set("chapterId", chapterId);
     try {
-      const response = await fetch("/api/notes", { method: "POST", body: form });
-      const data = await response.json() as { note?: NoteFile; error?: string };
-      if (!response.ok || !data.note) throw new Error(data.error ?? "upload");
-      setNotes((current) => [data.note!, ...current]);
+      const { note } = await studyApi.notes.upload<{ note: NoteFile }>(form);
+      setNotes((current) => [note, ...current]);
       setFile(null);
       if (inputRef.current) inputRef.current.value = "";
-      onMessage(`${data.note.originalName} uploaded`);
+      onMessage(`${note.originalName} uploaded`);
     } catch (error) {
-      onMessage(error instanceof Error ? error.message : "Your notes could not be uploaded.");
+      onMessage(apiMessage(error, "Your notes could not be uploaded."));
     } finally {
       setUploading(false);
     }
@@ -85,8 +82,7 @@ export default function NotesView({ topics, subjects, onMessage }: { topics: Top
   async function remove(note: NoteFile) {
     if (!window.confirm(`Delete ${note.originalName}?`)) return;
     try {
-      const response = await fetch(`/api/notes?id=${note.id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("delete");
+      await studyApi.notes.remove(note.id);
       setNotes((current) => current.filter((item) => item.id !== note.id));
       onMessage("Note removed");
     } catch {
@@ -112,7 +108,7 @@ export default function NotesView({ topics, subjects, onMessage }: { topics: Top
       <div className="panel-heading"><p className="eyebrow">NOTES LIBRARY</p><h3>Upload study notes</h3><p>Choose the exact syllabus—and optionally the chapter—where each file belongs.</p></div>
       <label className={`file-drop ${file ? "has-file" : ""}`}>
         <input ref={inputRef} type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md,.png,.jpg,.jpeg,.webp" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
-        <i>{file ? "✓" : "↑"}</i><strong>{file ? file.name : "Choose a notes file"}</strong><span>{file ? fileSize(file.size) : "Up to 20 MB"}</span>
+        <i><Icon name={file ? "check" : "upload"} /></i><strong>{file ? file.name : "Choose a notes file"}</strong><span>{file ? fileSize(file.size) : "Up to 20 MB"}</span>
       </label>
       <div className="note-label-fields syllabus-placement">
         <label><span>Upload to syllabus</span><select value={syllabus} onChange={(event) => { setSyllabus(event.target.value); setChapterId(""); }}><option value="">General notes / no syllabus</option>{syllabuses.map((track) => <option value={track.value} key={track.value}>{track.name} — {track.stage}</option>)}</select></label>
@@ -126,8 +122,8 @@ export default function NotesView({ topics, subjects, onMessage }: { topics: Top
       {filtered.length ? <div className="note-grid">{filtered.map((note) => <article key={note.id}>
         <div className={`note-file-icon ${fileKind(note).toLowerCase()}`}>{fileKind(note).slice(0, 1)}</div>
         <div className="note-file-copy"><strong title={note.originalName}>{note.originalName}</strong><span title={noteLocation(note)}>{noteLocation(note)}</span><small>{fileSize(note.sizeBytes)} · {new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "short", year: "numeric" }).format(new Date(note.createdAt))}</small></div>
-        <a href={`/api/notes?id=${note.id}`}>Download</a><button onClick={() => remove(note)} aria-label={`Delete ${note.originalName}`}>×</button>
-      </article>)}</div> : <div className="empty-state compact"><span className="notes-empty-icon">↑</span><strong>No notes here yet</strong><p>Upload a file or change the subject filter.</p></div>}
+        <a href={`/api/notes?id=${note.id}`}>Download</a><button onClick={() => remove(note)} aria-label={`Delete ${note.originalName}`}><Icon name="close" /></button>
+      </article>)}</div> : <div className="empty-state compact"><span className="notes-empty-icon"><Icon name="upload" /></span><strong>No notes here yet</strong><p>Upload a file or change the subject filter.</p></div>}
     </section>
   </div>;
 }

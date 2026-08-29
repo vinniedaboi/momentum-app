@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import type { SyllabusStage } from "./syllabus-stage";
+import Icon from "./icons";
+import { studyApi } from "./data/endpoints";
 
 export const PAPER_SESSIONS = ["Feb/March", "May/June", "Oct/Nov", "Specimen", "Other"] as const;
 export type PaperSession = (typeof PAPER_SESSIONS)[number];
@@ -215,11 +217,8 @@ export default function PastPapersView({ papers, meta, today, saving, busyIds, o
   useEffect(() => {
     const params = new URLSearchParams({ facets: "1" });
     if (qualification) params.set("qualification", qualification);
-    fetch(`/api/paper-catalogue?${params}`)
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ facets: Facets }>;
-      })
+    studyApi.paperCatalogue
+      .search<{ facets: Facets }>(params)
       .then((data) => setFacets(data.facets))
       .catch(() => setLoadError(true));
   }, [qualification]);
@@ -247,11 +246,8 @@ export default function PastPapersView({ papers, meta, today, saving, busyIds, o
     if (difficulties.size) params.set("difficulties", [...difficulties].join(","));
     if (attemptedOnly) params.set("ids", attemptedIds.join(","));
 
-    fetch(`/api/paper-catalogue?${params}`)
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ total: number; rows: CatalogueRow[] }>;
-      })
+    studyApi.paperCatalogue
+      .search<{ total: number; rows: CatalogueRow[] }>(params)
       .then((data) => { setRows(data.rows); setTotal(data.total); setLoadError(false); })
       .catch(() => setLoadError(true))
       .finally(() => setLoadedKey(requestKey));
@@ -370,9 +366,9 @@ export default function PastPapersView({ papers, meta, today, saving, busyIds, o
 
       <div className="paper-filters" aria-label="Filter papers">
         <label className="paper-search">
-          <span className="search-icon">⌕</span>
+          <Icon name="search" className="search-icon" />
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search paper or code, e.g. 9709" aria-label="Search papers" />
-          {query && <button onClick={() => setQuery("")} aria-label="Clear search">×</button>}
+          {query && <button onClick={() => setQuery("")} aria-label="Clear search"><Icon name="close" /></button>}
         </label>
         <select value={qualification} onChange={(event) => { setQualification(event.target.value); setSubject(""); clearChips(); setPage(1); }} aria-label="Filter by qualification">
           {(facets?.qualifications ?? [{ value: DEFAULT_QUALIFICATION, count: 0 }]).map((item) => (
@@ -787,7 +783,7 @@ function PaperDetail({ row, attempts, override, today, saving, busyIds, onAdd, o
           </div>
           <div className="paper-row-actions">
             <button disabled={busyIds.has(attempt.id)} onClick={() => startEdit(attempt)}>Edit</button>
-            <button className="delete" disabled={busyIds.has(attempt.id)} onClick={() => onDelete(attempt.id)} aria-label="Delete attempt">×</button>
+            <button className="delete" disabled={busyIds.has(attempt.id)} onClick={() => onDelete(attempt.id)} aria-label="Delete attempt"><Icon name="close" /></button>
           </div>
         </article>;
       })}
@@ -815,7 +811,7 @@ function AttemptRow({ attempt, busy, onDelete }: {
     </div>
     <span className={`grade-badge ${gradeTone(grade)}`}>{grade}{!attempt.grade && <em>est</em>}</span>
     <div className="paper-row-actions">
-      <button className="delete" disabled={busy} onClick={() => onDelete(attempt.id)} aria-label="Delete attempt">×</button>
+      <button className="delete" disabled={busy} onClick={() => onDelete(attempt.id)} aria-label="Delete attempt"><Icon name="close" /></button>
     </div>
   </article>;
 }
@@ -849,7 +845,7 @@ function ManualAttemptForm({ today, saving, onClose, onAdd }: {
   return <div className="timeline-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <aside className="topic-timeline-drawer" role="dialog" aria-modal="true" aria-labelledby="manual-paper-title">
       <header>
-        <button className="timeline-close" onClick={onClose} aria-label="Close">×</button>
+        <button className="timeline-close" onClick={onClose} aria-label="Close"><Icon name="close" /></button>
         <p className="eyebrow">NOT IN THE CATALOGUE</p>
         <h3 id="manual-paper-title">Log any other paper</h3>
         <span>School mocks, specimen papers, or anything the catalogue is missing.</span>
@@ -934,7 +930,7 @@ function WeakTopicPicker({ topics, onChange }: { topics: string[]; onChange: (to
       <button type="button" onClick={addCustom} disabled={!custom.trim() || topics.length >= 8}>Add</button>
     </div>
     {topics.length > 0 && <div className="selected-task-labels">
-      {topics.map((topic) => <button type="button" key={topic} onClick={() => toggleTopic(topic)} aria-label={`Remove ${topic}`}>{topic}<span>×</span></button>)}
+      {topics.map((topic) => <button type="button" key={topic} onClick={() => toggleTopic(topic)} aria-label={`Remove ${topic}`}>{topic}<Icon name="close" /></button>)}
     </div>}
   </div>;
 }

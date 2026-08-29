@@ -4,6 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import type { Topic } from "./study-tracker-app";
 import { subjectName, type Subject } from "./subjects";
 import { getTopicStage, type SyllabusStage } from "./syllabus-stage";
+import Icon from "./icons";
 
 export type StudySession = {
   id: number;
@@ -207,7 +208,7 @@ export default function StudyHoursView({
                   <div className="study-topic-chapter">
                     <input type="checkbox" checked={chapterSelected} onChange={() => toggleWholeChapter(chapter)} aria-label={`Select whole chapter ${chapter.title}`} />
                     <button type="button" onClick={() => toggleChapterOpen(chapter.id)} aria-expanded={open}>
-                      <i>{open ? "⌄" : "›"}</i><span><small>{chapter.code}</small><strong>{chapter.title}</strong></span><b>{chapterSelected ? "Whole chapter" : selectedChildren ? `${selectedChildren}/${children.length}` : children.length}</b>
+                      <i><Icon name={open ? "chevron-down" : "chevron-right"} /></i><span><small>{chapter.code}</small><strong>{chapter.title}</strong></span><b>{chapterSelected ? "Whole chapter" : selectedChildren ? `${selectedChildren}/${children.length}` : children.length}</b>
                     </button>
                   </div>
                   {open && <div className="study-topic-points">
@@ -247,9 +248,9 @@ export default function StudyHoursView({
             <i className={`subject-pin ${toneFor(lookup, session.subjectId)}`} />
             <div className="session-copy"><strong>{subjectName(lookup, session.subjectId)}</strong><span>{session.note ?? "No note"}</span>{session.topics.length > 0 && <div className="session-topics"><em>Counted as review</em>{session.topics.slice(0, 2).map((topic) => <i key={topic.id}>{topic.code} · {topic.title}</i>)}{session.topics.length > 2 && <b>+{session.topics.length - 2} more</b>}</div>}</div>
             <b className="session-duration">{formatStudyTime(session.minutes)}</b>
-            <button className="delete-session" onClick={() => onDelete(session.id)} aria-label={`Delete ${formatStudyTime(session.minutes)} entry from ${longDate(session.studyDate)}`}>×</button>
+            <button className="delete-session" onClick={() => onDelete(session.id)} aria-label={`Delete ${formatStudyTime(session.minutes)} entry from ${longDate(session.studyDate)}`}><Icon name="close" /></button>
           </article>
-        ))}</div> : <div className="empty-state compact"><span className="hours-empty-icon">◷</span><strong>No study hours logged yet</strong><p>Add today’s YPT time with the quick log above.</p></div>}
+        ))}</div> : <div className="empty-state compact"><span className="hours-empty-icon"><Icon name="hours" /></span><strong>No study hours logged yet</strong><p>Add today’s YPT time with the quick log above.</p></div>}
       </section>
     </div>
   );

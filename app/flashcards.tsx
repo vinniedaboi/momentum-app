@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent 
 import { type Subject } from "./subjects";
 import { getTopicStage, type SyllabusStage } from "./syllabus-stage";
 import type { Topic } from "./study-tracker-app";
+import Icon from "./icons";
+import { api } from "./data/api";
+import { studyApi } from "./data/endpoints";
 
 
 type ChapterGroup = { key: string; code: string; title: string; chapters: Topic[] };
@@ -176,11 +179,7 @@ export default function FlashcardsView({ topics, subjects, onMessage }: { topics
   const chapterById = useMemo(() => new Map(topics.filter((topic) => topic.kind === "chapter").map((topic) => [topic.id, topic])), [topics]);
 
   useEffect(() => {
-    fetch("/api/flashcards")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ decks: FlashcardDeck[] }>;
-      })
+    api.get<{ decks: FlashcardDeck[] }>(studyApi.flashcards.path)
       .then((data) => {
         setDecks(data.decks);
         if (data.decks[0]) setSelectedDeckId(data.decks[0].id);
@@ -239,14 +238,11 @@ export default function FlashcardsView({ topics, subjects, onMessage }: { topics
     };
   }, [sessionResults]);
 
-  async function send(body: Record<string, unknown>, method = "POST") {
-    const response = await fetch("/api/flashcards", {
-      method,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = await response.json() as FlashcardResponse;
-    if (!response.ok || !data.decks) throw new Error(data.error ?? "save");
+  async function send(body: Record<string, unknown>, method: "POST" | "PATCH" = "POST") {
+    const data = method === "PATCH"
+      ? await studyApi.flashcards.rate<FlashcardResponse>(body)
+      : await studyApi.flashcards.send<FlashcardResponse>(body);
+    if (!data.decks) throw new Error("save");
     setDecks(data.decks);
     return data;
   }
@@ -446,9 +442,8 @@ export default function FlashcardsView({ topics, subjects, onMessage }: { topics
   async function remove(kind: "deck" | "card", id: number) {
     if (!window.confirm(kind === "deck" ? "Delete this deck and all its cards?" : "Delete this flashcard?")) return;
     try {
-      const response = await fetch(`/api/flashcards?kind=${kind}&id=${id}`, { method: "DELETE" });
-      const data = await response.json() as { decks?: FlashcardDeck[] };
-      if (!response.ok || !data.decks) throw new Error("delete");
+      const data = await studyApi.flashcards.remove<{ decks?: FlashcardDeck[] }>(kind, id);
+      if (!data.decks) throw new Error("delete");
       setDecks(data.decks);
       if (kind === "deck") setSelectedDeckId(data.decks[0]?.id ?? null);
       onMessage(kind === "deck" ? "Deck deleted" : "Flashcard deleted");
@@ -485,7 +480,7 @@ export default function FlashcardsView({ topics, subjects, onMessage }: { topics
       {deckSyllabus && <label><span>Chapter <small>optional</small></span><select value={deckChapterId} onChange={(event) => setDeckChapterId(event.target.value)}><option value="">Whole {deckStage} syllabus</option>{chapterGroups.map((group) => <optgroup label={`${group.code} · ${group.title}`} key={group.key}><option value={`major:${group.chapters[0].id}`}>{group.code} · Whole chapter — {group.title}</option>{group.chapters.filter((chapter) => chapter.code !== group.code).map((chapter) => <option value={chapter.id} key={chapter.id}>{chapter.code} · {chapter.title}</option>)}</optgroup>)}</select></label>}
       <div className="deck-form-actions">{decks.length > 0 && <button type="button" className="ghost-button" onClick={() => setShowDeckForm(false)}>Cancel</button>}<button className="primary-button" disabled={saving || !deckTitle.trim()}>{saving ? "Creating…" : "Create deck"}</button></div>
     </form> : studying && studyComplete ? <section className="study-summary panel-card">
-      <span className="summary-badge">✓</span>
+      <span className="summary-badge"><Icon name="check" /></span>
       <p className="eyebrow">SESSION COMPLETE</p>
       <h3>{resultTally.total} card{resultTally.total === 1 ? "" : "s"} reviewed</h3>
       <p>Nicely done. Here is how this round went.</p>
@@ -513,7 +508,7 @@ export default function FlashcardsView({ topics, subjects, onMessage }: { topics
         <button onClick={() => rateCard("easy")}><b>3</b>Easy<small>{intervalLabel(gradeToMastery(studyCard.mastery, "easy"))}</small></button>
       </div> : <button className="reveal-answer" onClick={() => setFlipped(true)}>Reveal answer</button>}
       <div className="study-footer">
-        <button className="study-nav" onClick={goPrevious} disabled={studyIndex === 0}>← Previous</button>
+        <button className="study-nav" onClick={goPrevious} disabled={studyIndex === 0}><Icon name="arrow-left" /> Previous</button>
         <span className="study-hint">Space flip · 1/2/3 rate · ← back · Esc exit</span>
         <button className="study-nav" onClick={exitStudy}>Exit</button>
       </div>
@@ -548,15 +543,15 @@ export default function FlashcardsView({ topics, subjects, onMessage }: { topics
       </section>
 
       <form className="card-maker panel-card" onSubmit={addCard}>
-        <div><p className="eyebrow">ADD A CARD</p><h3>Question and answer</h3><p>{addedCount > 0 ? `＋ ${addedCount} added this session · press Ctrl+Enter to save fast.` : "Tip: import a CSV to add hundreds at once."}</p></div>
+        <div><p className="eyebrow">ADD A CARD</p><h3>Question and answer</h3><p>{addedCount > 0 ? `${addedCount} added this session · press Ctrl+Enter to save fast.` : "Tip: import a CSV to add hundreds at once."}</p></div>
         <label><span>Front</span><textarea ref={frontInputRef} maxLength={1000} placeholder="Question, term or prompt" value={front} onChange={(event) => setFront(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") addCard(event); }} /></label>
-        <label><span>Back <button type="button" className="swap-sides" onClick={swapSides} title="Swap front and back">⇄ swap</button></span><textarea maxLength={2000} placeholder="Answer or explanation" value={back} onChange={(event) => setBack(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") addCard(event); }} /></label>
+        <label><span>Back <button type="button" className="swap-sides" onClick={swapSides} title="Swap front and back"><Icon name="swap" /> swap</button></span><textarea maxLength={2000} placeholder="Answer or explanation" value={back} onChange={(event) => setBack(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") addCard(event); }} /></label>
         <button className="primary-button" disabled={saving || !front.trim() || !back.trim()}>{saving ? "Saving…" : "Add flashcard"}</button>
       </form>
 
       <section className="card-library panel-card">
         <div className="section-heading flashcard-library-heading"><div><p className="eyebrow">CARD LIBRARY</p><h3>{visibleCards.length === selectedDeck.cards.length ? `${selectedDeck.cards.length} cards` : `${visibleCards.length} of ${selectedDeck.cards.length}`}</h3></div><div className="card-library-tools"><input type="search" value={cardQuery} onChange={(event) => setCardQuery(event.target.value)} placeholder="Search cards" aria-label="Search flashcards" /><select value={cardFilter} onChange={(event) => setCardFilter(event.target.value as CardFilter)} aria-label="Filter flashcards by mastery"><option value="all">All cards</option><option value="new">New</option><option value="learning">Learning</option><option value="confident">Confident</option></select></div></div>
-        {visibleCards.length ? <div className="card-list">{visibleCards.map((card) => editingCardId === card.id ? <form className="card-edit-row" onSubmit={saveEdit} key={card.id}><label><small>FRONT</small><textarea value={editingFront} onChange={(event) => setEditingFront(event.target.value)} maxLength={1000} required /></label><label><small>BACK</small><textarea value={editingBack} onChange={(event) => setEditingBack(event.target.value)} maxLength={2000} required /></label><div><button className="primary-button" disabled={saving}>Save</button><button type="button" className="ghost-button" onClick={() => setEditingCardId(null)}>Cancel</button></div></form> : <article key={card.id}><div><small>FRONT</small><strong>{card.front}</strong></div><div><small>BACK</small><span>{card.back}</span></div><b className={`mastery-tag m-${masteryLabel(card.mastery).toLowerCase()}`}>{masteryLabel(card.mastery)}</b><div className="card-row-actions"><button onClick={() => beginEdit(card)}>Edit</button><button onClick={() => remove("card", card.id)} aria-label="Delete flashcard">×</button></div></article>)}</div> : <div className="empty-state compact"><strong>{selectedDeck.cards.length ? "No matching cards" : "No cards yet"}</strong><p>{selectedDeck.cards.length ? "Try a different search or filter." : "Add one above or import a CSV with front and back columns."}</p></div>}
+        {visibleCards.length ? <div className="card-list">{visibleCards.map((card) => editingCardId === card.id ? <form className="card-edit-row" onSubmit={saveEdit} key={card.id}><label><small>FRONT</small><textarea value={editingFront} onChange={(event) => setEditingFront(event.target.value)} maxLength={1000} required /></label><label><small>BACK</small><textarea value={editingBack} onChange={(event) => setEditingBack(event.target.value)} maxLength={2000} required /></label><div><button className="primary-button" disabled={saving}>Save</button><button type="button" className="ghost-button" onClick={() => setEditingCardId(null)}>Cancel</button></div></form> : <article key={card.id}><div><small>FRONT</small><strong>{card.front}</strong></div><div><small>BACK</small><span>{card.back}</span></div><b className={`mastery-tag m-${masteryLabel(card.mastery).toLowerCase()}`}>{masteryLabel(card.mastery)}</b><div className="card-row-actions"><button onClick={() => beginEdit(card)}>Edit</button><button onClick={() => remove("card", card.id)} aria-label="Delete flashcard"><Icon name="close" /></button></div></article>)}</div> : <div className="empty-state compact"><strong>{selectedDeck.cards.length ? "No matching cards" : "No cards yet"}</strong><p>{selectedDeck.cards.length ? "Try a different search or filter." : "Add one above or import a CSV with front and back columns."}</p></div>}
       </section>
     </div>}
   </div>;

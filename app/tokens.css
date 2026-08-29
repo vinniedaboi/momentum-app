@@ -1,0 +1,88 @@
+/*
+ * Design tokens. Imported before every other stylesheet so the scales below are
+ * defined by the time any rule reads them.
+ *
+ * The rule for adding CSS to this app: a size, a space, or a corner radius must
+ * come from one of these three scales. If a value looks like it needs a step
+ * that is not here, the design is asking for a new step — add it here rather
+ * than writing a one-off literal, or the scales drift back into the 33 font
+ * sizes and 20 radii they replaced.
+ */
+:root {
+  /*
+   * Type families. The next/font loader supplies the `--font-friendly-*`
+   * variables; the quoted names after them are what a failed font load falls
+   * back to, so they are chosen to match the metrics rather than to be pretty.
+   */
+  --font-body: var(--font-friendly-sans, "Nunito Sans"), "Aptos", "Segoe UI", sans-serif;
+  --font-display: var(--font-friendly-display, "Fraunces"), "Iowan Old Style", Georgia, serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", "SFMono-Regular", monospace;
+
+  /*
+   * Type scale. Tight below 16px because dense UI chrome needs the finer
+   * control; ~1.22 above it, where the steps are doing typographic work.
+   *
+   * 3xs  micro labels, table captions
+   * 2xs  secondary metadata
+   * xs   badges, chips, helper text
+   * sm   dense body, form controls
+   * md   body
+   * lg   lead paragraphs, card titles
+   * xl   panel headings
+   * 2xl  section headings
+   * 3xl  metric readouts
+   * 4xl  page headings
+   * 5xl  hero
+   */
+  --text-3xs: 10px;
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 26px;
+  --text-3xl: 32px;
+  --text-4xl: 40px;
+  --text-5xl: 48px;
+
+  /*
+   * Spacing scale. Every step is a multiple of 4, and every step below 32 is a
+   * multiple of 4 you can reach by doubling — so nested padding stays aligned.
+   * Steps widen above 24 because large gaps do not need 4px resolution.
+   */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --space-10: 64px;
+  --space-11: 80px;
+  --space-12: 96px;
+
+  /*
+   * Box dimensions are on the same 4px grid but stay as literals rather than
+   * tokens: a drawer is 520px and a deck column is 244px because that is what
+   * that one thing measures, and naming fifteen single-use steps would say
+   * less than the number does. Three rules govern them:
+   *
+   *   - width, height, their min/max forms, absolute offsets and fixed grid
+   *     tracks are all multiples of 4;
+   *   - 1px and 2px are exempt, because at that size a value is a rule, a
+   *     divider, or the clip box on `.visually-hidden`;
+   *   - media query thresholds are not layout and are left where they are.
+   */
+
+  /* Corner radii. `pill` is deliberately absurd so it clamps to the height. */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-pill: 999px;
+}

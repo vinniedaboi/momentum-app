@@ -1,4 +1,5 @@
 import MomentumMark from "./momentum-mark";
+import Icon from "./icons";
 
 /** Marketing panel shared by the sign-in and sign-up screens. */
 export default function AuthAside() {
@@ -21,19 +22,19 @@ export default function AuthAside() {
 
         <ul className="auth-highlights">
           <li>
-            <i aria-hidden="true">◷</i>
+            <i aria-hidden="true"><Icon name="hours" /></i>
             <span><strong>Spaced review queue</strong> — every topic resurfaces on its own schedule.</span>
           </li>
           <li>
-            <i aria-hidden="true">◈</i>
+            <i aria-hidden="true"><Icon name="book" /></i>
             <span><strong>Full CAIE syllabus</strong> — chapters and spec points loaded on day one.</span>
           </li>
           <li>
-            <i aria-hidden="true">◑</i>
+            <i aria-hidden="true"><Icon name="chart" /></i>
             <span><strong>Past paper analytics</strong> — scores, grades and weak topics in one place.</span>
           </li>
           <li>
-            <i aria-hidden="true">✦</i>
+            <i aria-hidden="true"><Icon name="spark" /></i>
             <span><strong>Goal pacing</strong> — pick a target date and get a day-by-day plan.</span>
           </li>
         </ul>

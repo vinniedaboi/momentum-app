@@ -6,6 +6,9 @@ import type { Topic } from "./study-tracker-app";
 import { progressWeight, syllabusProgress } from "./syllabus-progress";
 import { subjectName, type Subject } from "./subjects";
 import { getTopicStage, type SyllabusStage } from "./syllabus-stage";
+import Icon from "./icons";
+import { api, apiMessage } from "./data/api";
+import { studyApi } from "./data/endpoints";
 
 
 type StudyGoal = {
@@ -92,11 +95,7 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
   const [paceMode, setPaceMode] = useState<PaceMode>("steady");
 
   useEffect(() => {
-    fetch("/api/goals")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ goals: StudyGoal[] }>;
-      })
+    api.get<{ goals: StudyGoal[] }>(studyApi.goals.path)
       .then((data) => {
         setGoals(data.goals);
         if (data.goals[0]) {
@@ -193,30 +192,21 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
     event.preventDefault();
     setSaving(true);
     try {
-      const response = await fetch("/api/goals", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          subjectId: currentSubject,
-          stage: activeStage,
-          startDate,
-          targetDate,
-          weeklyHours,
-          studyDays,
-          paceMode,
-        }),
+      const { goal: saved } = await studyApi.goals.save<{ goal: StudyGoal }>({
+        subjectId: currentSubject,
+        stage: activeStage,
+        startDate,
+        targetDate,
+        weeklyHours,
+        studyDays,
+        paceMode,
       });
-      if (!response.ok) {
-        const data = await response.json() as { error?: string };
-        throw new Error(data.error ?? "save");
-      }
-      const data = await response.json() as { goal: StudyGoal };
-      setGoals((current) => [...current.filter((goal) => goal.subjectId !== data.goal.subjectId || goal.stage !== data.goal.stage), data.goal]);
+      setGoals((current) => [...current.filter((goal) => goal.subjectId !== saved.subjectId || goal.stage !== saved.stage), saved]);
       await onScheduleChanged();
       setEditing(false);
       onMessage(`${subjectName(lookup, currentSubject)} ${activeStage} plan added to your review board`);
     } catch (error) {
-      onMessage(error instanceof Error && error.message !== "save" ? error.message : "Your syllabus goal was not saved.");
+      onMessage(apiMessage(error, "Your syllabus goal was not saved."));
     } finally {
       setSaving(false);
     }
@@ -225,8 +215,7 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
   async function removeGoal() {
     if (!activeGoal) return;
     try {
-      const response = await fetch(`/api/goals?subjectId=${encodeURIComponent(currentSubject)}&stage=${activeStage}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("delete");
+      await studyApi.goals.remove(currentSubject, activeStage);
       await onScheduleChanged();
       const remaining = goals.filter((goal) => goal.subjectId !== currentSubject || goal.stage !== activeStage);
       setGoals(remaining);
@@ -325,7 +314,7 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
                 const state = milestone.done ? "done" : milestone.dueDate < today ? "late" : milestone.id === plan.nextMilestone?.id ? "current" : "upcoming";
                 return (
                   <article className={`timeline-item ${state}`} key={milestone.id}>
-                    <div className="timeline-marker"><i>{milestone.done ? "✓" : index + 1}</i></div>
+                    <div className="timeline-marker"><i>{milestone.done ? <Icon name="check" /> : index + 1}</i></div>
                     <div className="timeline-copy"><small>{milestone.code}</small><strong>{milestone.title}</strong><span>{milestone.complete} / {milestone.total} points covered</span></div>
                     <div className="timeline-progress"><div><i style={{ width: `${milestone.percent}%` }} /></div><span>{milestone.percent}%</span></div>
                     <div className="timeline-date"><strong>{shortDate(milestone.dueDate)}</strong><span>{state === "done" ? "Complete" : state === "late" ? "Needs attention" : state === "current" ? "Work on this next" : "Planned"}</span></div>

@@ -253,7 +253,7 @@ test("the exam planner schedules a chosen subset without touching goal plans", a
   assert.match(shell, /ExamPlanner/);
   assert.match(shell, /activeView === "Exams"/);
   assert.match(calendar, /"exam-task"/);
-  assert.match(calendar, /fetch\("\/api\/exams"\)/);
+  assert.match(calendar, /studyApi\.exams\.path/);
 });
 
 test("row level security covers every table", async () => {
@@ -282,7 +282,8 @@ test("adds a subject and imports its syllabus in one workflow", async () => {
   assert.match(subjectSettings, /Add subject & syllabus/);
   assert.match(subjectSettings, /subjectId: data\.subject\.id, topics: prepared\.rows/);
   assert.match(subjectSettings, /The syllabus could not be imported, so the subject was not added/);
-  assert.match(subjectSettings, /method: "DELETE"/);
+  // A subject whose syllabus import fails is rolled back rather than left half made.
+  assert.match(subjectSettings, /studyApi\.subjects\.remove\(createdSubject\.id\)/);
 });
 
 test("includes durable tracking, goals, grouped reviews, subject tasks, study hours, flashcards, notes, and calendar", async () => {
@@ -308,6 +309,7 @@ test("includes durable tracking, goals, grouped reviews, subject tasks, study ho
     tasksDatabase,
     tasksApi,
     timelineClient,
+    workspace,
     timelineDatabase,
     timelineApi,
     migrations,
@@ -334,6 +336,7 @@ test("includes durable tracking, goals, grouped reviews, subject tasks, study ho
     read("lib/tasks-db.ts"),
     read("app/api/tasks/route.ts"),
     read("app/topic-timeline.tsx"),
+    read("app/data/use-workspace.ts"),
     read("lib/topic-activity-db.ts"),
     read("app/api/topic-activity/route.ts"),
     read("supabase/migrations/0002_workspace_tables.sql"),
@@ -492,7 +495,8 @@ test("includes durable tracking, goals, grouped reviews, subject tasks, study ho
   assert.match(client, /scheduledDate/);
   assert.match(client, /Goal plan/);
   assert.match(client, /onScheduleChanged=\{refreshTopics\}/);
-  assert.match(client, /fetch\("\/api\/goals"\)/);
+  assert.match(workspace, /studyApi\.goals\.path/);
+  assert.match(workspace, /\.then\(reloadTopics\)/);
   assert.match(calendarClient, /review|task|study|deadline|milestone/);
   assert.match(migrations, /create table public\.topics/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
