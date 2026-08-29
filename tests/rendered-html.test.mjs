@@ -556,4 +556,13 @@ test("offers the English boards' A levels beside the international ones", async 
   assert.match(ukParser, /A_LEVEL_ONLY/);
   // One copy of that rule now that it has a board-specific branch.
   assert.match(catalogue, /import \{ stagesForQualification \}/);
+
+  // The subject picker has to offer a subject that has a syllabus but no past
+  // papers, which is every English board and every International GCSE. Listing
+  // only the paper catalogue is what left them reachable at sign-up and nowhere
+  // else, so the union belongs in the directory both screens read.
+  const directoryQuery = await read("lib/catalogue-db.ts");
+  assert.match(directoryQuery, /syllabus_only AS \(/);
+  assert.match(directoryQuery, /FROM syllabus_versions v/);
+  assert.match(directoryQuery, /SELECT \* FROM with_papers\s*\n\s*UNION ALL/);
 });

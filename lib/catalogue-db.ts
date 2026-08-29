@@ -154,32 +154,60 @@ export type CatalogueSubject = {
 };
 
 /**
- * One row per subject in the catalogue, with its most common syllabus code.
+ * One row per subject a learner can pick, with its syllabus code.
  * Feeds the "pick a subject by its exam-board code" flow so a new subject can
  * be created without retyping its identity.
+ *
+ * The past-paper catalogue is one source and the syllabus directory is the
+ * other, because a subject can be in either without being in both. Every
+ * English board is in the second only — there are no AQA, OCR or Edexcel UK
+ * past papers in the catalogue — and so are the International GCSEs. Listing
+ * the papers alone is what left those subjects unreachable outside onboarding,
+ * which had its own union of the two.
  */
 export async function catalogueSubjectDirectory(): Promise<CatalogueSubject[]> {
   const sql = getSql();
   const rows = await sql<Record<string, unknown>[]>`
-    SELECT
-      c1.qualification AS qualification,
-      MIN(c1.board) AS board,
-      c1.subject AS subject,
-      (
-        SELECT c2.syllabus_code FROM catalogue_papers c2
-        WHERE c2.qualification = c1.qualification AND c2.subject = c1.subject
-        GROUP BY c2.syllabus_code
-        -- Edexcel subjects spread evenly across their unit codes, so ties are the
-        -- rule rather than the exception; without the final sort the subject's code
-        -- varies between queries and stops matching its syllabus.
-        ORDER BY COUNT(*) DESC, LENGTH(c2.syllabus_code), c2.syllabus_code
-        LIMIT 1
-      ) AS code,
-      COUNT(*)::int AS papers,
-      SUM(CASE WHEN c1.stage IS NOT NULL THEN 1 ELSE 0 END)::int AS staged
-    FROM catalogue_papers c1
-    GROUP BY c1.qualification, c1.subject
-    ORDER BY c1.qualification, c1.subject
+    WITH with_papers AS (
+      SELECT
+        c1.qualification AS qualification,
+        MIN(c1.board) AS board,
+        c1.subject AS subject,
+        (
+          SELECT c2.syllabus_code FROM catalogue_papers c2
+          WHERE c2.qualification = c1.qualification AND c2.subject = c1.subject
+          GROUP BY c2.syllabus_code
+          -- Edexcel subjects spread evenly across their unit codes, so ties are the
+          -- rule rather than the exception; without the final sort the subject's code
+          -- varies between queries and stops matching its syllabus.
+          ORDER BY COUNT(*) DESC, LENGTH(c2.syllabus_code), c2.syllabus_code
+          LIMIT 1
+        ) AS code,
+        COUNT(*)::int AS papers,
+        SUM(CASE WHEN c1.stage IS NOT NULL THEN 1 ELSE 0 END)::int AS staged
+      FROM catalogue_papers c1
+      GROUP BY c1.qualification, c1.subject
+    ),
+    syllabus_only AS (
+      -- A syllabus code, not a subject name, decides whether the catalogue
+      -- already covers this one: two boards can name a subject the same way.
+      SELECT
+        v.qualification AS qualification,
+        MIN(v.board) AS board,
+        v.subject AS subject,
+        v.syllabus_code AS code,
+        0 AS papers,
+        0 AS staged
+      FROM syllabus_versions v
+      WHERE NOT EXISTS (
+        SELECT 1 FROM catalogue_papers c WHERE c.syllabus_code = v.syllabus_code
+      )
+      GROUP BY v.qualification, v.subject, v.syllabus_code
+    )
+    SELECT * FROM with_papers
+    UNION ALL
+    SELECT * FROM syllabus_only
+    ORDER BY qualification, subject, code
   `;
 
   return rows.map((row) => ({
