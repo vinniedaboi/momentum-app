@@ -10,7 +10,7 @@ import {
   updateFlashcard,
   updateFlashcardMastery,
 } from "../../../lib/flashcards-db";
-import { isKnownSubject } from "../../../lib/subjects-db";
+import { subjectStages } from "../../../lib/subjects-db";
 import { withWorkspace } from "../../../lib/auth";
 
 export const runtime = "nodejs";
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
         kind?: "deck" | "card" | "cards" | "reset";
         title?: string;
         subjectId?: string | null;
-        stage?: "AS" | "A2" | null;
+        stage?: string | null;
         chapterId?: string | null;
         deckId?: number;
         front?: string;
@@ -43,11 +43,12 @@ export async function POST(request: Request) {
       if (body.kind === "deck") {
         const title = body.title?.trim().slice(0, 100) ?? "";
         const subjectId = body.subjectId?.trim() || null;
-        const stage = subjectId && (body.stage === "AS" || body.stage === "A2") ? body.stage : null;
+        const stages = subjectId ? await subjectStages(workspaceId, subjectId) : null;
+        const stage = body.stage && stages?.includes(body.stage) ? body.stage : null;
         const chapterId = subjectId && stage ? body.chapterId?.trim() || null : null;
         if (!title) return Response.json({ error: "Name your flashcard deck." }, { status: 400 });
-        if (subjectId && !(await isKnownSubject(workspaceId, subjectId))) return Response.json({ error: "Choose a valid subject." }, { status: 400 });
-        if (subjectId && !stage) return Response.json({ error: "Choose the AS or A2 syllabus." }, { status: 400 });
+        if (subjectId && !stages) return Response.json({ error: "Choose a valid subject." }, { status: 400 });
+        if (subjectId && !stage) return Response.json({ error: `Choose the ${stages?.join(" or ") || "subject's"} syllabus.` }, { status: 400 });
         if (chapterId && !(await isValidFlashcardChapter(workspaceId, chapterId, subjectId!))) {
           return Response.json({ error: "Choose a valid chapter for this syllabus." }, { status: 400 });
         }

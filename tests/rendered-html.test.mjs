@@ -385,7 +385,9 @@ test("includes durable tracking, goals, grouped reviews, subject tasks, study ho
   assert.match(goalsClient, /Review board active/);
   assert.match(migrations, /primary key \(workspace_id, subject_id, stage\)/);
   assert.match(stageLogic, /paperStages/);
-  assert.match(client, /Track AS and A2 separately/);
+  // The stage switch names whichever stages the subject carries, so an A Level
+  // still splits into AS and A2 and an IB course into SL and HL.
+  assert.match(client, /Track \{subject\.stages\.join\(" and "\)\} separately/);
   assert.match(hoursClient, /Add study time/);
   assert.match(hoursClient, /Weekly total/);
   assert.match(hoursClient, /What did you study/);
@@ -565,4 +567,81 @@ test("offers the English boards' A levels beside the international ones", async 
   assert.match(directoryQuery, /syllabus_only AS \(/);
   assert.match(directoryQuery, /FROM syllabus_versions v/);
   assert.match(directoryQuery, /SELECT \* FROM with_papers\s*\n\s*UNION ALL/);
+});
+
+test("offers the IB Diploma, split by level rather than by year", async () => {
+  const [directory, listing, builder, parser, stages, onboarding, catalogue, settings, importer, migration] =
+    await Promise.all([
+      read("data/syllabus-versions.csv"),
+      read("data/ib-subjects.csv"),
+      read("scripts/build_syllabus_directory.py"),
+      read("scripts/parse_syllabus_content.py"),
+      read("app/syllabus-stage.ts"),
+      read("app/onboarding/onboarding-flow.tsx"),
+      read("lib/onboarding-catalogue.ts"),
+      read("app/subject-settings.tsx"),
+      read("scripts/import-shared-data.mjs"),
+      read("supabase/migrations/0008_stage_vocabulary.sql"),
+    ]);
+
+  const rows = directory.split("\n").filter((row) => row.startsWith("ib-dp-"));
+  assert.ok(rows.length >= 170, `expected the whole DP suite, found ${rows.length}`);
+  for (const row of rows) assert.equal(row.split(",")[2], "IB Diploma Programme");
+  // The learner names their programme on the way in, and it picks their tab.
+  assert.ok(onboarding.includes('"IB Diploma Programme"'), "the DP is not offered at sign-up");
+
+  // A name is quoted where it carries a comma of its own.
+  const listed = (subject) => listing.includes(`,${subject},`) || listing.includes(`,"${subject}",`);
+
+  // Groups 1 to 6, the interdisciplinary courses, and the graded core.
+  for (const subject of [
+    "Spanish A: literature", "English A: language and literature", "Spanish B", "Spanish ab initio",
+    "History", "Digital society", "Biology", "Sports, exercise and health science",
+    "Mathematics: analysis and approaches", "Visual arts", "Environmental systems and societies",
+    "Theory of knowledge", "Extended essay",
+  ]) {
+    assert.ok(listed(subject), `${subject} is not in the DP subject list`);
+  }
+  // Courses the IB has withdrawn are not on offer, whatever a school still calls them.
+  for (const gone of ["Further mathematics", "Mathematical studies", "ITGS", "Political thought"]) {
+    assert.ok(!listed(gone), `${gone} has been discontinued`);
+  }
+
+  // Which levels a subject is taught at is per-subject data, not a property of
+  // the programme: about a third of the DP is standard level only, and the core
+  // is graded without levels at all.
+  assert.match(directory, /^ib-dp-100088,IB,IB Diploma Programme,Biology,100088,SL\|HL,/m);
+  assert.match(directory, /^ib-dp-100542,IB,IB Diploma Programme,Spanish ab initio,100542,SL,/m);
+  assert.match(directory, /^ib-dp-tok,IB,IB Diploma Programme,Theory of knowledge,IB-TOK,none,/m);
+  assert.match(importer, /stages: text\(get\("Stages"\)\)/);
+  assert.match(catalogue, /entry\.stages \?\? stagesForQualification/);
+  assert.match(settings, /pick\.stages \?\? stagesForQualification/);
+  assert.match(settings, /"SL \+ HL"/);
+
+  // Unmarked content falls to A2 on an A Level and to SL in the IB: one marks
+  // the first year and leaves the rest to the second, the other marks the
+  // material only HL students take and leaves the rest to the level both share.
+  assert.match(stages, /stages: \["AS", "A2"\],\s*\n\s*fallback: "A2"/);
+  assert.match(stages, /stages: \["SL", "HL"\],\s*\n\s*fallback: "SL"/);
+  assert.match(stages, /LEVELLED = \/\^IB \//);
+
+  // A stage is the subject's own label, so nothing may check it against one
+  // board's pair. Papers are the exception: a logged paper names a subject the
+  // catalogue knows rather than one the learner tracks.
+  for (const route of ["goals", "exams", "flashcards", "notes"]) {
+    const source = await read(`app/api/${route}/route.ts`);
+    assert.match(source, /subjectStages\(workspaceId/, `/api/${route} should read the subject's own stages`);
+    assert.ok(!source.includes('["AS", "A2"]'), `/api/${route} still checks one board's stages`);
+  }
+  assert.match(migration, /drop constraint/);
+  assert.match(migration, /add column stages text/);
+
+  // The IB is listed, not crawled: ibo.org answers the builder with a bot
+  // challenge, and a subject guide is not public in any case.
+  assert.match(builder, /"ib", \(/);
+  const suite = builder.slice(builder.indexOf("def ib_rows"), builder.indexOf("def existing_notes"));
+  assert.match(suite, /IB_SUBJECTS/);
+  assert.ok(!/fetch\(|verify\(/.test(suite), "the IB suite should not reach the network");
+  // Which leaves 173 rows with no PDF behind them, and nothing to parse.
+  assert.match(parser, /row\["Syllabus_PDF_URL"\]/);
 });

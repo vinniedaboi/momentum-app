@@ -1,10 +1,9 @@
 import { deleteStudyGoal, getStudyGoals, saveStudyGoal } from "../../../lib/goals-db";
-import { isKnownSubject } from "../../../lib/subjects-db";
+import { subjectStages } from "../../../lib/subjects-db";
 import { withWorkspace } from "../../../lib/auth";
 
 export const runtime = "nodejs";
 
-const STAGES = new Set(["AS", "A2"]);
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET() {
@@ -23,7 +22,7 @@ export async function POST(request: Request) {
     try {
       const body = await request.json() as {
         subjectId?: string;
-        stage?: "AS" | "A2";
+        stage?: string;
         startDate?: string;
         targetDate?: string;
         weeklyHours?: number;
@@ -32,11 +31,12 @@ export async function POST(request: Request) {
       };
       const weeklyHours = Number(body.weeklyHours);
       const studyDays = Number(body.studyDays);
-      if (!body.subjectId || !(await isKnownSubject(workspaceId, body.subjectId))) {
+      const stages = await subjectStages(workspaceId, body.subjectId);
+      if (!body.subjectId || !stages) {
         return Response.json({ error: "Choose a valid syllabus." }, { status: 400 });
       }
-      if (!body.stage || !STAGES.has(body.stage)) {
-        return Response.json({ error: "Choose AS or A2." }, { status: 400 });
+      if (!body.stage || !stages.includes(body.stage)) {
+        return Response.json({ error: `Choose ${stages.join(" or ") || "a stage"}.` }, { status: 400 });
       }
       if (!body.startDate || !body.targetDate || !DATE_PATTERN.test(body.startDate) || !DATE_PATTERN.test(body.targetDate) || body.targetDate <= body.startDate) {
         return Response.json({ error: "Choose a target date after the start date." }, { status: 400 });
@@ -73,10 +73,11 @@ export async function DELETE(request: Request) {
       const params = new URL(request.url).searchParams;
       const subjectId = params.get("subjectId") ?? "";
       const stage = params.get("stage") ?? "";
-      if (!(await isKnownSubject(workspaceId, subjectId)) || !STAGES.has(stage)) {
+      const stages = await subjectStages(workspaceId, subjectId);
+      if (!stages?.includes(stage)) {
         return Response.json({ error: "Choose a valid syllabus." }, { status: 400 });
       }
-      await deleteStudyGoal(workspaceId, subjectId, stage as "AS" | "A2");
+      await deleteStudyGoal(workspaceId, subjectId, stage);
       return new Response(null, { status: 204 });
     } catch (error) {
       console.error(error);

@@ -3,7 +3,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import type { Topic } from "./study-tracker-app";
 import { subjectName, type Subject } from "./subjects";
-import { getTopicStage, type SyllabusStage } from "./syllabus-stage";
+import { currentStage, getTopicStage, subjectHasStages, type SyllabusStage } from "./syllabus-stage";
 import Icon from "./icons";
 
 export type StudySession = {
@@ -65,10 +65,11 @@ export default function StudyHoursView({
   const [hours, setHours] = useState("");
   const [minutes, setMinutes] = useState("");
   const [subject, setSubject] = useState("");
-  const [stage, setStage] = useState<SyllabusStage>("AS");
+  const [chosenStage, setStage] = useState<SyllabusStage>("");
   const options = useMemo(() => subjects.filter((item) => !item.archived && item.stages.length > 0), [subjects]);
   const lookup = useMemo(() => new Map(subjects.map((item) => [item.id, item])), [subjects]);
   const chosen = lookup.get(subject) ?? null;
+  const stage = currentStage(chosen, chosenStage);
   const [selectedTopicIds, setSelectedTopicIds] = useState<Set<string>>(new Set());
   const [openChapterIds, setOpenChapterIds] = useState<Set<string>>(new Set());
   const [note, setNote] = useState("");
@@ -125,7 +126,7 @@ export default function StudyHoursView({
 
   function changeSubject(nextSubject: string) {
     setSubject(nextSubject);
-    setStage("AS");
+    setStage("");
     setSelectedTopicIds(new Set());
     setOpenChapterIds(new Set());
   }
@@ -193,10 +194,9 @@ export default function StudyHoursView({
               <div><strong>What did you study?</strong><span>Selected topics count as reviewed and are automatically rescheduled</span></div>
               {selectedTopicIds.size > 0 && <button type="button" onClick={() => setSelectedTopicIds(new Set())}>Clear</button>}
             </div>
-            <div className="study-stage-switch" aria-label="Syllabus stage">
-              <button type="button" className={stage === "AS" ? "active" : ""} onClick={() => changeStage("AS")}>AS</button>
-              <button type="button" className={stage === "A2" ? "active" : ""} onClick={() => changeStage("A2")}>A2</button>
-            </div>
+            {subjectHasStages(chosen) && <div className="study-stage-switch" aria-label="Syllabus stage">
+              {chosen!.stages.map((item) => <button key={item} type="button" className={stage === item ? "active" : ""} onClick={() => changeStage(item)}>{item}</button>)}
+            </div>}
             <div className="study-topic-summary"><strong>{selectedTopicIds.size ? `${selectedTopicIds.size} selected for review` : "None selected"}</strong><span>Select a whole chapter to review every point inside it, or open it for individual points.</span></div>
             <div className="study-topic-tree">
               {chapters.map((chapter) => {

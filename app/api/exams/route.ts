@@ -1,12 +1,11 @@
 import { deleteExam, getExams, saveExam, MAX_EXAM_TOPICS, type ExamInput } from "../../../lib/exams-db";
-import { isKnownSubject } from "../../../lib/subjects-db";
+import { subjectStages } from "../../../lib/subjects-db";
 import { PACE_MODES, type PaceMode } from "../../../lib/pacing";
 import { withWorkspace } from "../../../lib/auth";
 
 export const runtime = "nodejs";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const STAGES = new Set(["AS", "A2"]);
 
 type ExamBody = Partial<{
   id: number;
@@ -23,14 +22,17 @@ type ExamBody = Partial<{
 }>;
 
 async function validate(workspaceId: string, body: ExamBody) {
-  if (!body.subjectId || !(await isKnownSubject(workspaceId, body.subjectId))) {
+  const stages = await subjectStages(workspaceId, body.subjectId);
+  if (!body.subjectId || !stages) {
     return "Choose a valid subject.";
   }
   if (!body.title?.trim()) return "Name the exam.";
   if (!body.examDate || !DATE_PATTERN.test(body.examDate)) return "Choose a valid exam date.";
   if (!body.startDate || !DATE_PATTERN.test(body.startDate)) return "Choose a valid start date.";
   if (body.examDate <= body.startDate) return "The exam date has to be after the start date.";
-  if (body.stage != null && !STAGES.has(body.stage)) return "Choose AS, A2, or leave the stage unset.";
+  if (body.stage != null && !stages.includes(body.stage)) {
+    return `Choose ${stages.join(", ") || "no stage"}, or leave the stage unset.`;
+  }
 
   const weeklyHours = Number(body.weeklyHours);
   if (!Number.isInteger(weeklyHours) || weeklyHours < 1 || weeklyHours > 80) {
@@ -58,7 +60,7 @@ function toInput(body: ExamBody): ExamInput {
   return {
     subjectId: String(body.subjectId),
     title: String(body.title).trim().slice(0, 120),
-    stage: body.stage === "AS" || body.stage === "A2" ? body.stage : null,
+    stage: body.stage ? String(body.stage) : null,
     examDate: String(body.examDate),
     startDate: String(body.startDate),
     weeklyHours: Number(body.weeklyHours),

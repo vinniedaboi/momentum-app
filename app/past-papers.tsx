@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import type { SyllabusStage } from "./syllabus-stage";
+import { KNOWN_STAGES, type SyllabusStage } from "./syllabus-stage";
 import Icon from "./icons";
 import { studyApi } from "./data/endpoints";
 
@@ -852,7 +852,7 @@ function ManualAttemptForm({ today, saving, onClose, onAdd }: {
       </header>
       <form className="paper-form manual-paper-form" onSubmit={async (event) => { event.preventDefault(); await onAdd(draft); }}>
         <label><span>Subject</span><input value={draft.subject} maxLength={60} required onChange={(event) => setDraft({ ...draft, subject: event.target.value })} /></label>
-        <label><span>Stage</span><select value={draft.stage} onChange={(event) => setDraft({ ...draft, stage: event.target.value as SyllabusStage })}><option value="AS">AS</option><option value="A2">A2</option></select></label>
+        <label><span>Stage</span><select value={draft.stage} onChange={(event) => setDraft({ ...draft, stage: event.target.value as SyllabusStage })}>{KNOWN_STAGES.map((item) => <option key={item}>{item}</option>)}</select></label>
         <label><span>Board</span><input value={draft.board ?? ""} maxLength={40} onChange={(event) => setDraft({ ...draft, board: event.target.value || null })} /></label>
         <label><span>Paper</span><input value={draft.paper} maxLength={40} required onChange={(event) => setDraft({ ...draft, paper: event.target.value })} /></label>
         <label><span>Session</span><select value={draft.session} onChange={(event) => setDraft({ ...draft, session: event.target.value as PaperSession })}>{PAPER_SESSIONS.map((item) => <option key={item}>{item}</option>)}</select></label>

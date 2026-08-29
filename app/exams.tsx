@@ -370,8 +370,9 @@ export default function ExamPlanner({ topics, subjects, today, onMessage }: {
                   onChange={(event) => { setForm({ ...form, stage: event.target.value as FormState["stage"] }); setSelected(new Set()); }}
                 >
                   <option value="">Both stages</option>
-                  <option value="AS">AS only</option>
-                  <option value="A2">A2 only</option>
+                  {(subjectLookup.get(form.subjectId)?.stages ?? []).map((stage) => (
+                    <option key={stage} value={stage}>{stage} only</option>
+                  ))}
                 </select>
               </label>
             ) : null}

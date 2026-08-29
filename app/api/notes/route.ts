@@ -1,5 +1,5 @@
 import { deleteNoteFile, downloadNoteFile, getNoteFile, getNoteFiles, isValidNoteChapter, saveNoteFile } from "../../../lib/notes-db";
-import { isKnownSubject } from "../../../lib/subjects-db";
+import { subjectStages } from "../../../lib/subjects-db";
 import { withWorkspace } from "../../../lib/auth";
 
 export const runtime = "nodejs";
@@ -52,7 +52,8 @@ export async function POST(request: Request) {
       const stageValue = String(form.get("stage") ?? "").trim();
       const chapterValue = String(form.get("chapterId") ?? "").trim();
       const subjectId = subjectValue || null;
-      const stage = subjectId && (stageValue === "AS" || stageValue === "A2") ? stageValue : null;
+      const stages = subjectId ? await subjectStages(workspaceId, subjectId) : null;
+      const stage = stageValue && stages?.includes(stageValue) ? stageValue : null;
       const chapterId = subjectId && stage && chapterValue ? chapterValue : null;
       if (!(file instanceof File) || !file.size || file.size > MAX_BYTES) {
         return Response.json({ error: "Choose a file up to 20 MB." }, { status: 400 });
@@ -60,11 +61,11 @@ export async function POST(request: Request) {
       if (!ALLOWED_TYPES.has(file.type)) {
         return Response.json({ error: "Upload a PDF, Word, PowerPoint, text, or image file." }, { status: 400 });
       }
-      if (subjectId && !(await isKnownSubject(workspaceId, subjectId))) {
+      if (subjectId && !stages) {
         return Response.json({ error: "Choose a valid subject." }, { status: 400 });
       }
       if (subjectId && !stage) {
-        return Response.json({ error: "Choose the AS or A2 syllabus." }, { status: 400 });
+        return Response.json({ error: `Choose the ${stages?.join(" or ") || "subject's"} syllabus.` }, { status: 400 });
       }
       if (chapterId && !(await isValidNoteChapter(workspaceId, chapterId, subjectId!))) {
         return Response.json({ error: "Choose a valid chapter for this syllabus." }, { status: 400 });

@@ -1,4 +1,5 @@
 import { getSql, nowIso } from "./db";
+import type { SyllabusStage } from "../app/syllabus-stage";
 
 export const PAPER_SESSIONS = ["Feb/March", "May/June", "Oct/Nov", "Specimen", "Other"] as const;
 export type PaperSession = (typeof PAPER_SESSIONS)[number];
@@ -27,7 +28,7 @@ export type PastPaper = {
   id: number;
   paperId: string | null;
   subjectId: string;
-  stage: "AS" | "A2";
+  stage: SyllabusStage;
   board: string | null;
   paper: string;
   variant: string | null;
@@ -50,7 +51,7 @@ export type PastPaper = {
 export type PastPaperInput = {
   paperId: string | null;
   subjectId: string;
-  stage: "AS" | "A2";
+  stage: SyllabusStage;
   board: string | null;
   paper: string;
   variant: string | null;
@@ -130,7 +131,7 @@ function mapPaper(row: Record<string, unknown>): PastPaper {
     id: Number(row.id),
     paperId: row.paper_id ? String(row.paper_id) : null,
     subjectId: String(row.subject_id),
-    stage: row.stage === "AS" ? "AS" : "A2",
+    stage: String(row.stage),
     board: row.board ? String(row.board) : null,
     paper: String(row.paper),
     variant: row.variant ? String(row.variant) : null,

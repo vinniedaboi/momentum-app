@@ -1,11 +1,11 @@
 import { getSql, nowIso, type SqlClient } from "./db";
 import { pacedDates, type PaceMode } from "./pacing";
-import { getTopicStage } from "../app/syllabus-stage";
+import { getTopicStage, type SyllabusStage } from "../app/syllabus-stage";
 import { getSubject } from "./subjects-db";
 
 export type StudyGoal = {
   subjectId: string;
-  stage: "AS" | "A2";
+  stage: SyllabusStage;
   startDate: string;
   targetDate: string;
   weeklyHours: number;
@@ -31,7 +31,7 @@ type ScheduleTopic = {
 function mapGoal(row: Record<string, unknown>): StudyGoal {
   return {
     subjectId: String(row.subject_id),
-    stage: row.stage === "AS" ? "AS" : "A2",
+    stage: String(row.stage),
     startDate: String(row.start_date),
     targetDate: String(row.target_date),
     weeklyHours: Number(row.weekly_hours),
@@ -155,7 +155,7 @@ export async function getStudyGoals(workspaceId: string) {
 
 export async function saveStudyGoal(workspaceId: string, input: {
   subjectId: string;
-  stage: "AS" | "A2";
+  stage: SyllabusStage;
   startDate: string;
   targetDate: string;
   weeklyHours: number;
@@ -198,7 +198,7 @@ export async function saveStudyGoal(workspaceId: string, input: {
   });
 }
 
-export async function deleteStudyGoal(workspaceId: string, subjectId: string, stage: "AS" | "A2") {
+export async function deleteStudyGoal(workspaceId: string, subjectId: string, stage: SyllabusStage) {
   const sql = getSql();
   await sql.begin(async (tx) => {
     await tx`

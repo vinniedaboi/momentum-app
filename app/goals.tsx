@@ -5,7 +5,7 @@ import type { StudySession } from "./study-hours";
 import type { Topic } from "./study-tracker-app";
 import { progressWeight, syllabusProgress } from "./syllabus-progress";
 import { subjectName, type Subject } from "./subjects";
-import { getTopicStage, type SyllabusStage } from "./syllabus-stage";
+import { currentStage, getTopicStage, type SyllabusStage } from "./syllabus-stage";
 import Icon from "./icons";
 import { api, apiMessage } from "./data/api";
 import { studyApi } from "./data/endpoints";
@@ -84,7 +84,7 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
   const lookup = useMemo(() => new Map(subjects.map((item) => [item.id, item])), [subjects]);
   const tracked = useMemo(() => subjects.filter((item) => !item.archived && item.stages.length > 0), [subjects]);
   const [chosenSubject, setActiveSubject] = useState("");
-  const [activeStage, setActiveStage] = useState<SyllabusStage>("AS");
+  const [chosenStage, setActiveStage] = useState<SyllabusStage>("");
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -113,6 +113,7 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const currentSubject = chosenSubject || tracked[0]?.id || "";
+  const activeStage = currentStage(lookup.get(currentSubject), chosenStage);
   const activeGoal = goals.find((goal) => goal.subjectId === currentSubject && goal.stage === activeStage) ?? null;
   const availableTracks = tracked.flatMap((subject) => subject.stages.map((stage) => ({ subjectId: subject.id, name: subject.name, stage: stage as SyllabusStage })))
     .filter((track) => !goals.some((goal) => goal.subjectId === track.subjectId && goal.stage === track.stage));
@@ -222,8 +223,8 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
       if (remaining[0]) {
         selectGoal(remaining[0]);
       } else {
-        setActiveSubject("Mathematics");
-        setActiveStage("AS");
+        setActiveSubject("");
+        setActiveStage("");
         setStartDate(today);
         setTargetDate(addDays(today, 90));
         setWeeklyHours(10);

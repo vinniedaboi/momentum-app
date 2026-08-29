@@ -5,9 +5,10 @@
                                                            #     subjects with no papers
   python scripts/build_syllabus_directory.py --only=aqa    # one suite, merged in
 
-Six suites, listed in SUITES: Cambridge (IGCSE + AS & A Level), Pearson Edexcel
-International (Advanced Level + International GCSE), and the three English boards'
-A levels — AQA, OCR and Edexcel.
+Seven suites, listed in SUITES: Cambridge (IGCSE + AS & A Level), Pearson Edexcel
+International (Advanced Level + International GCSE), the three English boards'
+A levels — AQA, OCR and Edexcel — and the IB Diploma Programme, which is read
+from data/ib-subjects.csv rather than crawled (see ib_rows).
 
 `--only` rebuilds the named suites and carries every other row through untouched,
 which is how a board should be added. A full rebuild re-verifies three hundred-odd
@@ -138,7 +139,7 @@ EDEXCEL_IGCSE_SUBJECTS = {
 
 PDF_LINK = re.compile(r"/Images/(\d+)-((\d{4})(?:-(\d{4}))?)-syllabus\.pdf")
 COLUMNS = [
-    "Record_ID", "Exam_Board", "Qualification", "Subject_Name", "Syllabus_Code",
+    "Record_ID", "Exam_Board", "Qualification", "Subject_Name", "Syllabus_Code", "Stages",
     "Exam_Year_From", "Exam_Year_To", "Is_Current_In_2026", "Is_Latest_Published_Version",
     "Syllabus_PDF_URL", "Syllabus_Page_URL", "PotatoPapers_Subject_Filter",
     "PotatoPapers_Catalogue_URL", "PotatoPapers_Paper_Record_Count",
@@ -705,6 +706,70 @@ def edexcel_uk_rows(notes, today):
         print("  {:<38} {}".format(name[:36], path.rsplit("/", 1)[-1][:40]))
     return rows
 
+# ---------------------------------------------------------------------------
+# The IB Diploma Programme.
+#
+# The other six suites are crawled. This one is read from data/ib-subjects.csv,
+# which carries the IB's own "All Diploma Programme subjects" listing - subject
+# code, name, level availability and group - with the entries it marks
+# discontinued left out. Nothing here is fetched: ibo.org answers this script
+# with a bot challenge rather than a page, and a subject guide sits behind the
+# programme resource centre in any case, so there is no specification PDF to
+# link or to parse. Every subject does have a public course page, and that is
+# what Syllabus_Page_URL carries.
+#
+# The IB splits a course by level rather than by year, so these are the rows
+# that fill the Stages column: "SL|HL" for a subject taught at both, "SL" for
+# one offered at standard level only, and "none" for the core, which is graded
+# without levels at all.
+# ---------------------------------------------------------------------------
+
+SITE_IB = "https://www.ibo.org"
+IB_CURRICULUM = SITE_IB + "/programmes/diploma-programme/curriculum/"
+IB_QUALIFICATION = "IB Diploma Programme"
+IB_SUBJECTS = ROOT / "data" / "ib-subjects.csv"
+
+
+def ib_rows(notes, today):
+    subjects = list(csv.DictReader(io.open(IB_SUBJECTS, encoding="utf-8-sig")))
+    rows = []
+    print("{}: {} subjects".format(IB_QUALIFICATION, len(subjects)))
+    for subject in subjects:
+        code = subject["Subject_Code"].strip()
+        name = subject["Subject_Name"].strip()
+        levels = [level.strip() for level in subject["Levels"].split(",") if level.strip()]
+        # The core carries a code of the app's own making, IB-TOK; the record id
+        # already says which suite it belongs to.
+        record_id = "ib-dp-" + code.lower().replace("ib-", "", 1)
+        rows.append({
+            "Record_ID": record_id,
+            "Exam_Board": "IB",
+            "Qualification": IB_QUALIFICATION,
+            "Subject_Name": name,
+            "Syllabus_Code": code,
+            "Stages": "|".join(levels) or "none",
+            # The listing dates the programme, not each subject: a course's first
+            # examination is stated on its guide, which is not public.
+            "Exam_Year_From": "",
+            "Exam_Year_To": "",
+            "Is_Current_In_2026": "true",
+            "Is_Latest_Published_Version": "true",
+            "Syllabus_PDF_URL": "",
+            "Syllabus_Page_URL": IB_CURRICULUM + subject["Page"].strip(),
+            "PotatoPapers_Subject_Filter": "",
+            "PotatoPapers_Catalogue_URL": "",
+            "PotatoPapers_Paper_Record_Count": 0,
+            "PotatoPapers_Has_Catalogue_Records": "false",
+            # A note written into the directory by hand outlives a rebuild; the
+            # rest are the listing's own, which say where a subject is offered.
+            "Availability_Notes": notes.get(record_id) or subject.get("Notes", ""),
+            "Source_Verification": "listed in the IB DP subject list",
+            "Verified_On": today,
+        })
+        print("  {:<8} {:<44} {}".format(code, name[:42], "/".join(levels) or "no levels"))
+    return rows
+
+
 def existing_notes():
     if not DIRECTORY.exists():
         return {}
@@ -768,6 +833,7 @@ SUITES = OrderedDict([
     ("aqa", ("aqa-alevel-", lambda notes, today, everything: aqa_rows(notes, today))),
     ("ocr", ("ocr-alevel-", lambda notes, today, everything: ocr_rows(notes, today))),
     ("edexcel-uk", ("edexcel-alevel-", lambda notes, today, everything: edexcel_uk_rows(notes, today))),
+    ("ib", ("ib-dp-", lambda notes, today, everything: ib_rows(notes, today))),
 ])
 
 
@@ -809,7 +875,9 @@ def main():
         writer.writeheader()
         writer.writerows(rows)
 
-    unverified = [row for row in rows if not row["Source_Verification"].startswith("HTTP 200")]
+    unverified = [row for row in rows
+                  if row["Syllabus_PDF_URL"] and not row["Source_Verification"].startswith("HTTP 200")]
+    listed = sum(1 for row in rows if not row["Syllabus_PDF_URL"])
     print("\nWrote {} rows to {}".format(len(rows), DIRECTORY.relative_to(ROOT)))
     if unverified:
         print("{} rows did not verify as a PDF:".format(len(unverified)))

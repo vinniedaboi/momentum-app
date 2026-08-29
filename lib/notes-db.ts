@@ -1,5 +1,6 @@
 import { getSql, nowIso } from "./db";
 import { createSupabaseServerClient } from "./supabase/server";
+import type { SyllabusStage } from "../app/syllabus-stage";
 
 /**
  * Note attachments live in the private `notes` Supabase Storage bucket, with
@@ -17,7 +18,7 @@ export type NoteFile = {
   contentType: string;
   sizeBytes: number;
   subjectId: string | null;
-  stage: "AS" | "A2" | null;
+  stage: SyllabusStage | null;
   chapterId: string | null;
   createdAt: string;
 };
@@ -30,7 +31,7 @@ function mapNote(row: Record<string, unknown>): NoteFile {
     contentType: String(row.content_type),
     sizeBytes: Number(row.size_bytes),
     subjectId: row.subject_id ? String(row.subject_id) : null,
-    stage: row.stage === "AS" || row.stage === "A2" ? row.stage : null,
+    stage: row.stage ? String(row.stage) : null,
     chapterId: row.chapter_id ? String(row.chapter_id) : null,
     createdAt: String(row.created_at),
   };
@@ -57,7 +58,7 @@ export async function getNoteFile(workspaceId: string, id: number) {
 export async function saveNoteFile(workspaceId: string, input: {
   file: File;
   subjectId: string | null;
-  stage: "AS" | "A2" | null;
+  stage: SyllabusStage | null;
   chapterId: string | null;
 }) {
   const sql = getSql();

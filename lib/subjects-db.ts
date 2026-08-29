@@ -147,6 +147,17 @@ export async function isKnownSubject(workspaceId: string, id: string | null | un
   return Boolean(await getSubject(workspaceId, id));
 }
 
+/**
+ * The stages a subject splits into, or null when it is not one of this
+ * workspace's. Anything that files a goal, exam, deck or note under a stage
+ * validates against this rather than a fixed pair, because the stage names are
+ * the subject's own: AS and A2 for an A Level, SL and HL for an IB course.
+ */
+export async function subjectStages(workspaceId: string, id: string | null | undefined) {
+  if (!id) return null;
+  return (await getSubject(workspaceId, id))?.stages ?? null;
+}
+
 export async function addSubject(workspaceId: string, input: SubjectInput) {
   const sql = getSql();
   const base = subjectSlug(input.name);

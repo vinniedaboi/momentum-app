@@ -17,7 +17,8 @@ import { withWorkspace } from "../../../lib/auth";
 
 export const runtime = "nodejs";
 
-const STAGES = new Set(["AS", "A2"]);
+/** A stage label as subject settings writes them: AS, A2, SL, HL or a learner's own. */
+const STAGE_PATTERN = /^[\w /+-]{1,16}$/;
 const SESSIONS = new Set<string>(PAPER_SESSIONS);
 const CONDITIONS = new Set<string>(PAPER_CONDITIONS);
 const STATUSES = new Set<string>(PAPER_STATUSES);
@@ -27,7 +28,7 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 type PaperBody = Partial<{
   paperId: string | null;
   subject: string;
-  stage: "AS" | "A2";
+  stage: string;
   board: string | null;
   paper: string;
   variant: string | null;
@@ -75,7 +76,7 @@ function validate(body: PaperBody, partial: boolean) {
     if (!cleanText(body.subject, 60)) return "Choose a valid subject.";
   }
   if (!partial || provided("stage")) {
-    if (!body.stage || !STAGES.has(body.stage)) return "Choose AS or A2.";
+    if (!body.stage || !STAGE_PATTERN.test(body.stage)) return "Choose the stage this paper belongs to.";
   }
   if (!partial || provided("paper")) {
     if (!cleanText(body.paper, 40)) return "Add the paper, for example Paper 4.";
@@ -119,7 +120,7 @@ function toInput(body: PaperBody): PastPaperInput {
   return {
     paperId: cleanText(body.paperId, 60),
     subjectId: String(body.subject),
-    stage: body.stage === "AS" ? "AS" : "A2",
+    stage: String(body.stage),
     board: cleanText(body.board, 40),
     paper: cleanText(body.paper, 40) as string,
     variant: cleanText(body.variant, 10),
@@ -141,7 +142,7 @@ function toPartialInput(body: PaperBody): Partial<PastPaperInput> {
   const input: Partial<PastPaperInput> = {};
   if (body.paperId !== undefined) input.paperId = cleanText(body.paperId, 60);
   if (body.subject !== undefined) input.subjectId = String(body.subject);
-  if (body.stage !== undefined) input.stage = body.stage === "AS" ? "AS" : "A2";
+  if (body.stage !== undefined) input.stage = String(body.stage);
   if (body.board !== undefined) input.board = cleanText(body.board, 40);
   if (body.paper !== undefined) input.paper = cleanText(body.paper, 40) as string;
   if (body.variant !== undefined) input.variant = cleanText(body.variant, 10);

@@ -19,6 +19,8 @@ export type SyllabusVersion = {
   pdfUrl: string | null;
   pageUrl: string | null;
   notes: string | null;
+  /** The stages this syllabus splits into, or null to leave it to the qualification. */
+  stages: string[] | null;
   chapters: number;
   points: number;
 };
@@ -30,6 +32,19 @@ export type SyllabusContentRow = {
   title: string;
   academicLevel: string | null;
 };
+
+/**
+ * The directory writes a syllabus's stages as `SL|HL`, and `none` for one with
+ * no split at all — the IB Diploma core is examined without levels. An empty
+ * column, which is every board that has nothing to say about it, reads as null
+ * and leaves the split to the qualification's default.
+ */
+export function parseStages(value: unknown): string[] | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  if (raw === "none") return [];
+  return raw.split("|").map((stage) => stage.trim()).filter(Boolean);
+}
 
 export async function getSyllabusVersions(): Promise<SyllabusVersion[]> {
   const sql = getSql();
@@ -54,6 +69,7 @@ export async function getSyllabusVersions(): Promise<SyllabusVersion[]> {
     pdfUrl: row.pdf_url ? String(row.pdf_url) : null,
     pageUrl: row.page_url ? String(row.page_url) : null,
     notes: row.notes ? String(row.notes) : null,
+    stages: parseStages(row.stages),
     chapters: Number(row.chapters ?? 0),
     points: Number(row.points ?? 0),
   }));

@@ -202,6 +202,7 @@ function versionRecords(path) {
       pdf_url: text(get("Syllabus_PDF_URL")),
       page_url: text(get("Syllabus_Page_URL")),
       notes: text(get("Availability_Notes")),
+      stages: text(get("Stages")),
     });
   }
   return records;
@@ -246,7 +247,7 @@ try {
   const versions = versionRecords(readArg("versions", DEFAULTS.versions));
   await replaceTable(sql, "syllabus_versions", versions, [
     "record_id", "board", "qualification", "subject", "syllabus_code",
-    "year_from", "year_to", "is_current", "is_latest", "pdf_url", "page_url", "notes",
+    "year_from", "year_to", "is_current", "is_latest", "pdf_url", "page_url", "notes", "stages",
   ]);
   console.log(`syllabus_versions: ${versions.length} rows`);
 

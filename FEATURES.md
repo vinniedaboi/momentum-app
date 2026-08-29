@@ -59,7 +59,8 @@ the app, work the list.
 Every subject arrives with its full official structure — chapters and individual
 spec points, in syllabus order.
 
-- AS and A2 tracked separately, with per-paper stage rules
+- Each stage tracked separately — AS and A2 on an A Level, SL and HL in the
+  IB — with per-paper stage rules
 - Live progress percentages per stage, shown in the sidebar
 - Per-topic timeline: every status change and review, plus your own written
   progress notes
@@ -176,8 +177,8 @@ goal milestones, scheduled syllabus points, exam revision and exam days.
 
 - Add any subject, with its exam board, qualification and syllabus code
 - Import a syllabus from the built-in directory, or bring your own
-- Define which papers count as AS and which as A2 — or opt out of stages
-  entirely for IGCSE and similar
+- Choose the split — AS + A2, SL + HL, or none at all for IGCSE and similar —
+  and say which papers belong to which stage
 - Reorder, recolour and archive subjects
 - Deleting a subject shows exactly how much data goes with it, first
 
@@ -185,10 +186,11 @@ goal milestones, scheduled syllabus points, exam revision and exam days.
 
 - Email and password sign-up, with confirmation
 - Three-step setup: your details → pick your subjects → done
-- **52 subjects to choose from**, across Cambridge International AS & A Level,
-  Cambridge IGCSE and Edexcel International A Level — searchable, and filtered
-  by qualification
-- 11 of them arrive **with their full official syllabus tree already loaded**,
+- **484 subjects to choose from**, across the IB Diploma Programme, Cambridge
+  International AS & A Level and IGCSE, Edexcel International A Level and
+  International GCSE, and the AQA, OCR and Edexcel A levels — searchable, and
+  filtered by qualification
+- 221 of them arrive **with their full official syllabus tree already loaded**,
   every chapter and spec point in order; the rest are created ready for a
   syllabus to be imported later
 - Every account is fully isolated: separate data, enforced in the application

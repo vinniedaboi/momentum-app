@@ -8,7 +8,7 @@ import { api, apiMessage } from "./data/api";
 import { studyApi } from "./data/endpoints";
 import { stagesForQualification } from "./syllabus-stage";
 
-type CatalogueSubject = { qualification: string; board: string; subject: string; code: string; papers: number; hasStages: boolean };
+type CatalogueSubject = { qualification: string; board: string; subject: string; code: string; papers: number; hasStages: boolean; stages: string[] | null };
 
 type SyllabusVersion = {
   recordId: string; subject: string; syllabusCode: string; yearFrom: number | null; yearTo: number | null;
@@ -33,6 +33,7 @@ function shortNameFor(subject: string) {
 
 const STAGE_PRESETS: Array<{ label: string; detail: string; stages: string[] }> = [
   { label: "AS + A2", detail: "Two-year A Level split", stages: ["AS", "A2"] },
+  { label: "SL + HL", detail: "IB standard and higher level", stages: ["SL", "HL"] },
   { label: "Single stage", detail: "IGCSE, O Level, one-year courses", stages: ["A2"] },
 ];
 
@@ -298,7 +299,7 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
       board: pick.board || "CAIE",
       qualification: pick.qualification,
       syllabusCode: pick.code || null,
-      stages: stagesForQualification(pick.qualification),
+      stages: pick.stages ?? stagesForQualification(pick.qualification),
       paperStages: {},
     });
     setImportText("");
@@ -599,8 +600,7 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
                     {draft.stages.length > 1 && <select value={chapter.academicLevel ?? ""} aria-label={`New subject chapter ${chapter.code} stage`}
                       onChange={(event) => setOfficialChapters((current) => current.map((item, index) => index === chapterIndex ? { ...item, academicLevel: event.target.value || null } : item))}>
                       <option value="">Stage…</option>
-                      <option value="AS">AS</option>
-                      <option value="A2">A2</option>
+                      {draft.stages.map((item) => <option key={item} value={item}>{item}</option>)}
                     </select>}
                     <b>{chapter.points.length} point{chapter.points.length === 1 ? "" : "s"}</b>
                   </div>;
@@ -694,8 +694,7 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
                         {subject.stages.length > 1 && <select value={chapter.academicLevel ?? ""} aria-label={`Chapter ${chapter.code} stage`}
                           onChange={(event) => setOfficialChapters((current) => current.map((item, index) => index === chapterIndex ? { ...item, academicLevel: event.target.value || null } : item))}>
                           <option value="">Stage…</option>
-                          <option value="AS">AS</option>
-                          <option value="A2">A2</option>
+                          {subject.stages.map((item) => <option key={item} value={item}>{item}</option>)}
                         </select>}
                         <b>{chapter.points.length} point{chapter.points.length === 1 ? "" : "s"}</b>
                       </div>;

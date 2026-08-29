@@ -34,7 +34,7 @@ const QUALIFICATIONS = [
   "AQA A Level",
   "OCR A Level",
   "Edexcel A Level",
-  "IB Diploma",
+  "IB Diploma Programme",
   "Other",
 ];
 

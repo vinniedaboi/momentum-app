@@ -1,4 +1,5 @@
 import { getSql, nowIso, series } from "./db";
+import type { SyllabusStage } from "../app/syllabus-stage";
 
 export type Flashcard = {
   id: number;
@@ -15,7 +16,7 @@ export type FlashcardDeck = {
   id: number;
   title: string;
   subjectId: string | null;
-  stage: "AS" | "A2" | null;
+  stage: SyllabusStage | null;
   chapterId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -62,7 +63,7 @@ export async function getFlashcardDecks(workspaceId: string) {
     id: Number(row.id),
     title: String(row.title),
     subjectId: row.subject_id ? String(row.subject_id) : null,
-    stage: row.stage === "AS" || row.stage === "A2" ? row.stage : null,
+    stage: row.stage ? String(row.stage) : null,
     chapterId: row.chapter_id ? String(row.chapter_id) : null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
@@ -73,7 +74,7 @@ export async function getFlashcardDecks(workspaceId: string) {
 export async function createFlashcardDeck(workspaceId: string, input: {
   title: string;
   subjectId: string | null;
-  stage: "AS" | "A2" | null;
+  stage: SyllabusStage | null;
   chapterId: string | null;
 }) {
   const sql = getSql();

@@ -121,7 +121,11 @@ def main():
     args = parser.parse_args()
 
     rows = list(csv.DictReader(io.open(args.versions, encoding="utf-8-sig")))
-    by_code = candidates(rows)
+    # A syllabus the directory names by course page rather than by PDF has nothing
+    # to parse: the IB publishes its guides through the programme resource centre,
+    # so its subjects arrive without one and the learner imports their own.
+    readable = [row for row in rows if row["Syllabus_PDF_URL"]]
+    by_code = candidates(readable)
 
     records = []
     if args.only_missing:
@@ -137,7 +141,10 @@ def main():
         by_code = {code: group for code, group in by_code.items() if code not in done}
         print("Retrying {} syllabuses with no content\n".format(len(by_code)))
     else:
-        print("Parsing {} syllabuses from {} versions\n".format(len(by_code), len(rows)))
+        listed = len(rows) - len(readable)
+        print("Parsing {} syllabuses from {} versions{}\n".format(
+            len(by_code), len(rows),
+            ", skipping {} with no syllabus PDF".format(listed) if listed else ""))
 
     parsed = 0
     order = sorted(by_code.items(),

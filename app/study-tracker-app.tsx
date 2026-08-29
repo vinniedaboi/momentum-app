@@ -12,7 +12,7 @@ import StudyHoursView, { formatStudyTime, type StudySession } from "./study-hour
 import { progressSegments, segmentSlug, syllabusProgress } from "./syllabus-progress";
 import SubjectSettings from "./subject-settings";
 import { activeSubjects, subjectById, subjectName, type Subject } from "./subjects";
-import { getTopicStage, type SyllabusStage } from "./syllabus-stage";
+import { currentStage, getTopicStage, stageCaption, subjectHasStages, type SyllabusStage } from "./syllabus-stage";
 import TasksView, { DueTasksPanel, type StudyTask, type TaskInput } from "./tasks";
 import TopicTimeline from "./topic-timeline";
 import Icon from "./icons";
@@ -469,13 +469,14 @@ export default function StudyTrackerApp() {
           <p className="nav-section">SUBJECTS</p>
           {trackedSubjects.map((subject) => {
             const subjectPoints = points.filter((topic) => topic.subjectId === subject.id);
-            const asPoints = subjectPoints.filter((topic) => getTopicStage(topic, topics, subject) === "AS");
-            const a2Points = subjectPoints.filter((topic) => getTopicStage(topic, topics, subject) === "A2");
-            const stagePercent = (stagePoints: Topic[]) => syllabusProgress(stagePoints).percent;
+            const stagePercent = (stage: SyllabusStage) => syllabusProgress(
+              subjectPoints.filter((topic) => getTopicStage(topic, topics, subject) === stage)).percent;
             return (
               <button key={subject.id} className={`nav-item ${viewSubjectId(activeView) === subject.id ? "active" : ""}`} onClick={() => selectView({ subjectId: subject.id })}>
                 <span className="nav-label"><i className={`subject-pin ${subject.tone}`} />{subject.name}</span>
-                <small className="stage-progress">AS {stagePercent(asPoints)}% · A2 {stagePercent(a2Points)}%</small>
+                <small className="stage-progress">{subjectHasStages(subject)
+                  ? subject.stages.map((stage) => `${stage} ${stagePercent(stage)}%`).join(" · ")
+                  : `${syllabusProgress(subjectPoints).percent}% covered`}</small>
               </button>
             );
           })}
@@ -750,8 +751,9 @@ function SubjectView({ subject, subjects, topics, today, openChapters, updating,
   updateTopic: (topic: Topic, options: { status?: StudyStatus; reviewedNow?: boolean; wholeChapter?: boolean }) => void;
   onOpenTimeline: (id: string) => void;
 }) {
-  const [stage, setStage] = useState<SyllabusStage>("AS");
+  const [chosenStage, setStage] = useState<SyllabusStage>("");
   if (!subject) return <section className="empty-state"><strong>That subject is no longer available.</strong><p>Pick another subject from the sidebar.</p></section>;
+  const stage = currentStage(subject, chosenStage);
   const chapters = topics.filter((topic) => topic.subjectId === subject.id && topic.kind === "chapter" && getTopicStage(topic, topics, subject) === stage);
   const chapterIds = new Set(chapters.map((chapter) => chapter.id));
   const subjectPoints = topics.filter((topic) => topic.subjectId === subject.id && topic.kind === "point" && topic.parentId && chapterIds.has(topic.parentId));
@@ -762,13 +764,14 @@ function SubjectView({ subject, subjects, topics, today, openChapters, updating,
 
   return (
     <>
-      <section className="stage-toolbar" aria-label={`${subject.name} syllabus stage`}>
-        <div><span>SYLLABUS STAGE</span><strong>Track AS and A2 separately</strong></div>
+      {subjectHasStages(subject) && <section className="stage-toolbar" aria-label={`${subject.name} syllabus stage`}>
+        <div><span>SYLLABUS STAGE</span><strong>Track {subject.stages.join(" and ")} separately</strong></div>
         <div className="stage-switch">
-          <button className={stage === "AS" ? "active" : ""} onClick={() => setStage("AS")}><b>AS</b><span>First year</span></button>
-          <button className={stage === "A2" ? "active" : ""} onClick={() => setStage("A2")}><b>A2</b><span>Second year</span></button>
+          {subject.stages.map((item) => <button key={item} className={stage === item ? "active" : ""} onClick={() => setStage(item)}>
+            <b>{item}</b><span>{stageCaption(subject, item)}</span>
+          </button>)}
         </div>
-      </section>
+      </section>}
       <section className="subject-overview">
         <div><span className={`large-subject-pin ${subject.tone}`} /> <strong>{chapters.length}</strong><small>chapters</small></div>
         <div><strong>{subjectPoints.length}</strong><small>syllabus points</small></div>

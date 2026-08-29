@@ -1,4 +1,5 @@
 import { getSql, series } from "./db";
+import { parseStages } from "./syllabus-db";
 
 /**
  * Read access to the shared Cambridge past-paper catalogue. This table is the
@@ -151,6 +152,8 @@ export type CatalogueSubject = {
   papers: number;
   /** True where the catalogue distinguishes AS from A2 for this subject. */
   hasStages: boolean;
+  /** The stages the syllabus directory gives this subject, where it names them. */
+  stages: string[] | null;
 };
 
 /**
@@ -168,7 +171,7 @@ export type CatalogueSubject = {
 export async function catalogueSubjectDirectory(): Promise<CatalogueSubject[]> {
   const sql = getSql();
   const rows = await sql<Record<string, unknown>[]>`
-    WITH with_papers AS (
+    WITH counted AS (
       SELECT
         c1.qualification AS qualification,
         MIN(c1.board) AS board,
@@ -188,6 +191,14 @@ export async function catalogueSubjectDirectory(): Promise<CatalogueSubject[]> {
       FROM catalogue_papers c1
       GROUP BY c1.qualification, c1.subject
     ),
+    with_papers AS (
+      -- The stage split is the syllabus directory's to state, so it is read off
+      -- the code the papers settled on rather than counted from the papers.
+      SELECT counted.*, (
+        SELECT MIN(v.stages) FROM syllabus_versions v WHERE v.syllabus_code = counted.code
+      ) AS stages
+      FROM counted
+    ),
     syllabus_only AS (
       -- A syllabus code, not a subject name, decides whether the catalogue
       -- already covers this one: two boards can name a subject the same way.
@@ -197,7 +208,8 @@ export async function catalogueSubjectDirectory(): Promise<CatalogueSubject[]> {
         v.subject AS subject,
         v.syllabus_code AS code,
         0 AS papers,
-        0 AS staged
+        0 AS staged,
+        MIN(v.stages) AS stages
       FROM syllabus_versions v
       WHERE NOT EXISTS (
         SELECT 1 FROM catalogue_papers c WHERE c.syllabus_code = v.syllabus_code
@@ -217,6 +229,7 @@ export async function catalogueSubjectDirectory(): Promise<CatalogueSubject[]> {
     code: String(row.code ?? ""),
     papers: Number(row.papers ?? 0),
     hasStages: Number(row.staged ?? 0) > 0,
+    stages: parseStages(row.stages),
   }));
 }
 

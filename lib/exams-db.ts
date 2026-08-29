@@ -1,5 +1,6 @@
 import { getSql, nowIso, type SqlClient } from "./db";
 import { pacedDates, type PaceMode } from "./pacing";
+import type { SyllabusStage } from "../app/syllabus-stage";
 
 /**
  * Exam planner.
@@ -21,7 +22,7 @@ export type Exam = {
   subjectId: string;
   title: string;
   /** Null when the subject has no AS/A2 split, or the exam spans both. */
-  stage: "AS" | "A2" | null;
+  stage: SyllabusStage | null;
   examDate: string;
   startDate: string;
   weeklyHours: number;
@@ -37,7 +38,7 @@ export type Exam = {
 export type ExamInput = {
   subjectId: string;
   title: string;
-  stage: "AS" | "A2" | null;
+  stage: SyllabusStage | null;
   examDate: string;
   startDate: string;
   weeklyHours: number;
@@ -55,7 +56,7 @@ function mapExam(row: Record<string, unknown>, topics: ExamTopic[]): Exam {
     id: Number(row.id),
     subjectId: String(row.subject_id),
     title: String(row.title),
-    stage: row.stage === "AS" || row.stage === "A2" ? row.stage : null,
+    stage: row.stage ? String(row.stage) : null,
     examDate: String(row.exam_date),
     startDate: String(row.start_date),
     weeklyHours: Number(row.weekly_hours ?? 10),
