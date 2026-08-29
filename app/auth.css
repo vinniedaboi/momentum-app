@@ -274,7 +274,7 @@
 .subject-boards button.picked {
   background: var(--teal);
   border-color: var(--teal);
-  color: var(--c-on-dark);
+  color: var(--c-on-accent);
 }
 
 .subject-boards button small { color: inherit; opacity: .75; font-size: var(--text-2xs); }
@@ -529,7 +529,7 @@
 .board-chips button.picked {
   background: var(--teal);
   border-color: var(--teal);
-  color: var(--c-on-dark);
+  color: var(--c-on-accent);
 }
 
 .picker-chip small {

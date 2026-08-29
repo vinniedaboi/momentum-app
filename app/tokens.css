@@ -127,8 +127,17 @@
   --c-muted: #687487;
   --c-slate: #8792a3;
   --c-on-dark: #fffdf8;
-  /* Secondary text on those same panels, which are dark in either theme. */
+  /*
+   * Text on the panels that are dark in either theme - the sidebar, the goal
+   * hero, the timeline drawer. These have no dark counterpart on purpose: the
+   * surface under them does not change, so neither can they.
+   */
+  --c-on-panel-strong: #dbe5dd;
   --c-on-panel: #b8cdc6;
+  --c-on-panel-soft: #9aa7b8;
+  /* And the label on a filled accent button, which is bright enough in dark
+     mode that white on it fails contrast. */
+  --c-on-accent: #fffdf8;
   --c-warm-ink: #4b321d;
   --c-amber-ink: #7f5a20;
   --c-red-ink: #7d3b36;
@@ -198,7 +207,7 @@
   --c-muted: #95a3a6;
   --c-slate: #8e99a7;
   --c-on-dark: #f5f9f7;
-  --c-on-panel: #a7c0b7;
+  --c-on-accent: #06231d;
   --c-warm-ink: #e3cbaa;
   --c-amber-ink: #f1c785;
   --c-red-ink: #f0aba4;

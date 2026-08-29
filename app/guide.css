@@ -127,7 +127,7 @@
 .guide-status.learning { background: var(--c-rose-soft); color: var(--c-amber-ink); }
 .guide-status.practising { background: var(--c-blue-mist); color: var(--c-ink-soft); }
 .guide-status.covered { background: var(--c-mint); color: var(--c-teal-ink); }
-.guide-status.exam-ready { background: var(--teal); color: var(--c-on-dark); }
+.guide-status.exam-ready { background: var(--teal); color: var(--c-on-accent); }
 
 /* ---------- Sections ---------- */
 
