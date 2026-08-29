@@ -574,6 +574,57 @@ test("offers the English boards' A levels beside the international ones", async 
   assert.match(directoryQuery, /SELECT \* FROM with_papers\s*\n\s*UNION ALL/);
 });
 
+test("plans from both planners land on one review board", async () => {
+  const [shell, workspace, examsDb] = await Promise.all([
+    read("app/study-tracker-app.tsx"),
+    read("app/data/use-workspace.ts"),
+    read("lib/exams-db.ts"),
+  ]);
+
+  // A goal writes its dates onto the topic; an exam cannot, because a topic can
+  // sit in several exams at once. The board has to read both or it answers
+  // "what do I study today" with only half of the answer.
+  assert.match(examsDb, /exam_topics SET revise_on/);
+  assert.match(workspace, /studyApi\.exams\.path/);
+  assert.match(shell, /function examSchedule/);
+  assert.match(shell, /scheduledDate\(topic, examDue/);
+
+  // Everything that asks when a topic is next wanted goes through one helper,
+  // so the queue, the counters and a subject's own page cannot disagree.
+  assert.match(shell, /const dueOn = useCallback/);
+  assert.ok(!/scheduledDate\(topic\)/.test(shell), "every reading should pass the exam date");
+});
+
+test("every colour is a token, so the app can be themed", async () => {
+  const sheets = (await readdir(new URL("../app", import.meta.url)))
+    .filter((name) => name.endsWith(".css") && name !== "tokens.css");
+  assert.ok(sheets.length >= 6, "expected the full stylesheet set");
+
+  // A literal here is a colour that cannot follow the theme. Eight-digit values
+  // carry their own alpha and are left as they are.
+  const literal = /#[0-9a-fA-F]{3}(?![0-9a-fA-F])|#[0-9a-fA-F]{6}(?![0-9a-fA-F])/;
+  for (const sheet of sheets) {
+    const source = await read(`app/${sheet}`);
+    const found = source.match(literal);
+    assert.ok(!found, `app/${sheet} still has the literal ${found?.[0]}`);
+  }
+
+  const [tokens, layout, toggle] = await Promise.all([
+    read("app/tokens.css"),
+    read("app/layout.tsx"),
+    read("app/theme-toggle.tsx"),
+  ]);
+  assert.match(tokens, /--c-page:/);
+  assert.match(tokens, /:root\[data-theme="dark"\]/);
+  // Applied before the first paint: a theme set after it is a flash of the other.
+  assert.match(layout, /dangerouslySetInnerHTML/);
+  assert.match(layout, /prefers-color-scheme/);
+  assert.match(layout, /colorScheme/);
+  // The document is the store the button reads, so it cannot render the wrong
+  // icon and then correct itself.
+  assert.match(toggle, /useSyncExternalStore/);
+});
+
 test("teaches the loop at sign-up, and keeps a guide to come back to", async () => {
   const [onboarding, guide, content, shell, topics, scheduler] = await Promise.all([
     read("app/onboarding/onboarding-flow.tsx"),

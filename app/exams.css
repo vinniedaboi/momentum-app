@@ -8,15 +8,15 @@
 .exam-card {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  border-left: 4px solid #9c3f66;
-  background: #fff;
+  border-left: 4px solid var(--c-rose);
+  background: var(--c-surface-raised);
   padding: var(--space-5);
   display: grid;
   gap: var(--space-3);
   box-shadow: var(--shadow-sm);
 }
 
-.exam-card.past { border-left-color: #b7bcc2; opacity: .72; }
+.exam-card.past { border-left-color: var(--c-on-panel); opacity: .72; }
 
 .exam-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
 
@@ -26,16 +26,16 @@
 .exam-title small { display: block; margin-top: var(--space-1); color: var(--muted); font-size: var(--text-2xs); }
 
 .exam-countdown { text-align: right; flex: 0 0 auto; }
-.exam-countdown strong { display: block; font-size: var(--text-sm); font-weight: 900; color: #9c3f66; white-space: nowrap; }
-.exam-countdown.soon strong { color: #b64d45; }
+.exam-countdown strong { display: block; font-size: var(--text-sm); font-weight: 900; color: var(--c-rose); white-space: nowrap; }
+.exam-countdown.soon strong { color: var(--c-red); }
 .exam-countdown small { display: block; margin-top: var(--space-1); color: var(--muted); font-size: var(--text-3xs); }
 
-.exam-progress { height: 8px; border-radius: var(--radius-xl); background: #ece9e2; overflow: hidden; }
+.exam-progress { height: 8px; border-radius: var(--radius-xl); background: var(--c-line-soft); overflow: hidden; }
 .exam-progress > div { height: 100%; border-radius: inherit; background: var(--teal); transition: width .2s ease; }
 
 .exam-stats { margin: 0; display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); font-size: var(--text-3xs); color: var(--muted); }
 .exam-stats b { color: var(--ink); font-size: var(--text-2xs); }
-.exam-stats .behind { color: #a8514a; font-weight: 850; }
+.exam-stats .behind { color: var(--c-red); font-weight: 850; }
 
 .exam-notes { margin: 0; color: var(--muted); font-size: var(--text-2xs); line-height: 1.5; }
 
@@ -43,19 +43,19 @@
 .exam-actions button {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background: #faf9f6;
-  color: #5a6675;
+  background: var(--c-surface-sunken);
+  color: var(--c-ink-soft);
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-3xs);
   font-weight: 900;
 }
-.exam-actions button:hover { border-color: #b6cfc2; color: var(--ink); }
-.exam-actions button.danger { color: #a35d58; }
-.exam-actions button.danger:hover { border-color: #d8b4b0; color: #8d3b3d; }
+.exam-actions button:hover { border-color: var(--c-on-panel); color: var(--ink); }
+.exam-actions button.danger { color: var(--c-red); }
+.exam-actions button.danger:hover { border-color: var(--c-red-line); color: var(--c-red-ink); }
 
 /* ---------- generated plan ---------- */
 
-.exam-plan { border-top: 1px solid #ece9e2; padding-top: var(--space-3); display: grid; gap: var(--space-3); }
+.exam-plan { border-top: 1px solid var(--c-line-soft); padding-top: var(--space-3); display: grid; gap: var(--space-3); }
 .exam-plan .muted { margin: 0; font-size: var(--text-3xs); }
 
 .exam-plan-days { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); max-height: 340px; overflow-y: auto; }
@@ -66,19 +66,19 @@
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
-  background: #f8f7f3;
+  background: var(--c-surface-sunken);
 }
 
-.exam-plan-days > li.today { background: #dcece5; box-shadow: inset 3px 0 0 var(--teal); }
-.exam-plan-days > li.missed { background: #faeeec; }
+.exam-plan-days > li.today { background: var(--c-mint); box-shadow: inset 3px 0 0 var(--teal); }
+.exam-plan-days > li.missed { background: var(--c-red-soft); }
 
 .plan-date strong { display: block; font-size: var(--text-2xs); font-weight: 900; }
 .plan-date small { display: block; margin-top: var(--space-1); color: var(--muted); font-size: var(--text-3xs); }
 
 .exam-plan-days ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); min-width: 0; }
-.exam-plan-days ul li { font-size: var(--text-2xs); line-height: 1.45; color: #48535f; }
+.exam-plan-days ul li { font-size: var(--text-2xs); line-height: 1.45; color: var(--c-ink-soft); }
 .exam-plan-days ul li b { color: var(--ink); font-weight: 900; margin-right: var(--space-1); }
-.exam-plan-days ul li.done { color: #8a9490; text-decoration: line-through; }
+.exam-plan-days ul li.done { color: var(--c-slate); text-decoration: line-through; }
 
 /* ---------- form ---------- */
 
@@ -99,7 +99,7 @@
 .pace-picker legend {
   font-size: var(--text-3xs);
   font-weight: 900;
-  color: #687487;
+  color: var(--c-muted);
   text-transform: uppercase;
   letter-spacing: .05em;
 }
@@ -110,7 +110,7 @@
   height: 40px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background: #faf9f6;
+  background: var(--c-surface-sunken);
   color: var(--ink);
   padding: 0 var(--space-3);
   font-size: var(--text-2xs);
@@ -133,7 +133,7 @@
 .pace-picker button {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  background: #fff;
+  background: var(--c-surface-raised);
   color: var(--ink);
   padding: var(--space-3);
   text-align: left;
@@ -141,8 +141,8 @@
   gap: var(--space-1);
 }
 
-.pace-picker button:hover { border-color: #b6cfc2; }
-.pace-picker button.active { border-color: var(--teal); background: #cfe6dd; box-shadow: inset 3px 0 0 var(--teal); }
+.pace-picker button:hover { border-color: var(--c-on-panel); }
+.pace-picker button.active { border-color: var(--teal); background: var(--c-mint); box-shadow: inset 3px 0 0 var(--teal); }
 .pace-picker strong { font-size: var(--text-2xs); font-weight: 900; }
 .pace-picker small { color: var(--muted); font-size: var(--text-3xs); line-height: 1.4; }
 
@@ -156,7 +156,7 @@
   justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-4);
-  background: #f8f7f3;
+  background: var(--c-surface-sunken);
   border-bottom: 1px solid var(--line);
 }
 
@@ -168,18 +168,18 @@
 .topic-picker-actions button {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background: #fff;
-  color: #5a6675;
+  background: var(--c-surface-raised);
+  color: var(--c-ink-soft);
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-3xs);
   font-weight: 900;
 }
-.topic-picker-actions button:hover { border-color: #b6cfc2; color: var(--ink); }
+.topic-picker-actions button:hover { border-color: var(--c-on-panel); color: var(--ink); }
 
 .topic-picker > .muted { margin: 0; padding: var(--space-6) var(--space-4); font-size: var(--text-2xs); }
 
 .topic-tree { list-style: none; margin: 0; padding: var(--space-2) 0; max-height: 44vh; overflow-y: auto; }
-.topic-tree > li { border-bottom: 1px solid #f0eee8; }
+.topic-tree > li { border-bottom: 1px solid var(--c-surface-muted); }
 .topic-tree > li:last-child { border-bottom: 0; }
 
 .topic-chapter {
@@ -191,7 +191,7 @@
   cursor: pointer;
 }
 
-.topic-chapter:hover { background: #f8f7f3; }
+.topic-chapter:hover { background: var(--c-surface-sunken); }
 .topic-chapter > span { font-size: var(--text-2xs); line-height: 1.4; font-weight: 800; }
 .topic-chapter b { color: var(--teal); margin-right: var(--space-2); }
 .topic-chapter small { color: var(--muted); font-size: var(--text-3xs); font-variant-numeric: tabular-nums; }
@@ -206,10 +206,10 @@
   padding: var(--space-1) var(--space-4) var(--space-1) 0;
   cursor: pointer;
 }
-.topic-points label:hover { background: #f8f7f3; }
-.topic-points span { font-size: var(--text-3xs); line-height: 1.45; color: #4d5764; }
-.topic-points b { color: #7c8794; font-weight: 900; margin-right: var(--space-1); }
-.topic-points label.done span { color: #94a09a; }
+.topic-points label:hover { background: var(--c-surface-sunken); }
+.topic-points span { font-size: var(--text-3xs); line-height: 1.45; color: var(--c-ink-soft); }
+.topic-points b { color: var(--c-brown-soft); font-weight: 900; margin-right: var(--space-1); }
+.topic-points label.done span { color: var(--c-slate); }
 
 .topic-picker input[type="checkbox"] { accent-color: var(--teal); width: 16px; height: 16px; margin: var(--space-1) 0 0; }
 
@@ -218,14 +218,14 @@
 
 /* ---------- calendar kinds ---------- */
 
-.calendar-legend span.exam::before { background: #9c3f66; }
-.calendar-legend span.exam-task::before { background: #c2657f; }
+.calendar-legend span.exam::before { background: var(--c-rose); }
+.calendar-legend span.exam-task::before { background: var(--c-tan); }
 
-.calendar-grid span.exam { border-color: #9c3f66; background: #f7e8ee; color: #7d3352; font-weight: 900; }
-.calendar-grid span.exam-task { border-color: #c2657f; background: #fbeef2; color: #8c4a5e; }
+.calendar-grid span.exam { border-color: var(--c-rose); background: var(--c-red-soft); color: var(--c-red-ink); font-weight: 900; }
+.calendar-grid span.exam-task { border-color: var(--c-tan); background: var(--c-red-soft); color: var(--c-rose); }
 
-.agenda-list article > i.exam { background: #9c3f66; }
-.agenda-list article > i.exam-task { background: #c2657f; }
+.agenda-list article > i.exam { background: var(--c-rose); }
+.agenda-list article > i.exam-task { background: var(--c-tan); }
 
 @media (max-width: 760px) {
   .exam-head { flex-direction: column; }

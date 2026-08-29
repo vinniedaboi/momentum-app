@@ -86,3 +86,153 @@
   --radius-2xl: 24px;
   --radius-pill: 999px;
 }
+
+/*
+ * The colour scale, and the second theme it exists for.
+ *
+ * The stylesheets held 1,077 colour literals in 602 shades — four near-whites
+ * for one card, six greys for one border — which is the same drift the spacing
+ * and type scales were introduced to end. They are snapped onto the roles below,
+ * so every surface, line and ink in the app is one of these.
+ *
+ * That is what makes a second theme possible: `[data-theme="dark"]` restates the
+ * same roles and the whole app follows, rather than needing 602 overrides. A
+ * role keeps its job in both — `--c-teal` is the accent, `--c-line` separates
+ * things — so the pairs below are read as "what is this for", not "what colour
+ * is it".
+ */
+:root {
+  /* Surfaces, page backwards to the card that sits highest off it. */
+  --c-page: #f4f7f1;
+  --c-surface: #fffefa;
+  --c-surface-raised: #ffffff;
+  --c-surface-sunken: #faf9f6;
+  --c-surface-muted: #f0eee9;
+  --c-surface-tint: #e7ece8;
+  --c-surface-cool: #f3faf6;
+
+  /* Lines. `strong` is the hover and focus border; the rest divide. */
+  --c-line: #dbe5dd;
+  --c-line-soft: #ece9e2;
+  --c-line-strong: #b6cfc2;
+  --c-line-cool: #a9c3d2;
+  --c-grey-line: #c9ccd2;
+  --c-blue-line: #9aa7b8;
+  --c-red-line: #d8b4b0;
+  --c-amber-line: #f0be64;
+
+  /* Ink. The `-ink` colours are text on their own tint, not chrome. */
+  --c-ink: #263b35;
+  --c-ink-soft: #4f5d72;
+  --c-muted: #687487;
+  --c-slate: #8792a3;
+  --c-on-dark: #fffdf8;
+  /* Secondary text on those same panels, which are dark in either theme. */
+  --c-on-panel: #b8cdc6;
+  --c-warm-ink: #4b321d;
+  --c-amber-ink: #7f5a20;
+  --c-red-ink: #7d3b36;
+  --c-teal-ink: #125a4f;
+
+  /* Brand. The navies are the panels that invert against the page. */
+  --c-teal: #2f7d6c;
+  --c-teal-deep: #14796f;
+  --c-teal-soft: #b9e1d6;
+  --c-navy: #173d35;
+  --c-navy-deep: #142e48;
+  --c-navy-mid: #2b394d;
+  --c-navy-slate: #2e4967;
+  --c-blue-deep: #326d9a;
+
+  /* Status, and the eight subject tones, which carry identity. */
+  --c-red: #b64d45;
+  --c-red-soft: #f8e4e1;
+  --c-amber: #d6902c;
+  --c-amber-soft: #fff0d4;
+  --c-blue: #587db0;
+  --c-blue-soft: #eef1f5;
+  --c-blue-tint: #87b9df;
+  --c-blue-white: #e9effb;
+  --c-blue-mist: #d7e5ef;
+  --c-violet: #7b68a6;
+  --c-violet-soft: #f0edf7;
+  --c-rose: #9c3f66;
+  --c-rose-soft: #f8e9df;
+  --c-mint: #dcece5;
+  --c-mint-strong: #83cbb7;
+  --c-sage: #eaf2eb;
+  --c-spring: #6bbfa4;
+  --c-jade: #4c9481;
+  --c-lime: #7f9e4c;
+  --c-tan: #c9a06a;
+  --c-brown-soft: #9b7270;
+  --c-peach-strong: #f9d5ae;
+}
+
+/*
+ * Dark. Surfaces climb towards the viewer as they lighten, the inks invert, and
+ * the accents are lifted rather than mirrored: #2f7d6c on cream is legible, and
+ * the same green on charcoal is not. The soft tints become deep tints of the
+ * same hue, so a warning still reads amber and a stage still reads teal.
+ */
+:root[data-theme="dark"] {
+  --c-page: #10171a;
+  --c-surface: #171f22;
+  --c-surface-raised: #1e282b;
+  --c-surface-sunken: #131a1d;
+  --c-surface-muted: #212b2e;
+  --c-surface-tint: #22302e;
+  --c-surface-cool: #182421;
+
+  --c-line: #2d3b3d;
+  --c-line-soft: #26302f;
+  --c-line-strong: #40605a;
+  --c-line-cool: #3b4d57;
+  --c-grey-line: #39434a;
+  --c-blue-line: #4a5a6b;
+  --c-red-line: #5f3d3a;
+  --c-amber-line: #6d5423;
+
+  --c-ink: #e7efec;
+  --c-ink-soft: #c5d0da;
+  --c-muted: #95a3a6;
+  --c-slate: #8e99a7;
+  --c-on-dark: #f5f9f7;
+  --c-on-panel: #a7c0b7;
+  --c-warm-ink: #e3cbaa;
+  --c-amber-ink: #f1c785;
+  --c-red-ink: #f0aba4;
+  --c-teal-ink: #7fd9c2;
+
+  --c-teal: #4fae97;
+  --c-teal-deep: #3fa792;
+  --c-teal-soft: #24544c;
+  --c-navy: #1c3b34;
+  --c-navy-deep: #16283a;
+  --c-navy-mid: #27384b;
+  --c-navy-slate: #2c4562;
+  --c-blue-deep: #4f9bcc;
+
+  --c-red: #e28d85;
+  --c-red-soft: #3b2624;
+  --c-amber: #e8ad58;
+  --c-amber-soft: #3b301c;
+  --c-blue: #82a6d8;
+  --c-blue-soft: #242d34;
+  --c-blue-tint: #5182ab;
+  --c-blue-white: #212b34;
+  --c-blue-mist: #27343d;
+  --c-violet: #a594cb;
+  --c-violet-soft: #2b2834;
+  --c-rose: #d284a1;
+  --c-rose-soft: #34272b;
+  --c-mint: #22322e;
+  --c-mint-strong: #52a08c;
+  --c-sage: #1f2b28;
+  --c-spring: #5caa92;
+  --c-jade: #3f8b78;
+  --c-lime: #93b463;
+  --c-tan: #c2996b;
+  --c-brown-soft: #b08e8c;
+  --c-peach-strong: #6d563c;
+}

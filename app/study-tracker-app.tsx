@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import CalendarView from "./calendar";
 import FlashcardsView from "./flashcards";
-import ExamPlanner from "./exams";
+import ExamPlanner, { type PlannedExam } from "./exams";
 import GoalPlanner from "./goals";
 import GuideView from "./guide";
 import MomentumMark from "./momentum-mark";
@@ -15,6 +15,7 @@ import SubjectSettings from "./subject-settings";
 import { activeSubjects, subjectById, subjectName, type Subject } from "./subjects";
 import { currentStage, getTopicStage, stageCaption, subjectHasStages, type SyllabusStage } from "./syllabus-stage";
 import TasksView, { DueTasksPanel, type StudyTask, type TaskInput } from "./tasks";
+import ThemeToggle from "./theme-toggle";
 import TopicTimeline from "./topic-timeline";
 import Icon from "./icons";
 import { STATUSES, type StudyStatus, type Topic } from "./topics";
@@ -68,9 +69,31 @@ function dateLabel(date: string | null, today: string) {
   return formatDate(date);
 }
 
-function scheduledDate(topic: Pick<Topic, "reviewDue" | "goalDue">) {
-  if (topic.reviewDue && topic.goalDue) return topic.reviewDue < topic.goalDue ? topic.reviewDue : topic.goalDue;
-  return topic.reviewDue ?? topic.goalDue;
+/**
+ * The next date a topic is wanted on, whichever plan put it there: its own
+ * review, a syllabus goal, or the run-up to an exam that covers it. The three
+ * are written in different places - the first two on the topic, an exam's in
+ * `exam_topics` because a topic can sit in several exams at once - and the
+ * board is where they have to read as one list.
+ */
+function scheduledDate(topic: Pick<Topic, "reviewDue" | "goalDue">, examDue?: string | null) {
+  const dates = [topic.reviewDue, topic.goalDue, examDue].filter((date): date is string => Boolean(date));
+  return dates.length ? dates.reduce((earliest, date) => (date < earliest ? date : earliest)) : null;
+}
+
+/** The soonest exam revision date per topic, and the exam that wants it. */
+function examSchedule(exams: PlannedExam[]) {
+  const due = new Map<string, { date: string; title: string }>();
+  for (const exam of exams) {
+    for (const topic of exam.topics) {
+      if (!topic.reviseOn) continue;
+      const standing = due.get(topic.topicId);
+      if (!standing || topic.reviseOn < standing.date) {
+        due.set(topic.topicId, { date: topic.reviseOn, title: exam.title });
+      }
+    }
+  }
+  return due;
 }
 
 function statusSlug(status: StudyStatus) {
@@ -100,6 +123,7 @@ export default function StudyTrackerApp() {
   const { value: tasks, setValue: setTasks } = workspace.tasks;
   const { value: pastPapers, setValue: setPastPapers, failed: papersError } = workspace.papers;
   const { value: paperMeta, setValue: setPaperMeta } = workspace.paperMeta;
+  const { value: exams } = workspace.exams;
   const [activeView, setActiveView] = useState<ActiveView>("Today");
   const [queueFilter, setQueueFilter] = useState<QueueFilter>("all");
   const [query, setQuery] = useState("");
@@ -151,12 +175,14 @@ export default function StudyTrackerApp() {
   const subjectLookup = useMemo(() => subjectById(subjects), [subjects]);
   const trackedSubjects = useMemo(() => activeSubjects(subjects), [subjects]);
   const points = useMemo(() => topics.filter((topic) => topic.kind === "point"), [topics]);
-  const tracked = useMemo(() => points.filter((topic) => scheduledDate(topic)), [points]);
-  const overdue = useMemo(() => tracked.filter((topic) => scheduledDate(topic)! < today), [tracked, today]);
-  const dueToday = useMemo(() => tracked.filter((topic) => scheduledDate(topic) === today), [tracked, today]);
+  const examDue = useMemo(() => examSchedule(exams), [exams]);
+  const dueOn = useCallback((topic: Topic) => scheduledDate(topic, examDue.get(topic.id)?.date), [examDue]);
+  const tracked = useMemo(() => points.filter((topic) => dueOn(topic)), [points, dueOn]);
+  const overdue = useMemo(() => tracked.filter((topic) => dueOn(topic)! < today), [tracked, today, dueOn]);
+  const dueToday = useMemo(() => tracked.filter((topic) => dueOn(topic) === today), [tracked, today, dueOn]);
   const upcoming = useMemo(
-    () => tracked.filter((topic) => scheduledDate(topic)! > today && scheduledDate(topic)! <= addDays(today, 7)),
-    [tracked, today],
+    () => tracked.filter((topic) => dueOn(topic)! > today && dueOn(topic)! <= addDays(today, 7)),
+    [tracked, today, dueOn],
   );
   const progress = syllabusProgress(points);
   const progressBands = progressSegments(points);
@@ -172,12 +198,12 @@ export default function StudyTrackerApp() {
 
   const queue = useMemo(() => {
     const all = [...overdue, ...dueToday, ...upcoming]
-      .sort((a, b) => (scheduledDate(a) ?? "").localeCompare(scheduledDate(b) ?? ""));
-    if (queueFilter === "overdue") return all.filter((topic) => scheduledDate(topic)! < today);
-    if (queueFilter === "today") return all.filter((topic) => scheduledDate(topic) === today);
-    if (queueFilter === "upcoming") return all.filter((topic) => scheduledDate(topic)! > today);
+      .sort((a, b) => (dueOn(a) ?? "").localeCompare(dueOn(b) ?? ""));
+    if (queueFilter === "overdue") return all.filter((topic) => dueOn(topic)! < today);
+    if (queueFilter === "today") return all.filter((topic) => dueOn(topic) === today);
+    if (queueFilter === "upcoming") return all.filter((topic) => dueOn(topic)! > today);
     return all;
-  }, [overdue, dueToday, upcoming, queueFilter, today]);
+  }, [overdue, dueToday, upcoming, queueFilter, today, dueOn]);
 
   const queueGroups = useMemo(() => {
     const chapterById = new Map(topics.filter((topic) => topic.kind === "chapter").map((topic) => [topic.id, topic]));
@@ -504,11 +530,14 @@ export default function StudyTrackerApp() {
             <h2>{query ? "Search results" : activeView === "Today" ? "Your review board" : activeView === "Tasks" ? "Your tasks" : activeView === "Hours" ? "Study hours" : activeView === "Papers" ? "Past papers" : activeView === "Goals" ? "Syllabus goals" : activeView === "Exams" ? "Exam planner" : activeView === "Calendar" ? "Study calendar" : activeView === "Flashcards" ? "Flashcard maker" : activeView === "Notes" ? "Notes library" : activeView === "Subjects" ? "Subjects" : activeView === "Guide" ? "How Momentum works" : subjectName(subjectLookup, viewSubjectId(activeView))}</h2>
             <p className="muted">{query ? `Matching “${query}” across your syllabus.` : activeView === "Today" ? "Know exactly what to review, without hunting through rows." : activeView === "Tasks" ? "Keep subject work and everything else on one list." : activeView === "Hours" ? "Log your YPT time and see your daily study rhythm." : activeView === "Papers" ? "Log every attempt, watch the scores move, and see where marks keep going." : activeView === "Goals" ? "Turn a finish date into a chapter-by-chapter plan." : activeView === "Exams" ? "Pick the topics an assessment actually covers, and get a revision run-up." : activeView === "Calendar" ? "See reviews, tasks, study sessions, milestones and deadlines in one place." : activeView === "Flashcards" ? "Create focused decks and test your recall." : activeView === "Notes" ? "Keep your study files organised by subject and stage." : activeView === "Subjects" ? "Add the subjects you study, and set how each one is structured." : activeView === "Guide" ? "Every feature, what it is for, and the rules the screens do not spell out." : "Work chapter by chapter, or update one syllabus point at a time."}</p>
           </div>
+          <div className="topbar-tools">
           {!(["Tasks", "Hours", "Papers", "Goals", "Exams", "Calendar", "Flashcards", "Notes", "Subjects", "Guide"] as ActiveView[]).includes(activeView) && <label className="search-box">
             <Icon name="search" className="search-icon" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search topics" placeholder="Search topic, chapter or code" />
             {query && <button onClick={() => setQuery("")} aria-label="Clear search"><Icon name="close" /></button>}
           </label>}
+          <ThemeToggle />
+          </div>
         </header>
 
         {activeView === "Guide" ? (
@@ -536,7 +565,7 @@ export default function StudyTrackerApp() {
         ) : !topics.length ? (
           <section className="loading-state" aria-label="Loading study tracker"><div /><div /><div /></section>
         ) : query ? (
-          <SearchView results={searchResults} subjects={subjectLookup} today={today} updating={updating} updateTopic={updateTopic} onOpenTimeline={setTimelineTopicId} />
+          <SearchView results={searchResults} subjects={subjectLookup} today={today} updating={updating} updateTopic={updateTopic} onOpenTimeline={setTimelineTopicId} examDue={examDue} />
         ) : activeView === "Today" ? (
           <>
             <section className="summary-grid" aria-label="Review summary">
@@ -547,7 +576,7 @@ export default function StudyTrackerApp() {
                 <span>Due today</span><strong>{dueToday.length}</strong><small>{dueToday.length ? "Ready for review" : "Nothing due today"}</small>
               </button>
               <button className={`summary-card upcoming ${queueFilter === "upcoming" ? "selected" : ""}`} onClick={() => { setQueueFilter(queueFilter === "upcoming" ? "all" : "upcoming"); setSelectedReviews(new Set()); }}>
-                <span>Next 7 days</span><strong>{upcoming.length}</strong><small>Reviews and goal tasks</small>
+                <span>Next 7 days</span><strong>{upcoming.length}</strong><small>Reviews, goals and exam revision</small>
               </button>
               <article className="summary-card ready">
                 <span>Syllabus progress</span>
@@ -589,7 +618,7 @@ export default function StudyTrackerApp() {
                         </label>
                         <div className="review-list">
                           {group.items.map((topic) => (
-                            <TopicRow key={topic.id} topic={topic} subjects={subjectLookup} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} selected={selectedReviews.has(topic.id)} onSelect={() => toggleReviewSelection([topic.id])} onOpenTimeline={setTimelineTopicId} />
+                            <TopicRow key={topic.id} topic={topic} subjects={subjectLookup} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} selected={selectedReviews.has(topic.id)} onSelect={() => toggleReviewSelection([topic.id])} onOpenTimeline={setTimelineTopicId} exam={examDue.get(topic.id)} />
                           ))}
                         </div>
                       </section>
@@ -626,6 +655,7 @@ export default function StudyTrackerApp() {
             toggleChapter={toggleChapter}
             updateTopic={updateTopic}
             onOpenTimeline={setTimelineTopicId}
+            examDue={examDue}
           />
         )}
       </section>
@@ -698,9 +728,11 @@ function ProgressBar({ segments }: { segments: ReturnType<typeof progressSegment
   );
 }
 
-function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onOpenTimeline, subjects }: {
+function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onOpenTimeline, subjects, exam }: {
   topic: Topic;
   subjects: Map<string, Subject>;
+  /** The exam wanting this topic soonest, where one does. */
+  exam?: { date: string; title: string };
   today: string;
   updating: boolean;
   updateTopic: (topic: Topic, options: { status?: StudyStatus; reviewedNow?: boolean; wholeChapter?: boolean }) => void;
@@ -708,13 +740,17 @@ function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onO
   onSelect?: () => void;
   onOpenTimeline: (id: string) => void;
 }) {
-  const dueDate = scheduledDate(topic);
-  const isGoalTask = Boolean(topic.goalDue && dueDate === topic.goalDue);
+  const dueDate = scheduledDate(topic, exam?.date);
+  // Whichever plan owns the date is the one worth naming, and an exam outranks a
+  // goal on the same day: it is the one with a deadline behind it.
+  const plan = exam && dueDate === exam.date ? exam.title
+    : topic.goalDue && dueDate === topic.goalDue ? "Goal plan"
+    : null;
   return (
     <article className={`review-row ${onSelect ? "selectable" : ""} ${selected ? "is-selected" : ""} ${updating ? "is-updating" : ""}`}>
       {onSelect ? <input className="review-check" type="checkbox" checked={selected} onChange={onSelect} aria-label={`Select ${topic.title}`} /> : <i className={`subject-pin ${subjects.get(topic.subjectId)?.tone ?? "slate"}`} />}
       <div className="review-copy">
-        <span>{subjectName(subjects, topic.subjectId)} · {topic.code}{isGoalTask ? " · Goal plan" : ""}</span>
+        <span>{subjectName(subjects, topic.subjectId)} · {topic.code}{plan ? ` · ${plan}` : ""}</span>
         <strong>{topic.title}</strong>
         <small className="topic-dates"><button onClick={() => onOpenTimeline(topic.id)}>View timeline</button><i />Updated {compactMoment(topic.updatedAt)}<i />Reviewed {compactMoment(topic.reviewedAt ?? topic.reviewedOn)}</small>
       </div>
@@ -729,25 +765,26 @@ function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onO
   );
 }
 
-function SearchView({ results, subjects, today, updating, updateTopic, onOpenTimeline }: {
+function SearchView({ results, subjects, today, updating, updateTopic, onOpenTimeline, examDue }: {
   results: Topic[];
   subjects: Map<string, Subject>;
   today: string;
   updating: Set<string>;
   updateTopic: (topic: Topic, options: { status?: StudyStatus; reviewedNow?: boolean; wholeChapter?: boolean }) => void;
   onOpenTimeline: (id: string) => void;
+  examDue: Map<string, { date: string; title: string }>;
 }) {
   return (
     <section className="review-panel">
       <div className="section-heading"><div><p className="eyebrow">ALL SUBJECTS</p><h3>{results.length} matches</h3></div></div>
       {results.length ? <div className="review-list">{results.map((topic) => (
-        <TopicRow key={topic.id} topic={topic} subjects={subjects} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} onOpenTimeline={onOpenTimeline} />
+        <TopicRow key={topic.id} topic={topic} subjects={subjects} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} onOpenTimeline={onOpenTimeline} exam={examDue.get(topic.id)} />
       ))}</div> : <div className="empty-state compact"><strong>No matching syllabus points</strong><p>Try a broader topic name or syllabus code.</p></div>}
     </section>
   );
 }
 
-function SubjectView({ subject, subjects, topics, today, openChapters, updating, toggleChapter, updateTopic, onOpenTimeline }: {
+function SubjectView({ subject, subjects, topics, today, openChapters, updating, toggleChapter, updateTopic, onOpenTimeline, examDue }: {
   subject: Subject | null;
   subjects: Map<string, Subject>;
   topics: Topic[];
@@ -757,6 +794,7 @@ function SubjectView({ subject, subjects, topics, today, openChapters, updating,
   toggleChapter: (id: string) => void;
   updateTopic: (topic: Topic, options: { status?: StudyStatus; reviewedNow?: boolean; wholeChapter?: boolean }) => void;
   onOpenTimeline: (id: string) => void;
+  examDue: Map<string, { date: string; title: string }>;
 }) {
   const [chosenStage, setStage] = useState<SyllabusStage>("");
   if (!subject) return <section className="empty-state"><strong>That subject is no longer available.</strong><p>Pick another subject from the sidebar.</p></section>;
@@ -764,10 +802,13 @@ function SubjectView({ subject, subjects, topics, today, openChapters, updating,
   const chapters = topics.filter((topic) => topic.subjectId === subject.id && topic.kind === "chapter" && getTopicStage(topic, topics, subject) === stage);
   const chapterIds = new Set(chapters.map((chapter) => chapter.id));
   const subjectPoints = topics.filter((topic) => topic.subjectId === subject.id && topic.kind === "point" && topic.parentId && chapterIds.has(topic.parentId));
-  const scheduled = subjectPoints.filter((topic) => scheduledDate(topic)).length;
+  const scheduled = subjectPoints.filter((topic) => scheduledDate(topic, examDue.get(topic.id)?.date)).length;
   const progress = syllabusProgress(subjectPoints);
   const progressBands = progressSegments(subjectPoints);
-  const due = subjectPoints.filter((topic) => scheduledDate(topic) && scheduledDate(topic)! <= today).length;
+  const due = subjectPoints.filter((topic) => {
+    const date = scheduledDate(topic, examDue.get(topic.id)?.date);
+    return date && date <= today;
+  }).length;
 
   return (
     <>
@@ -793,7 +834,10 @@ function SubjectView({ subject, subjects, topics, today, openChapters, updating,
         {chapters.map((chapter) => {
           const children = topics.filter((topic) => topic.parentId === chapter.id);
           const chapterProgress = syllabusProgress(children);
-          const chapterDue = children.filter((topic) => scheduledDate(topic) && scheduledDate(topic)! <= today).length;
+          const chapterDue = children.filter((topic) => {
+            const date = scheduledDate(topic, examDue.get(topic.id)?.date);
+            return date && date <= today;
+          }).length;
           const isOpen = openChapters.has(chapter.id);
           const isUpdating = updating.has(chapter.id);
           return (
@@ -813,7 +857,7 @@ function SubjectView({ subject, subjects, topics, today, openChapters, updating,
               {isOpen && (
                 <div className="chapter-body">
                   <div className="chapter-help"><span>Changes here affect individual points.</span><button disabled={isUpdating} onClick={() => updateTopic(chapter, { reviewedNow: true, wholeChapter: true })}>Review whole chapter now</button></div>
-                  {children.map((topic) => <TopicRow key={topic.id} topic={topic} subjects={subjects} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} onOpenTimeline={onOpenTimeline} />)}
+                  {children.map((topic) => <TopicRow key={topic.id} topic={topic} subjects={subjects} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} onOpenTimeline={onOpenTimeline} exam={examDue.get(topic.id)} />)}
                 </div>
               )}
             </article>

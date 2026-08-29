@@ -10,7 +10,7 @@
   place-items: center;
   /* The reference app icon is the mark on a white tile, which is what keeps it
      readable on the dark sidebar. */
-  background: #fff;
+  background: var(--c-surface-raised);
   box-shadow: inset 0 0 0 1px rgba(23, 61, 53, .08), 0 7px 16px rgba(10, 36, 29, .22);
   /* Undo the letterform styling this box used to carry. */
   color: inherit;

@@ -11,6 +11,9 @@ type PaceMode = "steady" | "front-loaded" | "finish-line";
 
 type ExamTopic = { topicId: string; reviseOn: string | null };
 
+/** Exported for the shell, which reads the revision dates onto the board. */
+export type PlannedExam = Exam;
+
 type Exam = {
   id: number;
   subjectId: string;

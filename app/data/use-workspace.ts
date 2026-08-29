@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { PaperMeta, PastPaper } from "../past-papers";
+import type { PlannedExam } from "../exams";
 import type { StudySession } from "../study-hours";
 import type { Subject } from "../subjects";
 import type { StudyTask } from "../tasks";
@@ -27,6 +28,9 @@ export function useStudyWorkspace(onError: (message: string) => void) {
   const tasks = useResource(studyApi.tasks.path, "tasks", [] as StudyTask[],
     () => onError("Your tasks could not load."));
   const sessions = useResource(studyApi.studyHours.path, "sessions", [] as StudySession[]);
+  // Read for their revision dates rather than for the planner, which loads its
+  // own: an exam schedules work, and work with a date on it belongs on the board.
+  const exams = useResource(studyApi.exams.path, "exams", [] as PlannedExam[]);
   const papers = useResource(studyApi.pastPapers.path, "papers", [] as PastPaper[]);
   const paperMeta = useResource(studyApi.paperMeta.path, "meta", [] as PaperMeta[]);
 
@@ -59,6 +63,7 @@ export function useStudyWorkspace(onError: (message: string) => void) {
     subjects,
     tasks,
     sessions,
+    exams,
     papers,
     paperMeta,
     topics: { value: topics, setValue: setTopics, failed: topicsFailed, reload: reloadTopics },

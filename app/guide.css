@@ -124,10 +124,10 @@
   color: var(--ink);
 }
 
-.guide-status.learning { background: #f6e7c8; color: #7b5a18; }
-.guide-status.practising { background: #e2e9f4; color: #3c5a86; }
-.guide-status.covered { background: #d9ece5; color: #1d6455; }
-.guide-status.exam-ready { background: var(--teal); color: #fff; }
+.guide-status.learning { background: var(--c-rose-soft); color: var(--c-amber-ink); }
+.guide-status.practising { background: var(--c-blue-mist); color: var(--c-ink-soft); }
+.guide-status.covered { background: var(--c-mint); color: var(--c-teal-ink); }
+.guide-status.exam-ready { background: var(--teal); color: var(--c-on-dark); }
 
 /* ---------- Sections ---------- */
 
@@ -140,7 +140,7 @@
   overflow: hidden;
 }
 
-.guide-section.open { border-color: #b6cfc2; box-shadow: var(--shadow-sm); }
+.guide-section.open { border-color: var(--c-on-panel); box-shadow: var(--shadow-sm); }
 
 .guide-section h3 { margin: 0; font: inherit; }
 
@@ -201,7 +201,7 @@
   border-radius: var(--radius-md);
   background: var(--soft-peach);
   padding: var(--space-3) var(--space-4);
-  color: #7a5326;
+  color: var(--c-amber-ink);
   font-size: var(--text-sm);
   line-height: 1.55;
 }
@@ -214,24 +214,24 @@
   gap: var(--space-5);
   align-items: center;
   background: var(--navy);
-  color: #fff;
+  color: var(--c-on-dark);
   border-radius: var(--radius-2xl);
   padding: clamp(var(--space-5), 3vw, var(--space-7));
 }
 
-.guide-jump .eyebrow { color: #a8c8bd; }
+.guide-jump .eyebrow { color: var(--c-on-panel); }
 .guide-jump strong { display: block; margin: var(--space-2) 0; font-size: var(--text-lg); }
-.guide-jump p.muted { margin: 0; color: #c4d8d0; font-size: var(--text-sm); }
+.guide-jump p.muted { margin: 0; color: var(--c-on-panel); font-size: var(--text-sm); }
 .guide-jump-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .guide-jump-actions .auth-submit { width: auto; margin: 0; min-width: 176px; }
 
 .guide-jump-actions .ghost-button {
   border-color: #ffffff40;
-  color: #eaf3ef;
+  color: var(--c-on-panel);
   background: transparent;
 }
 
-.guide-jump-actions .ghost-button:hover { border-color: #ffffff80; color: #fff; }
+.guide-jump-actions .ghost-button:hover { border-color: #ffffff80; color: var(--c-on-dark); }
 
 /* ---------- Onboarding's copy of the loop ---------- */
 

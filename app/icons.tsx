@@ -50,6 +50,10 @@ const PATHS = {
   spark: ["M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z"],
 
   // ---- Utility ---------------------------------------------------------
+  /** Dark theme: a crescent, cut rather than filled so it keeps the stroke style. */
+  moon: ["M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"],
+  /** Light theme: a sun, drawn with four rays so it reads at 16px. */
+  sun: ["M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", "M12 3v2M12 19v2M3 12h2M19 12h2", "M6 6l1.5 1.5M16.5 16.5L18 18M18 6l-1.5 1.5M7.5 16.5L6 18"],
   search: ["M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14z", "M20 20l-4-4"],
   check: ["M4.5 12.5l5 5 10-11"],
   plus: ["M12 5v14M5 12h14"],

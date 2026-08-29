@@ -1,10 +1,12 @@
 import MomentumMark from "./momentum-mark";
+import ThemeToggle from "./theme-toggle";
 import Icon from "./icons";
 
 /** Marketing panel shared by the sign-in and sign-up screens. */
 export default function AuthAside() {
   return (
     <aside className="auth-aside">
+      <ThemeToggle />
       <div className="brand-lockup">
         <div className="brand-mark"><MomentumMark /></div>
         <div>

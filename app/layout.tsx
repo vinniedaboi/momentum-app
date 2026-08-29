@@ -42,7 +42,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/*
+          * Runs before the first paint, because a theme applied after it is a
+          * flash of the wrong one. A saved choice wins; without one the app
+          * follows the system, and `color-scheme` carries that to the form
+          * controls and scrollbars the stylesheets do not reach.
+          */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var saved=localStorage.getItem("momentum-theme");`
+              + `var dark=saved?saved==="dark":matchMedia("(prefers-color-scheme: dark)").matches;`
+              + `var root=document.documentElement;`
+              + `root.dataset.theme=dark?"dark":"light";`
+              + `root.style.colorScheme=dark?"dark":"light";}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body
         className={`${nunito.variable} ${fraunces.variable} antialiased`}
       >
