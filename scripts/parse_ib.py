@@ -42,12 +42,16 @@ POINT_CODE = re.compile(r"^([A-Z]?\d{1,2}(?:\.\d{1,2})+|[A-Z]\.?\d{1,2})\.?\s+(\
 # `Unit 1: Introduction to business management`, `Topic A: Number and algebra`
 NAMED_CHAPTER = re.compile(r"^(?:unit|topic|theme|area|option|part|section)\s+"
                            r"([A-Z]|\d{1,2})\s*[:.–—-]?\s*(\S.*)$", re.I)
-# `A Concepts of computer science`
-LETTER_CHAPTER = re.compile(r"^([A-Z])\s+([A-Z]\S.*)$")
+# `A Concepts of computer science`, `B. The particulate nature of matter`
+LETTER_CHAPTER = re.compile(r"^([A-Z])\.?\s+([A-Z]\S.*)$")
 
 HL_SUFFIX = re.compile(r"\s*[(\[]\s*HL(?:\s+only)?\s*[)\]]\s*$", re.I)
 HL_PREFIX = re.compile(r"^HL(?:\s+only|\s+extension)\s*[:–—-]\s*", re.I)
 HL_STAR = re.compile(r"\s*\*+\s*$")
+# Physics grades its topics with dots rather than an asterisk: one for content
+# every student takes, two where HL adds to it, three for HL's own.
+HL_DOTS = re.compile(r"\s*([•●]{1,4})\s*$")
+HL_DEPTH = 3
 HL_WORDS = re.compile(r"^(hl|ahl|additional higher level|hl extension|hl only)\b", re.I)
 
 # The hour columns, and the running header and footer of every page.
@@ -66,7 +70,8 @@ FRAGMENT = re.compile(r"^[a-z]|[,;]$|\s(and|or|of|the|to|for|with|from|in)$")
 # Above this share of fragments the table was not read in the order it was
 # written, and the outline that comes out of it would be an invention.
 FRAGMENT_LIMIT = 0.25
-FOOTNOTE = re.compile(r"^\*+\s*(topics?|content)\b", re.I)
+# The key explaining a brief's own markers, which is not syllabus content.
+FOOTNOTE = re.compile(r"^([*•●]+\s*(topics?|content)\b|key to table)", re.I)
 
 
 def normalise(text):
@@ -83,6 +88,11 @@ def strip_level(title):
         title, level = HL_PREFIX.sub("", title), "HL"
     if HL_STAR.search(title):
         title, level = HL_STAR.sub("", title), "HL"
+    dots = HL_DOTS.search(title)
+    if dots:
+        title = HL_DOTS.sub("", title)
+        if len(dots.group(1)) >= HL_DEPTH:
+            level = "HL"
     return title.strip(" :–—-"), level
 
 

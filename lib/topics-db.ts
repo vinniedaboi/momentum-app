@@ -1,4 +1,5 @@
 import { getSql, nowIso, type SqlClient } from "./db";
+import { REVIEW_INTERVALS } from "../app/topics";
 import { seedTopics } from "./seed-data";
 import { recordTopicActivities } from "./topic-activity-db";
 import { subjectSlug } from "./subjects-db";
@@ -67,7 +68,7 @@ function addDays(date: string, days: number) {
 }
 
 function intervalFor(status: StudyStatus) {
-  return status === "Learning" ? 3 : status === "Practising" ? 7 : status === "Covered" ? 10 : status === "Exam Ready" ? 14 : 0;
+  return REVIEW_INTERVALS[status];
 }
 
 function storedFor(status: StudyStatus): StoredStatus {

@@ -185,7 +185,8 @@ goal milestones, scheduled syllabus points, exam revision and exam days.
 ### 13. Accounts and onboarding
 
 - Email and password sign-up, with confirmation
-- Three-step setup: your details → pick your subjects → done
+- Four-step setup: your details → pick your subjects → how the tracker works
+  → done
 - **484 subjects to choose from**, across the IB Diploma Programme, Cambridge
   International AS & A Level and IGCSE, Edexcel International A Level and
   International GCSE, and the AQA, OCR and Edexcel A levels — searchable, and

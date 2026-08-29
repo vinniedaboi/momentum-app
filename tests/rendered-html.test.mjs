@@ -569,6 +569,45 @@ test("offers the English boards' A levels beside the international ones", async 
   assert.match(directoryQuery, /SELECT \* FROM with_papers\s*\n\s*UNION ALL/);
 });
 
+test("teaches the loop at sign-up, and keeps a guide to come back to", async () => {
+  const [onboarding, guide, content, shell, topics, scheduler] = await Promise.all([
+    read("app/onboarding/onboarding-flow.tsx"),
+    read("app/guide.tsx"),
+    read("app/guide-content.ts"),
+    read("app/study-tracker-app.tsx"),
+    read("app/topics.ts"),
+    read("lib/topics-db.ts"),
+  ]);
+
+  // Sign-up explains the loop before the app opens on the learner.
+  assert.match(onboarding, /How Momentum works/);
+  assert.match(onboarding, /LAST_STEP/);
+
+  // Onboarding and the guide read the same content, so a learner cannot be told
+  // one thing at sign-up and another a week later.
+  assert.match(onboarding, /from "\.\.\/guide-content"/);
+  assert.match(guide, /from "\.\/guide-content"/);
+  assert.match(content, /export const CORE_LOOP/);
+
+  // Every part of the app the sidebar offers is explained somewhere in it.
+  for (const section of ["review-board", "subjects", "goals", "exams", "hours",
+                         "papers", "flashcards", "tasks", "calendar"]) {
+    assert.match(content, new RegExp(`id: "${section}"`), `the guide has no ${section} section`);
+  }
+
+  // The intervals it quotes are the scheduler's own table, not prose that can
+  // drift from it: the guide cannot promise a review in three days that the
+  // scheduler gives in five.
+  assert.match(topics, /REVIEW_INTERVALS/);
+  assert.match(content, /REVIEW_INTERVALS/);
+  assert.match(scheduler, /return REVIEW_INTERVALS\[status\]/);
+  assert.ok(!scheduler.includes('=== "Learning" ? 3'), "the scheduler should read the shared table");
+
+  // And it is a place in the app, not one screen at sign-up.
+  assert.match(shell, /activeView === "Guide"/);
+  assert.match(shell, /<GuideView/);
+});
+
 test("offers the IB Diploma, split by level rather than by year", async () => {
   const [directory, listing, builder, parser, stages, onboarding, catalogue, settings, importer, migration] =
     await Promise.all([
@@ -653,9 +692,14 @@ test("offers the IB Diploma, split by level rather than by year", async () => {
   assert.match(parser, /def brief_path/);
   assert.match(ignored, /data\/ib-briefs/);
 
-  // A brief carries the outline, and the asterisk on a topic only HL students
-  // take is what files it under the HL track.
-  assert.match(reader, /HL/);
+  // A brief carries the outline, and the marker on a topic only HL students take
+  // — an asterisk in the sciences, three dots in physics — files it under HL.
+  assert.match(reader, /HL_STAR/);
+  assert.match(reader, /HL_DOTS/);
+  // Naming the downloads is the installer's job, not the reader's.
+  const installer = await read("scripts/install_ib_briefs.py");
+  assert.match(installer, /data\/ib-briefs|BRIEFS = ROOT/);
+  assert.match(installer, /def title_text/);
   // The older briefs set that table in two columns, which the text layer reads
   // out of order. An outline built from those halves was never in the brief.
   assert.match(reader, /FRAGMENT_LIMIT/);

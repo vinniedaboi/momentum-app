@@ -6,6 +6,7 @@ import "./globals.css";
 import "./features.css";
 import "./friendly-theme.css";
 import "./exams.css";
+import "./guide.css";
 import "./auth.css";
 import "./brand.css";
 

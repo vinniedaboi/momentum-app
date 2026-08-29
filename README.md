@@ -96,13 +96,27 @@ the programme resource centre rather than the open web, and the public subject
 briefs — which do carry the course's syllabus outline — sit behind a bot
 challenge that answers this script with a page instead of a PDF. So an IB course
 is read from `data/ib-briefs/`, which you fill by hand: open the course page in
-`Syllabus_Page_URL`, save its subject brief, and name the file after the course
-page (`.../curriculum/sciences/biology/` → `data/ib-briefs/sciences-biology.pdf`).
-Where one page carries several courses, name the file after the subject code
-instead (`166711.pdf` for Mathematics: analysis and approaches). One brief serves
-every subject on its page, so the Language A: literature brief is the syllabus
-for all eighty of its languages. A course with no brief in the folder is offered
-without a syllabus, and the learner imports their own.
+`Syllabus_Page_URL` and save its subject brief. One brief serves every subject on
+its page, so the Language A: literature brief is the syllabus for all eighty of
+its languages, and a course with no brief in the folder is offered without a
+syllabus.
+
+Downloading them is the manual step; naming them is not:
+
+```bash
+python scripts/install_ib_briefs.py            # reads ~/Downloads
+```
+
+That reads each PDF's own title page, files it under the name the parser looks
+for (`sciences-biology.pdf` for `.../curriculum/sciences/biology/`, or the
+subject code where one page carries two courses, `166711.pdf` for Mathematics:
+analysis and approaches), keeps the better of two copies of the same course, and
+lists what is still missing with the page to get each from.
+
+Not every brief can be read. The ones published before 2020 set their syllabus
+table in two columns, which the PDF text layer interleaves; the reader detects
+that and returns nothing rather than an invented outline, so those courses stay
+syllabus-less until the IB reissues the brief.
 
 ### Migrating the old single-user database
 
@@ -214,7 +228,7 @@ developer's machine, not from a function.
 app/                 App Router pages, API routes and the client UI
   api/               12 workspace-scoped endpoints + /api/onboarding
   login/ signup/     Auth screens
-  onboarding/        Three-step account setup
+  onboarding/        Four-step account setup, ending on how the tracker works
 lib/                 Data access, one module per feature area
   supabase/          Server, browser and proxy Supabase clients
   db.ts              postgres.js pool

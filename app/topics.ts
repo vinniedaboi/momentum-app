@@ -9,6 +9,19 @@
 const STATUSES = ["Not Started", "Learning", "Practising", "Covered", "Exam Ready"] as const;
 type StudyStatus = (typeof STATUSES)[number];
 
+/**
+ * Days a status parks a topic for before it comes back onto the review board.
+ * The scheduler in lib/topics-db.ts reads this, and so does the guide, so what
+ * a learner is told is what actually happens.
+ */
+const REVIEW_INTERVALS: Record<StudyStatus, number> = {
+  "Not Started": 0,
+  Learning: 3,
+  Practising: 7,
+  Covered: 10,
+  "Exam Ready": 14,
+};
+
 export type Topic = {
   id: string;
   subjectId: string;
@@ -35,5 +48,5 @@ export type Topic = {
   updatedAt: string;
 };
 
-export { STATUSES };
+export { REVIEW_INTERVALS, STATUSES };
 export type { StudyStatus };

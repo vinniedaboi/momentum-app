@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "../icons";
+import { CORE_LOOP, STATUS_GUIDE } from "../guide-content";
 import { apiMessage } from "../data/api";
 import { studyApi } from "../data/endpoints";
 
@@ -39,6 +40,7 @@ const QUALIFICATIONS = [
 ];
 
 const MAX_SUBJECTS = 12;
+const LAST_STEP = 3;
 
 export default function OnboardingFlow({ subjects, defaultName, currentYear }: Props) {
   const router = useRouter();
@@ -97,7 +99,7 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
       setError("Pick at least one subject to track.");
       return;
     }
-    setStep((current) => Math.min(2, current + 1));
+    setStep((current) => Math.min(LAST_STEP, current + 1));
   }
 
   async function finish() {
@@ -125,9 +127,9 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
   return (
     <div className="onboarding-card">
       <div className="onboarding-steps" aria-hidden="true">
-        <span className={step >= 0 ? "done" : ""} />
-        <span className={step >= 1 ? "done" : ""} />
-        <span className={step >= 2 ? "done" : ""} />
+        {Array.from({ length: LAST_STEP + 1 }, (_, index) => (
+          <span key={index} className={step >= index ? "done" : ""} />
+        ))}
       </div>
 
       {error ? <p className="auth-alert error">{error}</p> : null}
@@ -291,8 +293,51 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
 
       {step === 2 ? (
         <>
+          <h2>How Momentum works</h2>
+          <p className="muted">
+            Five moves, and the tracker runs itself. It is all in the guide too, under
+            Guide in the sidebar, so nothing here is worth memorising.
+          </p>
+
+          <div className="onboarding-loop">
+            <ol className="guide-loop-steps">
+              {CORE_LOOP.map((move, index) => (
+                <li key={move.title}>
+                  <span className="guide-loop-mark" aria-hidden="true"><Icon name={move.icon} /></span>
+                  <div>
+                    <p className="guide-loop-index">Step {index + 1} · {move.where}</p>
+                    <strong>{move.title}</strong>
+                    <p>{move.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+
+            <div className="onboarding-statuses">
+              <p>
+                The only thing to learn: a syllabus point&apos;s status decides when it comes
+                back to you.
+              </p>
+              <div className="onboarding-status-row">
+                {STATUS_GUIDE.filter((row) => row.days > 0).map((row) => (
+                  <span key={row.status}>
+                    <b>{row.status}</b>
+                    <small>back in {row.days} days</small>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {step === LAST_STEP ? (
+        <>
           <h2>Ready to go</h2>
-          <p className="muted">We will set your workspace up with this.</p>
+          <p className="muted">
+            We will set your workspace up with this. Start with a syllabus goal — it fills
+            the review board with dated work — and the guide in the sidebar has the rest.
+          </p>
 
           <div className="onboarding-summary">
             <div><span>Name</span><strong>{fullName}</strong></div>
@@ -326,7 +371,7 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
           Back
         </button>
 
-        {step < 2 ? (
+        {step < LAST_STEP ? (
           <button type="button" className="auth-submit" onClick={goNext}>
             Continue
           </button>
