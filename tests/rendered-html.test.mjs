@@ -85,8 +85,10 @@ test("auth, onboarding and the account gate are wired", async () => {
   assert.match(onboarding, /Which subjects are you tracking\?/);
   assert.match(onboarding, /syllabus rows/);
   assert.match(onboarding, /Finish setup/);
-  // The picker spans every qualification, so it needs tabs, search and chips.
-  assert.match(onboarding, /picker-tabs/);
+  // A subject and the board that teaches it are two answers: the card is the
+  // subject, and the boards offering it are the buttons on it.
+  assert.match(onboarding, /subject-boards/);
+  assert.match(onboarding, /function chooseBoard/);
   assert.match(onboarding, /Search all subjects or a syllabus code/);
   assert.match(onboarding, /picker-chip/);
   assert.match(onboarding, /subjectKeys/);

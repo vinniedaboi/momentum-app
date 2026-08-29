@@ -25,11 +25,8 @@ type Props = {
   currentYear: number;
 };
 
-/**
- * Browsing every board at once, for the learner who has not said which they
- * study - or studies more than the tabs they picked.
- */
-const EVERY_BOARD = "All subjects";
+/** A subject, and every board that teaches it. */
+type SubjectGroup = { name: string; options: PickableSubject[] };
 
 const MAX_SUBJECTS = 12;
 const LAST_STEP = 3;
@@ -54,34 +51,53 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
     return names;
   }, [subjects]);
 
-  // The tab strip is the boards the learner named, and everything is always one
-  // click away: a subject list is not a commitment to one board.
-  const tabs = useMemo(
-    () => [...(boards.length ? boards : groups), EVERY_BOARD],
-    [boards, groups],
-  );
-  const [chosenTab, setTab] = useState("");
-  // Opens on the first board named, and falls back the moment that board is
-  // unpicked rather than leaving the list scoped to something not on the strip.
-  const tab = tabs.includes(chosenTab) ? chosenTab : tabs[0] ?? EVERY_BOARD;
-
   const byKey = useMemo(() => new Map(subjects.map((subject) => [subject.key, subject])), [subjects]);
   const chosen = selected.map((key) => byKey.get(key)).filter((subject) => subject !== undefined);
   const chosenBoards = [...new Set(chosen.map((subject) => subject.qualification))];
   const totalTopics = chosen.reduce((sum, subject) => sum + subject.topicCount, 0);
   const withSyllabus = chosen.filter((subject) => subject.topicCount > 0).length;
 
-  // A search spans every qualification; otherwise the tab scopes the list.
+  /**
+   * One card per subject, listing the boards that teach it.
+   *
+   * A subject and its board are two answers, and asking for them as one is what
+   * left a learner with three OCR subjects when only two of theirs are OCR. So
+   * the card is the subject — English Literature — and the buttons on it are the
+   * boards that offer it, narrowed to the ones the learner named. A search
+   * ignores that narrowing, because looking something up is not the same as
+   * saying you study it.
+   */
   const query = search.trim().toLowerCase();
   const visible = useMemo(() => {
-    const pool = query || tab === EVERY_BOARD
-      ? subjects
-      : subjects.filter((subject) => subject.qualification === tab);
-    if (!query) return pool;
-    return pool.filter((subject) =>
-      subject.name.toLowerCase().includes(query) || (subject.syllabusCode ?? "").includes(query),
-    );
-  }, [subjects, tab, query]);
+    const pool = subjects.filter((subject) =>
+      (query || !boards.length || boards.includes(subject.qualification))
+      && (!query
+        || subject.name.toLowerCase().includes(query)
+        || (subject.syllabusCode ?? "").toLowerCase().includes(query)));
+
+    const byName = new Map<string, SubjectGroup>();
+    for (const subject of pool) {
+      const group = byName.get(subject.name) ?? { name: subject.name, options: [] };
+      group.options.push(subject);
+      byName.set(subject.name, group);
+    }
+    return [...byName.values()];
+  }, [subjects, boards, query]);
+
+  /**
+   * Picks a board for a subject, or unpicks it. One board at a time: two boards'
+   * versions of English Literature are one subject as far as the tracker is
+   * concerned, and only the first would survive being created.
+   */
+  function chooseBoard(group: SubjectGroup, key: string) {
+    setError(null);
+    setSelected((current) => {
+      const others = current.filter((value) => !group.options.some((option) => option.key === value));
+      if (current.includes(key)) return others;
+      if (others.length >= MAX_SUBJECTS) return current;
+      return [...others, key];
+    });
+  }
 
   function toggleSubject(key: string) {
     setError(null);
@@ -189,8 +205,8 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
         <>
           <h2>Which subjects are you tracking?</h2>
           <p className="muted">
-            {subjects.length} subjects across {groups.length} qualifications. Ones
-            with a syllabus arrive with every chapter and spec point loaded.
+            {subjects.length} subjects across {groups.length} qualifications. Pick the
+            board each one is yours on — that is the syllabus it arrives with.
           </p>
 
           <fieldset className="board-filter">
@@ -208,7 +224,6 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
                       setBoards((current) => picked
                         ? current.filter((board) => board !== name)
                         : [...current, name]);
-                      setTab(picked ? "" : name);
                       setSearch("");
                     }}
                   >
@@ -221,24 +236,6 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
           </fieldset>
 
           <div className="picker-controls">
-            <div className="picker-tabs" role="tablist" aria-label="Qualification">
-              {tabs.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  role="tab"
-                  aria-selected={!query && tab === name}
-                  className={!query && tab === name ? "active" : ""}
-                  onClick={() => { setTab(name); setSearch(""); }}
-                >
-                  {name}
-                  <b>{name === EVERY_BOARD
-                    ? subjects.length
-                    : subjects.filter((subject) => subject.qualification === name).length}</b>
-                </button>
-              ))}
-            </div>
-
             <label className="picker-search">
               <Icon name="search" />
               <input
@@ -271,31 +268,41 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
           ) : null}
 
           <div className="subject-picker">
-            {visible.map((subject) => {
-              const isSelected = selected.includes(subject.key);
+            {visible.map((group) => {
+              const picked = group.options.find((option) => selected.includes(option.key));
+              const shown = picked ?? group.options[0];
+              const full = !picked && selected.length >= MAX_SUBJECTS;
               return (
-                <button
-                  key={subject.key}
-                  type="button"
-                  className="subject-option"
-                  aria-pressed={isSelected}
-                  disabled={!isSelected && selected.length >= MAX_SUBJECTS}
-                  onClick={() => toggleSubject(subject.key)}
-                >
-                  <span className={`large-subject-pin ${subject.tone}`} aria-hidden="true" />
+                <div key={group.name} className={`subject-option ${picked ? "picked" : ""} ${full ? "full" : ""}`}>
+                  <span className={`large-subject-pin ${shown.tone}`} aria-hidden="true" />
                   <span>
-                    <strong>{subject.name}</strong>
-                    <small>
-                      {subject.qualification}
-                      {subject.syllabusCode ? ` · ${subject.syllabusCode}` : ""}
-                    </small>
-                    <em className={`syllabus-tag ${subject.source}`}>
-                      {subject.topicCount
-                        ? `${subject.topicCount.toLocaleString("en-GB")} syllabus rows`
+                    <strong>{group.name}</strong>
+                    <em className={`syllabus-tag ${shown.source}`}>
+                      {shown.topicCount
+                        ? `${shown.topicCount.toLocaleString("en-GB")} syllabus rows`
                         : "Syllabus can be added later"}
                     </em>
+                    {/* One button per board that teaches it, because the board
+                        decides the syllabus this subject arrives with. */}
+                    <span className="subject-boards">
+                      {group.options.map((option) => (
+                        <button
+                          key={option.key}
+                          type="button"
+                          aria-pressed={selected.includes(option.key)}
+                          aria-label={`${group.name}, ${option.qualification}`}
+                          className={selected.includes(option.key) ? "picked" : ""}
+                          disabled={full}
+                          onClick={() => chooseBoard(group, option.key)}
+                        >
+                          {selected.includes(option.key) ? <Icon name="check" /> : null}
+                          {option.qualification}
+                          {option.syllabusCode ? <small>{option.syllabusCode}</small> : null}
+                        </button>
+                      ))}
+                    </span>
                   </span>
-                </button>
+                </div>
               );
             })}
             {!visible.length ? <p className="muted">No subjects match that search.</p> : null}

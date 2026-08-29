@@ -228,11 +228,13 @@
 
 .subject-option:hover { border-color: #b6cfc2; }
 
-.subject-option[aria-pressed="true"] {
+.subject-option.picked {
   border-color: var(--teal);
-  background: #cfe6dd;
+  background: #e7f2ed;
   box-shadow: inset 3px 0 0 var(--teal);
 }
+
+.subject-option.full { opacity: .55; }
 
 .subject-option .large-subject-pin {
   width: 24px;
@@ -242,6 +244,40 @@
 }
 
 .subject-option strong { display: block; font-size: var(--text-md); font-weight: 800; }
+
+/* One button per board that teaches the subject on this card. Picking a subject
+   and picking its board are the same gesture, so the board is the control. */
+.subject-boards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.subject-boards button {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: #fff;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 800;
+  text-align: left;
+}
+
+.subject-boards button:hover:not(:disabled) { border-color: var(--teal); color: var(--ink); }
+.subject-boards button:disabled { opacity: .6; }
+
+.subject-boards button.picked {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #fffdf8;
+}
+
+.subject-boards button small { color: inherit; opacity: .75; font-size: var(--text-2xs); }
 .subject-option small { color: var(--muted); font-size: var(--text-xs); line-height: 1.5; }
 
 .onboarding-actions {
