@@ -84,6 +84,48 @@ def readers_for(board):
     return readers
 
 
+WORD = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
+LETTER = re.compile(r"[^\W\d_]", re.UNICODE)
+DIGIT = re.compile(r"\d")
+
+
+def is_content(title):
+    """Whether a parsed point says something about the subject.
+
+    Every reader keys on a number at the start of a line, and a specification is
+    full of numbers that are not syllabus codes: the assessment overview's hours
+    and weightings ("120 3 30%"), a data sheet's constants ("x 10-19 C"), a maths
+    notation glossary that the text layer renders as "d d y". None of them says
+    anything about the subject, and all of them arrive looking like a point.
+
+    So a point has to carry a word, and carry more letters than digits. Both are
+    counted in letters of any script, or a syllabus written in Gurmukhi would be
+    thrown out with the tables — and one word is enough, because "Osmosis" is a
+    whole syllabus point in IGCSE Biology.
+    """
+    return bool(WORD.search(title)) and len(LETTER.findall(title)) > len(DIGIT.findall(title))
+
+
+HEADING_LIMIT = 90
+
+
+def name_unread_chapters(chapters):
+    """Renames a chapter whose title came out as a sentence rather than a heading.
+
+    A paragraph set in the same style as a heading reads to a parser as one, and
+    a bibliography line reads as one too: Edexcel's Science Double Award opens a
+    chapter "OECD - Better Skills, Better Jobs, Better Lives", and Cambridge PE
+    heads one with the sentence that introduces it.
+
+    What sits under those is real content - 125 spec points in the Science case -
+    so the branch stays and only the name goes. `Topic <code>` is the placeholder
+    the summary already flags for review and subject settings already highlights,
+    which puts the choice in front of whoever imports it.
+    """
+    return [(code, title if len(title) <= HEADING_LIMIT else "Topic {}".format(code), level)
+            for code, title, level in chapters]
+
+
 def pdf_text(data):
     doc = fitz.open(stream=data, filetype="pdf")
     return "\n".join(doc[index].get_text() for index in range(doc.page_count))
@@ -197,6 +239,8 @@ def main():
             # and bullets, which is how the humanities syllabuses are written.
             for reader, label in readers_for(attempt["Exam_Board"]):
                 found = reader(text)
+                found = (name_unread_chapters(found[0]),
+                         [point for point in found[1] if is_content(point[2])])
                 if found[1]:
                     chapters, points, chosen, how = found[0], found[1], attempt, label
                     break

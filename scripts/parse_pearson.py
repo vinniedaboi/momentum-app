@@ -36,7 +36,18 @@ UNIT_BOILERPLATE = re.compile(r"^(unit description|assessment information|unit c
 NOT_CONTENT = re.compile(r"^(www\.|pearson |issue \d|contents|introduction|"
                          r"specification|qualification at a glance|assessment objectives?|"
                          r"grade descriptors?|appendix|glossary|command words|"
-                         r"sample assessment|mathematical skills|the context)", re.I)
+                         r"sample assessment|mathematical skills|the context|"
+                         # A Pearson specification numbers its own sections, so
+                         # "1 About this specification" competes with "1 Principles
+                         # of chemistry" for the number the content sits under. The
+                         # section headings have to lose, or a subject opens with a
+                         # chapter named after the front matter.
+                         r"about (this|the) (specification|qualification)|"
+                         r"administration|assessment (information|overview)|"
+                         r"[a-z]+ content$|subject content|"
+                         r"entries and|malpractice|access arrangements|"
+                         r"private candidates|awarding and reporting|"
+                         r"student recruitment|prior learning|progression)", re.I)
 
 
 def normalise(text):
