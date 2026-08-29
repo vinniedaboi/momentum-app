@@ -39,9 +39,11 @@ NOT_CONTENT = re.compile(r"^(www\.|pearson |issue \d|contents|introduction|"
                          r"sample assessment|mathematical skills|the context|"
                          # A Pearson specification numbers its own sections, so
                          # "1 About this specification" competes with "1 Principles
-                         # of chemistry" for the number the content sits under. The
-                         # section headings have to lose, or a subject opens with a
-                         # chapter named after the front matter.
+                         # of chemistry" for the number the content sits under, and
+                         # a unit-based one repeats "1 Examination" before each of
+                         # its units. Those headings have to lose, or a subject
+                         # opens with a chapter named after the front matter.
+                         r"examination$|prerequisites?$|notation and formulae|"
                          r"about (this|the) (specification|qualification)|"
                          r"administration|assessment (information|overview)|"
                          r"[a-z]+ content$|subject content|"
