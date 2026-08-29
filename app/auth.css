@@ -435,3 +435,69 @@
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- Board filter (onboarding step 2) ----------
+ *
+ * The qualification used to be a single answer on the first step, which read as
+ * a commitment: a learner taking OCR maths and AQA drama had to pick one and
+ * assumed the other was unavailable. It is a filter over the picker instead,
+ * it takes as many boards as they study, and All subjects is always on the
+ * strip beside them.
+ */
+
+.board-filter {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--soft-sage);
+}
+
+.board-filter legend {
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.board-filter legend small {
+  display: block;
+  margin-top: var(--space-1);
+  font-weight: 600;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.board-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.board-chips button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: #fff;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.board-chips button:hover { border-color: #b6cfc2; color: var(--ink); }
+
+.board-chips button.picked {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #fffdf8;
+}
+
+.picker-chip small {
+  color: var(--muted);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+}

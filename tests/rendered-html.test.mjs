@@ -527,9 +527,12 @@ test("offers the English boards' A levels beside the international ones", async 
   for (const qualification of ["AQA A Level", "OCR A Level", "Edexcel A Level"]) {
     assert.ok((suites.get(qualification) ?? 0) > 20,
       `expected a full ${qualification} suite, found ${suites.get(qualification) ?? 0}`);
-    // The learner names their board on the way in, and it picks their tab.
-    assert.ok(onboarding.includes(`"${qualification}"`), `${qualification} is not offered at sign-up`);
   }
+  // A board reaches sign-up by being in the directory: the picker builds its
+  // filter from the subjects it was handed, so no board can be left off a list.
+  assert.match(onboarding, /Which boards do you study/);
+  assert.match(onboarding, /subject\.qualification/);
+  assert.ok(!onboarding.includes("const QUALIFICATIONS"), "sign-up should not hard-code the boards");
   // Adding the English boards must not have cost the international suites.
   assert.ok((suites.get("Cambridge IGCSE") ?? 0) >= 180);
   assert.ok((suites.get("Cambridge International AS & A Level") ?? 0) >= 96);
@@ -626,8 +629,9 @@ test("offers the IB Diploma, split by level rather than by year", async () => {
   const rows = directory.split("\n").filter((row) => row.startsWith("ib-dp-"));
   assert.ok(rows.length >= 170, `expected the whole DP suite, found ${rows.length}`);
   for (const row of rows) assert.equal(row.split(",")[2], "IB Diploma Programme");
-  // The learner names their programme on the way in, and it picks their tab.
-  assert.ok(onboarding.includes('"IB Diploma Programme"'), "the DP is not offered at sign-up");
+  // Which the picker offers because the directory has them, not because a list
+  // in the client names them.
+  assert.match(onboarding, /groups\.map/);
 
   // A name is quoted where it carries a comma of its own.
   const listed = (subject) => listing.includes(`,${subject},`) || listing.includes(`,"${subject}",`);

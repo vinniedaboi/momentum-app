@@ -25,19 +25,11 @@ type Props = {
   currentYear: number;
 };
 
-// What the learner says they study. These double as the browsing tab a learner
-// lands on, so each one that has subjects behind it is named exactly as the
-// catalogue names that qualification.
-const QUALIFICATIONS = [
-  "Cambridge International AS & A Level",
-  "Cambridge IGCSE",
-  "International A Level",
-  "AQA A Level",
-  "OCR A Level",
-  "Edexcel A Level",
-  "IB Diploma Programme",
-  "Other",
-];
+/**
+ * Browsing every board at once, for the learner who has not said which they
+ * study - or studies more than the tabs they picked.
+ */
+const EVERY_BOARD = "All subjects";
 
 const MAX_SUBJECTS = 12;
 const LAST_STEP = 3;
@@ -46,7 +38,7 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [fullName, setFullName] = useState(defaultName);
-  const [qualification, setQualification] = useState(QUALIFICATIONS[0]);
+  const [boards, setBoards] = useState<string[]>([]);
   const [targetYear, setTargetYear] = useState(String(currentYear + 1));
   const [weeklyHours, setWeeklyHours] = useState("10");
   const [selected, setSelected] = useState<string[]>([]);
@@ -62,18 +54,29 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
     return names;
   }, [subjects]);
 
-  // Default the browsing tab to whatever the learner said they study.
-  const [tab, setTab] = useState(() => groups.find((name) => name === qualification) ?? groups[0] ?? "");
+  // The tab strip is the boards the learner named, and everything is always one
+  // click away: a subject list is not a commitment to one board.
+  const tabs = useMemo(
+    () => [...(boards.length ? boards : groups), EVERY_BOARD],
+    [boards, groups],
+  );
+  const [chosenTab, setTab] = useState("");
+  // Opens on the first board named, and falls back the moment that board is
+  // unpicked rather than leaving the list scoped to something not on the strip.
+  const tab = tabs.includes(chosenTab) ? chosenTab : tabs[0] ?? EVERY_BOARD;
 
   const byKey = useMemo(() => new Map(subjects.map((subject) => [subject.key, subject])), [subjects]);
   const chosen = selected.map((key) => byKey.get(key)).filter((subject) => subject !== undefined);
+  const chosenBoards = [...new Set(chosen.map((subject) => subject.qualification))];
   const totalTopics = chosen.reduce((sum, subject) => sum + subject.topicCount, 0);
   const withSyllabus = chosen.filter((subject) => subject.topicCount > 0).length;
 
   // A search spans every qualification; otherwise the tab scopes the list.
   const query = search.trim().toLowerCase();
   const visible = useMemo(() => {
-    const pool = query ? subjects : subjects.filter((subject) => subject.qualification === tab);
+    const pool = query || tab === EVERY_BOARD
+      ? subjects
+      : subjects.filter((subject) => subject.qualification === tab);
     if (!query) return pool;
     return pool.filter((subject) =>
       subject.name.toLowerCase().includes(query) || (subject.syllabusCode ?? "").includes(query),
@@ -109,7 +112,7 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
     try {
       await studyApi.onboarding.complete({
         fullName: fullName.trim(),
-        qualification,
+        qualification: chosenBoards.join(", ").slice(0, 80),
         targetYear: Number(targetYear),
         weeklyHoursTarget: Number(weeklyHours),
         subjectKeys: selected,
@@ -154,22 +157,6 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
             </div>
 
             <div className="auth-field">
-              <label htmlFor="qualification">Qualification</label>
-              <select
-                id="qualification"
-                value={qualification}
-                onChange={(event) => {
-                  setQualification(event.target.value);
-                  if (groups.includes(event.target.value)) setTab(event.target.value);
-                }}
-              >
-                {QUALIFICATIONS.map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="auth-field">
               <label htmlFor="targetYear">Exam year</label>
               <select
                 id="targetYear"
@@ -206,9 +193,36 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
             with a syllabus arrive with every chapter and spec point loaded.
           </p>
 
+          <fieldset className="board-filter">
+            <legend>Which boards do you study? <small>Pick as many as you need — subjects can come from any of them</small></legend>
+            <div className="board-chips">
+              {groups.map((name) => {
+                const picked = boards.includes(name);
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    aria-pressed={picked}
+                    className={picked ? "picked" : ""}
+                    onClick={() => {
+                      setBoards((current) => picked
+                        ? current.filter((board) => board !== name)
+                        : [...current, name]);
+                      setTab(picked ? "" : name);
+                      setSearch("");
+                    }}
+                  >
+                    {picked ? <Icon name="check" /> : null}
+                    {name}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
           <div className="picker-controls">
             <div className="picker-tabs" role="tablist" aria-label="Qualification">
-              {groups.map((name) => (
+              {tabs.map((name) => (
                 <button
                   key={name}
                   type="button"
@@ -218,7 +232,9 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
                   onClick={() => { setTab(name); setSearch(""); }}
                 >
                   {name}
-                  <b>{subjects.filter((subject) => subject.qualification === name).length}</b>
+                  <b>{name === EVERY_BOARD
+                    ? subjects.length
+                    : subjects.filter((subject) => subject.qualification === name).length}</b>
                 </button>
               ))}
             </div>
@@ -247,6 +263,7 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
                 >
                   <i className={`subject-pin ${subject.tone}`} aria-hidden="true" />
                   {subject.name}
+                  <small>{subject.qualification}</small>
                   <Icon name="close" />
                 </button>
               ))}
@@ -269,8 +286,8 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
                   <span>
                     <strong>{subject.name}</strong>
                     <small>
-                      {subject.syllabusCode ? `${subject.syllabusCode} · ` : ""}
-                      {subject.papers ? `${subject.papers.toLocaleString("en-GB")} past papers` : "No papers yet"}
+                      {subject.qualification}
+                      {subject.syllabusCode ? ` · ${subject.syllabusCode}` : ""}
                     </small>
                     <em className={`syllabus-tag ${subject.source}`}>
                       {subject.topicCount
@@ -341,7 +358,7 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
 
           <div className="onboarding-summary">
             <div><span>Name</span><strong>{fullName}</strong></div>
-            <div><span>Qualification</span><strong>{qualification}</strong></div>
+            <div><span>Exam boards</span><strong>{chosenBoards.join(", ") || "None"}</strong></div>
             <div><span>Exam year</span><strong>{targetYear}</strong></div>
             <div><span>Weekly hours</span><strong>{weeklyHours}</strong></div>
             <div>
