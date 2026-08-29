@@ -1,6 +1,7 @@
 import unittest
 
-from scripts.parse_pearson import parse
+from scripts.parse_pearson import (NUMBER_HEADING, content_only, headings,
+                                   parse, restarts_numbering)
 
 
 class ParsePearsonTest(unittest.TestCase):
@@ -47,6 +48,48 @@ Unit 1: Speaking
 1.2 Marking grid
 """
         self.assertEqual(parse(text), ([], []))
+
+    def test_a_unit_is_named_when_the_numbering_restarts(self):
+        """Two chapters called Trigonometry, one from P1 and one from P3, are a
+        different eight and ten points, and nothing else tells them apart."""
+        lines = ["Unit P1: Pure Mathematics 1", "3. Trigonometry",
+                 "Unit P3: Pure Mathematics 3", "3. Differentiation"]
+        found = headings(lines, NUMBER_HEADING, label_units=True)
+        self.assertEqual(found["3"][0], "P1 · Trigonometry")
+
+    def test_only_a_file_whose_numbering_restarts_is_labelled(self):
+        """Chemistry holds six units and numbers its topics 1 to 20 straight
+        through, so its chapters need no unit in front of them. Maths holds
+        fifteen units that each start again at 1. One number wearing two titles
+        is ordinary - a contents entry - so the test is four."""
+        restarting = ["1. Algebra", "1. Vectors", "1. Kinematics", "1. Probability"]
+        self.assertTrue(restarts_numbering(restarting, NUMBER_HEADING))
+        continuous = ["1. Principles of chemistry", "1. Principles of chemistry",
+                      "2. Inorganic chemistry", "3. Physical chemistry"]
+        self.assertFalse(restarts_numbering(continuous, NUMBER_HEADING))
+
+    def test_the_notation_appendix_is_not_read_as_content(self):
+        """It numbers and names its sections exactly as the specification does,
+        so `9. Vectors` there was landing beside the real topics with eight
+        symbols under it."""
+        text = """
+Unit P1: Pure Mathematics 1
+1. Algebra and functions
+1.1 Laws of indices for all rational exponents
+The following notation will be used in the examinations.
+9. Vectors
+9.1 a the vector a
+9.2 AB the vector represented in magnitude and direction by AB
+"""
+        chapters, points = parse(text)
+        self.assertEqual([title for _, title, _ in chapters], ["Algebra and functions"])
+        self.assertEqual([code for code, _, _, _ in points], ["1.1"])
+
+    def test_a_reference_to_the_appendix_keeps_the_content_after_it(self):
+        """A unit points at the appendix mid-content; that must not end the read."""
+        lines = ["3. Notation and formulae Students will be expected to understand",
+                 "the symbols outlined in", "Appendix 7: Notation.", "4. Integration"]
+        self.assertEqual(content_only(lines), lines)
 
     def test_topic_heading_accepts_either_dash(self):
         for dash in ["-", "–", ":"]:

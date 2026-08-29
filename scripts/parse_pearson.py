@@ -29,6 +29,17 @@ NUMBER_HEADING = re.compile(r"^(\d{1,2})\.?\s+([A-Z].*)$")
 DEEP_MINIMUM = 10
 FLAT_MINIMUM = 30
 CONTINUED = re.compile(r"\s*\(continued\)\s*$", re.I)
+# `Unit P1: Pure Mathematics 1`, `Unit 4: Rates, Equilibria and Further Organic
+# Chemistry` — the boundary between the specifications a file carries.
+UNIT_LABEL = re.compile(r"^Unit\s+([A-Z]{0,2}\d{1,2})\s*:", re.I)
+# A specification ends with a notation appendix, whose sections are numbered and
+# named exactly like content - "7. Complex numbers", "9. Vectors" - but whose
+# entries are symbols: "a the vector a". Its own heading is no use as the place
+# to stop: it opens the contents page, it repeats in the running header of every
+# page of the appendix, and in the maths specification it also ends a sentence
+# mid-content that points at it. The line introducing the tables appears once.
+NOTATION_APPENDIX = re.compile(r"^the (following notation|tables? below set out "
+                               r"the notation)", re.I)
 
 # Structural entries every Pearson unit carries before its real content.
 UNIT_BOILERPLATE = re.compile(r"^(unit description|assessment information|unit content|"
@@ -88,19 +99,64 @@ def read_title(lines, index):
     return clean(" ".join(pieces))
 
 
-def headings(lines, pattern):
-    """First occurrence of each numbered heading, ignoring contents-page repeats."""
-    found = {}
-    for index, raw in enumerate(lines):
+def restarts_numbering(lines, pattern):
+    """Whether the document numbers its sections from 1 again for each unit.
+
+    The International A Level maths specification holds fifteen units in one
+    file, so seventeen different titles claim the number 1. Chemistry holds six
+    units in one file and numbers its topics 1 to 20 straight through, which
+    needs none of this. One number wearing two titles is ordinary — a contents
+    entry, a bibliography line caught by the same pattern — so the test is four.
+    """
+    titles = {}
+    for raw in lines:
         match = pattern.match(normalise(raw))
+        if not match:
+            continue
+        title = clean(match.group(2) or "")
+        if usable(title):
+            titles.setdefault(match.group(1), set()).add(CONTINUED.sub("", title).lower())
+    return any(len(names) >= 4 for names in titles.values())
+
+
+def headings(lines, pattern, label_units=False):
+    """First occurrence of each numbered heading, ignoring contents-page repeats.
+
+    Where the numbering restarts per unit, the unit is part of the name: two
+    chapters called Trigonometry, one from P1 and one from P3, are a different
+    ten and eight points, and a learner has no way to tell them apart otherwise.
+    """
+    found = {}
+    unit = None
+    for index, raw in enumerate(lines):
+        line = normalise(raw)
+        if label_units:
+            unit_match = UNIT_LABEL.match(line)
+            if unit_match:
+                unit = unit_match.group(1).upper()
+        match = pattern.match(line)
         if not match:
             continue
         number, title = match.group(1), clean(match.group(2) or "")
         if not title:
             title = read_title(lines, index)
         if usable(title) and number not in found:
-            found[number] = (title, index)
+            found[number] = ("{} · {}".format(unit, title) if unit else title, index)
     return found
+
+
+def content_only(lines):
+    """Everything up to the notation appendix, which is back matter.
+
+    Reading it left International A Level Maths with 75 symbols among its 129
+    points - "the set of rational numbers", "is proportional to" - and a chapter
+    called "D1 - Vectors", labelled from the paper-code table two pages earlier
+    when vectors are P4.
+    """
+    for index, raw in enumerate(lines):
+        if NOTATION_APPENDIX.match(normalise(raw)):
+            return lines[:index]
+    return lines
 
 
 def collect(lines, deep):
@@ -129,7 +185,7 @@ def collect(lines, deep):
 
 
 def parse(text):
-    lines = [line.rstrip() for line in text.split("\n")]
+    lines = content_only([line.rstrip() for line in text.split("\n")])
     topics = headings(lines, TOPIC_HEADING)
     units = headings(lines, UNIT_HEADING)
 
@@ -153,7 +209,9 @@ def parse(text):
     elif units and any("." in code and code.count(".") == 2 for code in point_titles):
         parents, kind = units, "unit"
     else:
-        numbered = headings(lines, NUMBER_HEADING)
+        # Only a file whose numbering restarts needs its units named: chemistry
+        # runs its topics 1 to 20 across six of them and reads fine without.
+        numbered = headings(lines, NUMBER_HEADING, label_units=restarts_numbering(lines, NUMBER_HEADING))
         parents, kind = (numbered or units), "chapter" if numbered else "unit"
 
     chapters = []
