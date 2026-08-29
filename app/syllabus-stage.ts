@@ -51,3 +51,17 @@ export function getTopicStage(
   const chapter = topics.find((item) => item.id === topic.parentId);
   return chapter ? chapterStage(chapter, subject) : defaultStage(subject);
 }
+
+/**
+ * IGCSE and O Level are single-stage. So are the UK A levels: AS has been a
+ * separate qualification rather than the first half of one since 2015, so there
+ * is no second year to split off — except AQA's, whose specifications mark the
+ * content lying beyond the AS subset. That marking is the only place any UK
+ * board states which year content belongs to, and it is what makes a
+ * first-year/second-year split mean anything.
+ */
+const SINGLE_STAGE = /IGCSE|O Level|^(?:OCR|Edexcel) A Level$/i;
+
+export function stagesForQualification(qualification: string) {
+  return SINGLE_STAGE.test(qualification) ? ["A2"] : ["AS", "A2"];
+}

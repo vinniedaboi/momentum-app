@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from parse_outline import parse as parse_outline  # noqa: E402
 from parse_pearson import parse as parse_pearson  # noqa: E402
 from parse_syllabus import parse as parse_cambridge  # noqa: E402
+from parse_uk import parse_aqa, parse_ocr  # noqa: E402
 
 try:
     import fitz  # PyMuPDF
@@ -45,9 +46,38 @@ def truthy(value):
 
 
 def parser_for(board):
-    """Cambridge and Pearson lay their specifications out differently enough to
-    need separate readers."""
-    return parse_pearson if "pearson" in str(board).strip().lower() else parse_cambridge
+    """Each board lays its specifications out differently enough to need its own
+    reader. Pearson is the exception to that: its UK and International A levels
+    share a template, so they share a parser."""
+    name = str(board).strip().lower()
+    if "aqa" in name:
+        return parse_aqa
+    if "ocr" in name:
+        return parse_ocr
+    if "pearson" in name:
+        return parse_pearson
+    return parse_cambridge
+
+
+def readers_for(board):
+    """The readers to try, in order, for one board's specifications.
+
+    parse_outline is written around Cambridge's prose-and-bullets humanities
+    syllabuses — its section markers and skip list are that template. Turned
+    loose on an English board's specification it finds headings everywhere: AQA
+    History came back with 344 chapters and 878 points, none of them real.
+
+    So AQA and OCR get their own reader or nothing. A subject whose content is
+    named rather than numbered — AQA History is a menu of options, `1A The Age
+    of the Crusades` — is offered without a syllabus, and the student imports
+    theirs from subject settings. That is what the empty source is for, and it
+    beats importing a tree that was never in the specification.
+    """
+    readers = [(parser_for(board), "")]
+    name = str(board).strip().lower()
+    if "caie" in name or "cambridge" in name or "pearson" in name:
+        readers.append((parse_outline, " outline"))
+    return readers
 
 
 def pdf_text(data):
@@ -122,8 +152,7 @@ def main():
                 continue
             # Numbered spec points where they exist; otherwise read the headings
             # and bullets, which is how the humanities syllabuses are written.
-            for reader, label in ((parser_for(attempt["Exam_Board"]), ""),
-                                  (parse_outline, " outline")):
+            for reader, label in readers_for(attempt["Exam_Board"]):
                 found = reader(text)
                 if found[1]:
                     chapters, points, chosen, how = found[0], found[1], attempt, label

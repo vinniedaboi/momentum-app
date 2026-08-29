@@ -6,6 +6,7 @@ import { SUBJECT_TONES, type Subject, type SubjectInput, type SubjectTone } from
 import Icon from "./icons";
 import { api, apiMessage } from "./data/api";
 import { studyApi } from "./data/endpoints";
+import { stagesForQualification } from "./syllabus-stage";
 
 type CatalogueSubject = { qualification: string; board: string; subject: string; code: string; papers: number; hasStages: boolean };
 
@@ -28,11 +29,6 @@ function shortNameFor(subject: string) {
   const words = subject.split(/\s+/).filter(Boolean);
   if (words.length === 1) return subject.slice(0, 4);
   return words.map((word) => word[0]).join("").slice(0, 5);
-}
-
-/** IGCSE / O Level are single-stage; A Level qualifications split AS and A2. */
-function stagesForQualification(qualification: string) {
-  return /IGCSE|O Level/i.test(qualification) ? ["A2"] : ["AS", "A2"];
 }
 
 const STAGE_PRESETS: Array<{ label: string; detail: string; stages: string[] }> = [

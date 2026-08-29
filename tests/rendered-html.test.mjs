@@ -501,3 +501,59 @@ test("includes durable tracking, goals, grouped reviews, subject tasks, study ho
   assert.match(migrations, /create table public\.topics/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
 });
+
+test("offers the English boards' A levels beside the international ones", async () => {
+  const [directory, builder, content, ukParser, stages, onboarding, catalogue] = await Promise.all([
+    read("data/syllabus-versions.csv"),
+    read("scripts/build_syllabus_directory.py"),
+    read("scripts/parse_syllabus_content.py"),
+    read("scripts/parse_uk.py"),
+    read("app/syllabus-stage.ts"),
+    read("app/onboarding/onboarding-flow.tsx"),
+    read("lib/onboarding-catalogue.ts"),
+  ]);
+
+  const suites = new Map();
+  for (const row of directory.split("\n").slice(1).filter(Boolean)) {
+    const qualification = row.split(",")[2];
+    if (qualification) suites.set(qualification, (suites.get(qualification) ?? 0) + 1);
+  }
+
+  // Each board gets its own qualification. Onboarding keys a subject on
+  // qualification and name, so three boards all offering "Chemistry" under a
+  // shared "A Level" label would collide on one key.
+  for (const qualification of ["AQA A Level", "OCR A Level", "Edexcel A Level"]) {
+    assert.ok((suites.get(qualification) ?? 0) > 20,
+      `expected a full ${qualification} suite, found ${suites.get(qualification) ?? 0}`);
+    // The learner names their board on the way in, and it picks their tab.
+    assert.ok(onboarding.includes(`"${qualification}"`), `${qualification} is not offered at sign-up`);
+  }
+  // Adding the English boards must not have cost the international suites.
+  assert.ok((suites.get("Cambridge IGCSE") ?? 0) >= 180);
+  assert.ok((suites.get("Cambridge International AS & A Level") ?? 0) >= 96);
+  assert.ok((suites.get("International A Level") ?? 0) >= 17);
+
+  // A board is added by crawling that board. A full rebuild re-verifies every
+  // URL, and one flaky connection during that drops rows that were already good.
+  assert.match(builder, /--only=/);
+  assert.match(builder, /def existing_rows\(\)/);
+  for (const suite of ["cambridge", "pearson-ial", "edexcel-igcse", "aqa", "ocr", "edexcel-uk"]) {
+    assert.match(builder, new RegExp(`"${suite}", \\(`), `${suite} is not a rebuildable suite`);
+  }
+
+  // Every board's layout has a reader; Pearson's UK and International specs
+  // share a template, so they share one.
+  assert.match(content, /if "aqa" in name/);
+  assert.match(content, /if "ocr" in name/);
+  assert.match(content, /if "pearson" in name/);
+  assert.match(ukParser, /def parse_aqa/);
+  assert.match(ukParser, /def parse_ocr/);
+  assert.doesNotMatch(ukParser, /def parse_edexcel/);
+
+  // AQA is the only UK board whose specification says which year its content
+  // belongs to, so it is the only one that keeps the AS/A2 split.
+  assert.match(stages, /SINGLE_STAGE = .*OCR\|Edexcel\) A Level/);
+  assert.match(ukParser, /A_LEVEL_ONLY/);
+  // One copy of that rule now that it has a board-specific branch.
+  assert.match(catalogue, /import \{ stagesForQualification \}/);
+});

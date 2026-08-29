@@ -1,15 +1,25 @@
-"""Rebuilds data/syllabus-versions.csv from Cambridge's own subject listings.
+"""Rebuilds data/syllabus-versions.csv from the exam boards' own subject listings.
 
-  python scripts/build_syllabus_directory.py          # subjects with past papers
-  python scripts/build_syllabus_directory.py --all    # every Cambridge subject
+  python scripts/build_syllabus_directory.py               # every suite
+  python scripts/build_syllabus_directory.py --all         # ... including Cambridge
+                                                           #     subjects with no papers
+  python scripts/build_syllabus_directory.py --only=aqa    # one suite, merged in
 
-Covers Cambridge (IGCSE + AS & A Level) and Pearson Edexcel International Advanced
-Level. Pearson's subject listing is rendered client-side, so its subjects are named
-here rather than crawled; each spec PDF is still read off the live subject page.
+Six suites, listed in SUITES: Cambridge (IGCSE + AS & A Level), Pearson Edexcel
+International (Advanced Level + International GCSE), and the three English boards'
+A levels — AQA, OCR and Edexcel.
 
-Cambridge gives every syllabus PDF an opaque numeric filename, so the URLs cannot
-be guessed — they are read off each subject page. Only syllabuses still examinable
-in CURRENT_YEAR or later are kept, which is what the app offers to import.
+`--only` rebuilds the named suites and carries every other row through untouched,
+which is how a board should be added. A full rebuild re-verifies three hundred-odd
+URLs, and one flaky connection during that is enough to drop rows that were already
+good. Without `--all`, Cambridge is narrowed to subjects the paper catalogue covers,
+so a full rebuild wants `--all` or it will shed most of the Cambridge suite.
+
+Neither AQA nor Pearson serves a crawlable subject listing: AQA's is read from its
+sitemap, Pearson's from the "first teaching" pages that name each suite. Cambridge
+gives every syllabus PDF an opaque numeric filename, so those URLs cannot be guessed
+and are read off each subject page. Only syllabuses still examinable in CURRENT_YEAR
+or later are kept, which is what the app offers to import.
 
 Hand-written Availability_Notes are carried over by Record_ID so a rebuild does
 not discard them.
@@ -361,6 +371,340 @@ def edexcel_igcse_rows(notes, today):
     return rows
 
 
+# ---------------------------------------------------------------------------
+# The English boards. Cambridge and Pearson International cover students sitting
+# international qualifications; these three cover the domestic A level.
+#
+# Each qualification is named for its board ("AQA A Level" rather than plain
+# "A Level") because onboarding keys a subject on qualification and name, and
+# three boards all offering "Chemistry" would otherwise collide on one key.
+# ---------------------------------------------------------------------------
+
+SITE_AQA = "https://www.aqa.org.uk"
+SITE_OCR = "https://www.ocr.org.uk"
+
+AQA_QUALIFICATION = "AQA A Level"
+OCR_QUALIFICATION = "OCR A Level"
+EDEXCEL_UK_QUALIFICATION = "Edexcel A Level"
+
+# AQA renders its subject listing client-side, so the sitemap is what enumerates
+# the suite. Every A-level subject page ends in its own syllabus code.
+AQA_SITEMAP = SITE_AQA + "/sitemap.xml"
+AQA_SUBJECT_PAGE = re.compile(r"/subjects/[^/]+/a-level/[^/]+$")
+AQA_PDF = re.compile(r'https://cdn\.sanity\.io/files/[^"\'<> ]+?\.pdf')
+ARIA_LABEL = re.compile(r'aria-label="([^"]+)"')
+H1 = re.compile(r"<h1[^>]*>(.*?)</h1>", re.S)
+AQA_SPEC_LABEL = re.compile(r"specification\s*\((\d{4})\)", re.I)
+FIRST_TEACHING = re.compile(r"first teaching in (\d{4})", re.I)
+# Labels tag a replacement specification while the outgoing one is still taught.
+SUPERSEDING = re.compile(r"updated|proposed|draft", re.I)
+
+OCR_LISTING = SITE_OCR + "/qualifications/as-and-a-level/"
+OCR_SUBJECT_LINK = re.compile(
+    r'<a[^>]+href="(/qualifications/as-and-a-level/([a-z0-9-]+)/)"[^>]*>(.*?)</a>', re.S)
+# OCR numbers the AS below H400 and the A level at or above it, and puts both in
+# the slug: `biology-a-h020-h420-from-2015`.
+OCR_CODE = re.compile(r"-(h\d{3})", re.I)
+OCR_FROM_YEAR = re.compile(r"-from-(\d{4})$")
+
+EDEXCEL_UK_BASE = SITE_PEARSON + "/en/qualifications/edexcel-a-levels/"
+# Pearson's UK listing is client-side too, but its "first teaching" pages name
+# every subject in the suite, which is what these are read for.
+EDEXCEL_UK_INDEXES = [
+    "first-teaching-from-2015-and-2016",
+    "first-teaching-from-2017",
+    "first-teaching-from-2018",
+]
+EDEXCEL_UK_SLUG = re.compile(r"edexcel-a-levels/([a-z0-9-]+-(\d{4}))\.html")
+
+
+def text_of(markup):
+    return html.unescape(re.sub(r"<[^>]+>", " ", markup)).strip()
+
+
+def aqa_subject_name(markup, code):
+    """The page names the subject in three places; the first that resolves wins.
+
+    The specification's own label is the most reliable, because it is the only
+    one that distinguishes English Literature A from English Literature B.
+    """
+    for label in ARIA_LABEL.findall(markup):
+        label = html.unescape(label)
+        found = AQA_SPEC_LABEL.search(label)
+        if found and found.group(1) == code:
+            name = re.sub(r"^(?:AS and )?A-?level\s+", "", label[:found.start()], flags=re.I)
+            name = re.sub(r"\s*\((?:new|current|updated)\)\s*$", "", name, flags=re.I)
+            if name.strip():
+                return name.strip()
+    heading = H1.search(markup)
+    if heading:
+        title = re.sub(r"\s*\(?" + code + r"\)?\s*$", "", text_of(heading.group(1)))
+        title = re.sub(r"^(?:AS and )?A-?level\s+", "", title, flags=re.I)
+        if title.strip():
+            return title.strip()
+    return None
+
+
+def aqa_specification(markup):
+    """The current specification PDF, and the year it was first taught.
+
+    A subject being rewritten carries both the outgoing specification and its
+    replacement; the outgoing one is what this year's students are sitting.
+    """
+    urls = list(dict.fromkeys(AQA_PDF.findall(markup)))
+    if not urls:
+        return None, ""
+    chosen, year = urls[0], ""
+    for url in urls:
+        at = markup.find(url)
+        labels = ARIA_LABEL.findall(markup[max(0, at - 700):at])
+        near = html.unescape(labels[-1]) if labels else ""
+        if len(urls) > 1 and SUPERSEDING.search(near):
+            continue
+        chosen = url
+        found = FIRST_TEACHING.search(near)
+        year = found.group(1) if found else ""
+        break
+    if not year:
+        found = FIRST_TEACHING.search(html.unescape(markup))
+        year = found.group(1) if found else ""
+    return chosen, year
+
+
+def aqa_rows(notes, today):
+    sitemap = fetch(AQA_SITEMAP, 90).decode("utf-8", "ignore")
+    pages = sorted({loc for loc in re.findall(r"<loc>([^<]+)</loc>", sitemap)
+                    if AQA_SUBJECT_PAGE.search(loc)})
+    rows = []
+    print("{}: {} subjects".format(AQA_QUALIFICATION, len(pages)))
+    for page in pages:
+        code = page.rsplit("-", 1)[-1]
+        try:
+            markup = fetch(page, 45).decode("utf-8", "ignore")
+        except Exception as error:  # noqa: BLE001
+            print("  {} {:<32} FAILED: {}".format(code, "", error))
+            continue
+        name = aqa_subject_name(markup, code)
+        url, year = aqa_specification(markup)
+        if not (name and url):
+            print("  {} {:<32} no specification linked".format(code, (name or "")[:30]))
+            continue
+        record_id = "aqa-alevel-" + code
+        rows.append({
+            "Record_ID": record_id,
+            "Exam_Board": "AQA",
+            "Qualification": AQA_QUALIFICATION,
+            "Subject_Name": name,
+            "Syllabus_Code": code,
+            "Exam_Year_From": year,
+            "Exam_Year_To": "",
+            "Is_Current_In_2026": "true",
+            "Is_Latest_Published_Version": "true",
+            "Syllabus_PDF_URL": url,
+            "Syllabus_Page_URL": page,
+            "PotatoPapers_Subject_Filter": "",
+            "PotatoPapers_Catalogue_URL": "",
+            "PotatoPapers_Paper_Record_Count": 0,
+            "PotatoPapers_Has_Catalogue_Records": "false",
+            "Availability_Notes": notes.get(record_id, ""),
+            "Source_Verification": verify(url),
+            "Verified_On": today,
+        })
+        print("  {} {:<32} {}".format(code, name[:30], year or "-"))
+    return rows
+
+
+def ocr_specification(page_url):
+    """The A-level specification, told apart from the AS one beside it."""
+    markup = fetch(page_url, 45).decode("utf-8", "ignore")
+    candidates = list(dict.fromkeys(re.findall(r'href="(/Images/[^"]+?\.pdf)"', markup, re.I)))
+
+    def score(path):
+        name = path.rsplit("/", 1)[-1].lower()
+        points = 0
+        if "specification" in name:
+            points += 10
+        if re.search(r"\ba[-\s]?level\b", name):
+            points += 8
+        if re.search(r"\bas[-\s]?level\b", name):
+            points -= 15
+        if re.search(r"sam|sample|guide|planner|checklist|transition", name):
+            points -= 20
+        return points
+
+    ranked = sorted(candidates, key=score, reverse=True)
+    return ranked[0] if ranked and score(ranked[0]) > 0 else None
+
+
+def ocr_rows(notes, today):
+    markup = fetch(OCR_LISTING, 45).decode("utf-8", "ignore")
+    subjects = OrderedDict()
+    for href, slug, label in OCR_SUBJECT_LINK.findall(markup):
+        name = re.sub(r"\s+", " ", text_of(label))
+        if not name or slug in subjects:
+            continue
+        subjects[slug] = (href, name)
+
+    rows = []
+    print("{}: {} subjects".format(OCR_QUALIFICATION, len(subjects)))
+    for slug, (href, name) in subjects.items():
+        codes = [code.upper() for code in OCR_CODE.findall(slug)]
+        # H400 and above is the A level; below it is the standalone AS.
+        advanced = [code for code in codes if code >= "H400"]
+        code = advanced[0] if advanced else (codes[-1] if codes else None)
+        if not code:
+            continue
+        page = SITE_OCR + href
+        try:
+            path = ocr_specification(page)
+        except Exception as error:  # noqa: BLE001
+            print("  {} {:<32} FAILED: {}".format(code, name[:30], error))
+            continue
+        if not path:
+            print("  {} {:<32} no specification PDF linked".format(code, name[:30]))
+            continue
+        year = OCR_FROM_YEAR.search(slug)
+        record_id = "ocr-alevel-" + slug
+        rows.append({
+            "Record_ID": record_id,
+            "Exam_Board": "OCR",
+            "Qualification": OCR_QUALIFICATION,
+            "Subject_Name": name,
+            "Syllabus_Code": code,
+            "Exam_Year_From": year.group(1) if year else "",
+            "Exam_Year_To": "",
+            "Is_Current_In_2026": "true",
+            "Is_Latest_Published_Version": "true",
+            "Syllabus_PDF_URL": SITE_OCR + urllib.parse.quote(path),
+            "Syllabus_Page_URL": page,
+            "PotatoPapers_Subject_Filter": "",
+            "PotatoPapers_Catalogue_URL": "",
+            "PotatoPapers_Paper_Record_Count": 0,
+            "PotatoPapers_Has_Catalogue_Records": "false",
+            "Availability_Notes": notes.get(record_id, ""),
+            "Source_Verification": verify(SITE_OCR + urllib.parse.quote(path)),
+            "Verified_On": today,
+        })
+        print("  {} {:<32} {}".format(code, name[:30], path.rsplit("/", 1)[-1][:40]))
+    return rows
+
+
+def edexcel_uk_subjects():
+    """Every UK A level Pearson lists, keyed by slug, with its first-teaching year."""
+    found = OrderedDict()
+    for index in EDEXCEL_UK_INDEXES:
+        try:
+            markup = fetch(EDEXCEL_UK_BASE + "about/" + index + ".html", 45).decode("utf-8", "ignore")
+        except Exception as error:  # noqa: BLE001
+            print("  index {} FAILED: {}".format(index, error))
+            continue
+        for slug, year in EDEXCEL_UK_SLUG.findall(markup):
+            found.setdefault(slug, year)
+    return found
+
+
+def edexcel_uk_page(page_url):
+    return fetch(page_url, 45).decode("utf-8", "ignore")
+
+
+def edexcel_uk_name(markup, slug):
+    """Pearson's own name for the subject, which the slug cannot supply.
+
+    The slug would give "Design Technology Product Design" and "History Of Art";
+    the page title carries "Design and Technology - Product Design" and
+    "History of Art".
+    """
+    title = re.search(r"<title>(.*?)</title>", markup, re.S)
+    if title:
+        text = html.unescape(re.sub(r"<[^>]+>", " ", title.group(1)))
+        found = re.search(
+            r"AS\s*(?:&(?:amp;)?|and)\s*A\s*level\s+(.+?)\s*\(?\d{4}\)?\s*(?:\||$)",
+            re.sub(r"\s+", " ", text), re.I)
+        if found and found.group(1).strip():
+            return found.group(1).strip()
+    return re.sub(r"-\d{4}$", "", slug).replace("-", " ").title()
+
+
+def edexcel_uk_spec(markup, slug):
+    """The A level specification, told apart from everything shipped beside it.
+
+    A subject page carries the AS specification, teaching guides, sample
+    assessments and a mapping from the outgoing specification. Maths carries
+    Further Maths too, which is a different qualification with its own page.
+    """
+    candidates = sorted(set(re.findall(r'(/content/dam/pdf/[^"\'>]*?\.pdf)', markup)))
+
+    def score(path):
+        name, parent = path.rsplit("/", 1)[-1].lower(), path.rsplit("/", 1)[0].lower()
+        # The folder is the dependable signal: whatever else a subject page
+        # links to, the specification is filed under one that says so. Some
+        # filenames carry no clue at all (`9781446914366-gce-2015-a-hist.pdf`).
+        points = 12 if "specification" in parent else 0
+        if "spec" in name:
+            points += 6
+        if re.search(r"(^|[_-])a[_-]?level", name):
+            points += 4
+        if re.search(r"(^|[_-])as([_-]|\d)", name):
+            points -= 18
+        # Maths links Further Maths, which is its own qualification and page.
+        if "further" in name and "further" not in slug:
+            points -= 20
+        # Sample assessments sit in the same folder as the specification, and
+        # everything else on the page is teaching support of one kind or another.
+        if re.search(r"sams|mapping|legacy|draft|guide|onboard|faq|checklist|"
+                     r"arrangements|transition|getting-started|teacher|support|"
+                     r"overview|network|event|at-a-glance", name):
+            points -= 25
+        if "/general/" in parent:
+            points -= 12
+        return points
+
+    ranked = sorted(candidates, key=score, reverse=True)
+    return ranked[0] if ranked and score(ranked[0]) > 0 else None
+
+
+def edexcel_uk_rows(notes, today):
+    subjects = edexcel_uk_subjects()
+    rows = []
+    print("{}: {} subjects".format(EDEXCEL_UK_QUALIFICATION, len(subjects)))
+    for slug, year in sorted(subjects.items()):
+        name = re.sub(r"-\d{4}$", "", slug).replace("-", " ").title()
+        page = EDEXCEL_UK_BASE + slug + ".html"
+        try:
+            markup = edexcel_uk_page(page)
+            name = edexcel_uk_name(markup, slug)
+            path = edexcel_uk_spec(markup, slug)
+        except Exception as error:  # noqa: BLE001
+            print("  {:<38} FAILED: {}".format(name[:36], error))
+            continue
+        if not path:
+            print("  {:<38} no specification PDF linked".format(name[:36]))
+            continue
+        url = SITE_PEARSON + urllib.parse.quote(path)
+        record_id = "edexcel-alevel-" + slug
+        rows.append({
+            "Record_ID": record_id,
+            "Exam_Board": PEARSON_BOARD,
+            "Qualification": EDEXCEL_UK_QUALIFICATION,
+            "Subject_Name": name,
+            "Syllabus_Code": "AL-" + re.sub(r"-\d{4}$", "", slug).upper(),
+            "Exam_Year_From": year,
+            "Exam_Year_To": "",
+            "Is_Current_In_2026": "true",
+            "Is_Latest_Published_Version": "true",
+            "Syllabus_PDF_URL": url,
+            "Syllabus_Page_URL": page,
+            "PotatoPapers_Subject_Filter": "",
+            "PotatoPapers_Catalogue_URL": "",
+            "PotatoPapers_Paper_Record_Count": 0,
+            "PotatoPapers_Has_Catalogue_Records": "false",
+            "Availability_Notes": notes.get(record_id, ""),
+            "Source_Verification": verify(url),
+            "Verified_On": today,
+        })
+        print("  {:<38} {}".format(name[:36], path.rsplit("/", 1)[-1][:40]))
+    return rows
+
 def existing_notes():
     if not DIRECTORY.exists():
         return {}
@@ -368,12 +712,8 @@ def existing_notes():
     return {row["Record_ID"]: row.get("Availability_Notes") or "" for row in rows}
 
 
-def main():
-    everything = "--all" in sys.argv
+def cambridge_rows(notes, today, everything):
     catalogue = catalogue_subjects()
-    notes = existing_notes()
-    today = date.today().isoformat()
-
     rows = []
     for qualification in LISTINGS:
         subjects = listing(qualification)
@@ -415,8 +755,52 @@ def main():
             windows = ", ".join("{}-{}".format(start, end) for start, end, _ in versions)
             print("  {} {:<32} {}".format(code, name[:30], windows))
 
-    rows.extend(pearson_rows(notes, today))
-    rows.extend(edexcel_igcse_rows(notes, today))
+    return rows
+
+
+# Every suite the directory carries, with the Record_ID prefix its rows use.
+# The prefix is what lets one suite be rebuilt and merged over the others, so
+# adding a board does not mean re-verifying — and risking — the whole file.
+SUITES = OrderedDict([
+    ("cambridge", ("caie-", lambda notes, today, everything: cambridge_rows(notes, today, everything))),
+    ("pearson-ial", ("edexcel-ial-", lambda notes, today, everything: pearson_rows(notes, today))),
+    ("edexcel-igcse", ("edexcel-igcse-", lambda notes, today, everything: edexcel_igcse_rows(notes, today))),
+    ("aqa", ("aqa-alevel-", lambda notes, today, everything: aqa_rows(notes, today))),
+    ("ocr", ("ocr-alevel-", lambda notes, today, everything: ocr_rows(notes, today))),
+    ("edexcel-uk", ("edexcel-alevel-", lambda notes, today, everything: edexcel_uk_rows(notes, today))),
+])
+
+
+def existing_rows():
+    if not DIRECTORY.exists():
+        return []
+    return list(csv.DictReader(io.open(DIRECTORY, encoding="utf-8-sig")))
+
+
+def main():
+    everything = "--all" in sys.argv
+    only = [name for argument in sys.argv if argument.startswith("--only=")
+            for name in argument.split("=", 1)[1].split(",") if name]
+    unknown = [name for name in only if name not in SUITES]
+    if unknown:
+        print("Unknown suite {}. Choose from: {}".format(", ".join(unknown), ", ".join(SUITES)))
+        return 1
+
+    notes = existing_notes()
+    today = date.today().isoformat()
+
+    rows = []
+    for name in (only or list(SUITES)):
+        rows.extend(SUITES[name][1](notes, today, everything))
+
+    if only:
+        # Carry over every suite this run did not rebuild. A board is added by
+        # crawling that board, not by re-reading three hundred rows that were
+        # already verified — one flaky connection would otherwise drop them.
+        rebuilt = tuple(SUITES[name][0] for name in only)
+        kept = [row for row in existing_rows() if not row["Record_ID"].startswith(rebuilt)]
+        print("\nCarried over {} rows from the suites this run left alone".format(len(kept)))
+        rows.extend(kept)
 
     rows.sort(key=lambda row: (row["Exam_Board"], row["Qualification"], row["Subject_Name"],
                                str(row["Exam_Year_From"])))
@@ -434,4 +818,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)

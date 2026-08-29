@@ -24,10 +24,16 @@ type Props = {
   currentYear: number;
 };
 
+// What the learner says they study. These double as the browsing tab a learner
+// lands on, so each one that has subjects behind it is named exactly as the
+// catalogue names that qualification.
 const QUALIFICATIONS = [
   "Cambridge International AS & A Level",
   "Cambridge IGCSE",
   "International A Level",
+  "AQA A Level",
+  "OCR A Level",
+  "Edexcel A Level",
   "IB Diploma",
   "Other",
 ];

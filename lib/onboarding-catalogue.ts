@@ -3,6 +3,7 @@ import { series } from "./db";
 import { getSyllabusVersions } from "./syllabus-db";
 import { STARTER_SUBJECTS, subjectSlug, type SubjectTone } from "./subjects-db";
 import { templateTopicCount } from "./topics-db";
+import { stagesForQualification } from "../app/syllabus-stage";
 
 /**
  * The subject list onboarding offers, merged from every source that can supply
@@ -47,11 +48,6 @@ export type OnboardingSubject = {
 };
 
 const AUTO_TONES: SubjectTone[] = ["blue", "violet", "coral", "teal", "amber", "rose", "lime", "slate"];
-
-/** IGCSE / O Level are single-stage; A Level qualifications split AS and A2. */
-function stagesForQualification(qualification: string) {
-  return /IGCSE|O Level/i.test(qualification) ? ["A2"] : ["AS", "A2"];
-}
 
 function shortNameFor(subject: string) {
   const words = subject.split(/\s+/).filter(Boolean);
