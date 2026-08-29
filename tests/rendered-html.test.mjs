@@ -642,6 +642,21 @@ test("offers the IB Diploma, split by level rather than by year", async () => {
   const suite = builder.slice(builder.indexOf("def ib_rows"), builder.indexOf("def existing_notes"));
   assert.match(suite, /IB_SUBJECTS/);
   assert.ok(!/fetch\(|verify\(/.test(suite), "the IB suite should not reach the network");
-  // Which leaves 173 rows with no PDF behind them, and nothing to parse.
+  // Which leaves 173 rows with no PDF behind them, and nothing to fetch.
   assert.match(parser, /row\["Syllabus_PDF_URL"\]/);
+
+  // What those rows are read from instead: the course's public subject brief,
+  // saved into data/ib-briefs by hand. Board content is never committed.
+  const [reader, ignored] = await Promise.all([read("scripts/parse_ib.py"), read(".gitignore")]);
+  assert.match(parser, /from parse_ib import parse as parse_ib/);
+  assert.match(parser, /IB_BRIEFS = ROOT \/ "data" \/ "ib-briefs"/);
+  assert.match(parser, /def brief_path/);
+  assert.match(ignored, /data\/ib-briefs/);
+
+  // A brief carries the outline, and the asterisk on a topic only HL students
+  // take is what files it under the HL track.
+  assert.match(reader, /HL/);
+  // The older briefs set that table in two columns, which the text layer reads
+  // out of order. An outline built from those halves was never in the brief.
+  assert.match(reader, /FRAGMENT_LIMIT/);
 });

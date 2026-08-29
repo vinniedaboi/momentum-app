@@ -80,11 +80,29 @@ environment:
 npm run import:shared
 ```
 
-`syllabus_content` (spec points parsed from Cambridge PDFs) is not produced by
-this importer — it comes from the Python PDF parser. If you already have those
-rows in the old Cloudflare database, `import-legacy-d1.mjs --shared` copies them
-across. To parse new syllabuses from scratch you still need the Python flow in
-`scripts/legacy-d1/`, which has no Postgres target yet.
+`syllabus_content` (spec points parsed from the boards' own PDFs) is not produced
+by this importer — it comes from the Python PDF parser:
+
+```bash
+python scripts/parse_syllabus_content.py
+```
+
+That reads every specification the directory links and writes
+`data/syllabus-content.json`, which `npm run import:shared` then loads. Board
+content is never committed; regenerate it per environment.
+
+The IB is the exception it cannot fetch. Its subject guides are published through
+the programme resource centre rather than the open web, and the public subject
+briefs — which do carry the course's syllabus outline — sit behind a bot
+challenge that answers this script with a page instead of a PDF. So an IB course
+is read from `data/ib-briefs/`, which you fill by hand: open the course page in
+`Syllabus_Page_URL`, save its subject brief, and name the file after the course
+page (`.../curriculum/sciences/biology/` → `data/ib-briefs/sciences-biology.pdf`).
+Where one page carries several courses, name the file after the subject code
+instead (`166711.pdf` for Mathematics: analysis and approaches). One brief serves
+every subject on its page, so the Language A: literature brief is the syllabus
+for all eighty of its languages. A course with no brief in the folder is offered
+without a syllabus, and the learner imports their own.
 
 ### Migrating the old single-user database
 

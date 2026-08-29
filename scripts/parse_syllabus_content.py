@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from parse_outline import parse as parse_outline  # noqa: E402
 from parse_pearson import parse as parse_pearson  # noqa: E402
 from parse_syllabus import parse as parse_cambridge  # noqa: E402
+from parse_ib import parse as parse_ib  # noqa: E402
 from parse_uk import parse_aqa, parse_ocr  # noqa: E402
 
 try:
@@ -38,6 +39,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_VERSIONS = ROOT / "data" / "syllabus-versions.csv"
 DEFAULT_OUT = ROOT / "data" / "syllabus-content.json"
+IB_BRIEFS = ROOT / "data" / "ib-briefs"
 PLACEHOLDER = re.compile(r"^(Topic|Unit|Chapter) \d+$")
 
 
@@ -56,6 +58,8 @@ def parser_for(board):
         return parse_ocr
     if "pearson" in name:
         return parse_pearson
+    if name == "ib":
+        return parse_ib
     return parse_cambridge
 
 
@@ -83,6 +87,35 @@ def readers_for(board):
 def pdf_text(data):
     doc = fitz.open(stream=data, filetype="pdf")
     return "\n".join(doc[index].get_text() for index in range(doc.page_count))
+
+
+def brief_path(row):
+    """Where an IB subject's brief is kept, named after its course page.
+
+    `.../curriculum/sciences/biology/` is read from `data/ib-briefs/sciences-biology.pdf`,
+    and one brief serves every subject on that page: the Language A: literature
+    brief is the syllabus for all eighty of its languages.
+
+    A page that hosts more than one course — mathematics carries both of its —
+    needs one brief per subject, so a file named after the subject code wins.
+    """
+    slug = str(row["Syllabus_Page_URL"]).rstrip("/").split("/curriculum/")[-1].replace("/", "-")
+    coded = IB_BRIEFS / "{}.pdf".format(row["Syllabus_Code"])
+    return coded if coded.exists() else IB_BRIEFS / "{}.pdf".format(slug)
+
+
+def source_text(row):
+    """The document a row's syllabus is read from, or None where there is none.
+
+    Every board but one publishes a specification the directory can link and this
+    script can fetch. The IB publishes its guides through the programme resource
+    centre instead, so its rows carry a course page, and the public subject brief
+    behind it has to be saved into data/ib-briefs by hand.
+    """
+    if str(row["Exam_Board"]).strip().upper() == "IB":
+        path = brief_path(row)
+        return pdf_text(path.read_bytes()) if path.exists() else None
+    return pdf_text(download(row["Syllabus_PDF_URL"])) if row["Syllabus_PDF_URL"] else None
 
 
 def download(url):
@@ -121,10 +154,11 @@ def main():
     args = parser.parse_args()
 
     rows = list(csv.DictReader(io.open(args.versions, encoding="utf-8-sig")))
-    # A syllabus the directory names by course page rather than by PDF has nothing
-    # to parse: the IB publishes its guides through the programme resource centre,
-    # so its subjects arrive without one and the learner imports their own.
-    readable = [row for row in rows if row["Syllabus_PDF_URL"]]
+    # A syllabus with nothing behind it has nothing to parse: an IB course whose
+    # brief has not been saved into data/ib-briefs arrives without one, and the
+    # learner imports their own from subject settings.
+    readable = [row for row in rows
+                if row["Syllabus_PDF_URL"] or brief_path(row).exists()]
     by_code = candidates(readable)
 
     records = []
@@ -153,9 +187,11 @@ def main():
         chapters, points, chosen, how = [], [], group[0], ""
         for attempt in group:
             try:
-                text = pdf_text(download(attempt["Syllabus_PDF_URL"]))
+                text = source_text(attempt)
             except Exception as error:  # noqa: BLE001
                 print("  {:<30} {:<10} FAILED: {}".format(attempt["Subject_Name"][:28], code, error))
+                continue
+            if not text:
                 continue
             # Numbered spec points where they exist; otherwise read the headings
             # and bullets, which is how the humanities syllabuses are written.

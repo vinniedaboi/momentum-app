@@ -41,3 +41,6 @@ __pycache__/
 
 # generated syllabus trees (exam-board content, regenerate with scripts/parse_syllabus_content.py)
 data/syllabus-content.json
+
+# IB subject briefs, saved by hand from ibo.org (see parse_syllabus_content.py)
+data/ib-briefs/
