@@ -39,6 +39,10 @@ ROOT = Path(__file__).resolve().parent.parent
 SUBJECTS = ROOT / "data" / "ib-subjects.csv"
 BRIEFS = ROOT / "data" / "ib-briefs"
 TITLE_PAGES = 2
+# What makes a PDF one of these at all. Without it a folder of past papers and
+# revision notes matches on the subject name alone, and a Cambridge physics paper
+# installs itself as the IB physics brief.
+IS_BRIEF = re.compile(r"Diploma Programme\s+Subject Brief", re.I)
 
 
 def flatten(text):
@@ -81,7 +85,14 @@ def courses():
     return found
 
 
-def title_text(path):
+def head_text(path):
+    """The opening pages, which is where a brief says what it is."""
+    with fitz.open(path) as document:
+        pages = min(TITLE_PAGES, document.page_count)
+        return "\n".join(document[index].get_text() for index in range(pages))
+
+
+def title_zone(text):
     """The line naming the course, which every brief prints above its first
     assessment year: `Sciences: Biology`, `Individuals and societies: Business
     management-higher level`.
@@ -90,9 +101,6 @@ def title_text(path):
     itself, and its paragraph about the core names theory of knowledge and the
     extended essay in every brief the IB publishes.
     """
-    with fitz.open(path) as document:
-        pages = min(TITLE_PAGES, document.page_count)
-        text = "\n".join(document[index].get_text() for index in range(pages))
     found = re.search(r"First assessments?\b", text, re.I)
     return text[max(0, found.start() - 120):found.start()] if found else text[:400]
 
@@ -132,9 +140,12 @@ def main():
     claimed, skipped = {}, []
     for path in files:
         try:
-            course = match(title_text(path), catalogue)
+            head = head_text(path)
         except Exception:  # noqa: BLE001  - anything unreadable is not a brief
             continue
+        if not IS_BRIEF.search(head):
+            continue
+        course = match(title_zone(head), catalogue)
         if not course:
             continue
         points = len(parse_ib(full_text(path))[1])
@@ -147,13 +158,32 @@ def main():
             skipped.append((previous["path"].name, course["name"]))
         claimed[course["name"]] = {"path": path, "points": points, "course": course}
 
+    for name, hit in list(claimed.items()):
+        target = BRIEFS / "{}.pdf".format(name)
+        if not target.exists():
+            continue
+        try:
+            standing = len(parse_ib(full_text(target))[1])
+        except Exception:  # noqa: BLE001
+            continue
+        if standing > hit["points"]:
+            skipped.append((hit["path"].name, name))
+            del claimed[name]
+
     if not args.dry_run:
         BRIEFS.mkdir(parents=True, exist_ok=True)
     print("{} brief{} found in {}".format(len(claimed), "" if len(claimed) == 1 else "s", source))
     for name, hit in sorted(claimed.items()):
         target = BRIEFS / "{}.pdf".format(name)
         if not args.dry_run:
-            shutil.copyfile(hit["path"], target)
+            try:
+                shutil.copyfile(hit["path"], target)
+            except FileNotFoundError:
+                # A browser renames a download the moment it finishes, so a file
+                # read as .tmp can be gone by the time it is copied. The finished
+                # one is in the same folder under its real name; run this again.
+                print("  {:<58} finished downloading mid-run, run again".format(target.name))
+                continue
         subjects = len(hit["course"]["subjects"])
         print("  {:<58} {:>3} points, {} subject{}".format(
             target.name, hit["points"], subjects, "" if subjects == 1 else "s"))

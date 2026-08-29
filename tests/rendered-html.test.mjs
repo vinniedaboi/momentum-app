@@ -705,7 +705,10 @@ test("offers the IB Diploma, split by level rather than by year", async () => {
   // Naming the downloads is the installer's job, not the reader's.
   const installer = await read("scripts/install_ib_briefs.py");
   assert.match(installer, /data\/ib-briefs|BRIEFS = ROOT/);
-  assert.match(installer, /def title_text/);
+  // And only files that say they are subject briefs: a folder of downloads holds
+  // past papers and revision notes that name the same subjects.
+  assert.match(installer, /IS_BRIEF/);
+  assert.match(installer, /def title_zone/);
   // The older briefs set that table in two columns, which the text layer reads
   // out of order. An outline built from those halves was never in the brief.
   assert.match(reader, /FRAGMENT_LIMIT/);
