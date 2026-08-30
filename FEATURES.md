@@ -7,6 +7,10 @@
 This document is the reference for marketing copy, landing pages and demo
 recordings. Every feature listed here is built and working.
 
+It says what Momentum does *today*. For what changed and when — the
+release-by-release history to announce from — see
+[CHANGELOG.md](CHANGELOG.md).
+
 ---
 
 ## The problem

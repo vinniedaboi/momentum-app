@@ -7,7 +7,8 @@ against a target exam date.
 Built with **Next.js 16** (App Router), **Supabase** (Postgres, Auth, Storage),
 and deployed on **Vercel**.
 
-See [FEATURES.md](FEATURES.md) for the full feature breakdown.
+See [FEATURES.md](FEATURES.md) for the full feature breakdown, and
+[CHANGELOG.md](CHANGELOG.md) for what shipped in each release.
 
 ---
 
@@ -215,6 +216,8 @@ developer's machine, not from a function.
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Source-level guardrails: tenancy scoping, auth wiring, RLS coverage, UI copy |
+| `npm run release:check` | What version we are on and whether anything is waiting to ship |
+| `npm version minor` | Cut a release: bump, date the changelog, commit and tag (see [CHANGELOG.md](CHANGELOG.md)) |
 | `npm run import:shared` | Load the catalogue and syllabus CSVs into Postgres |
 | `npm run import:legacy` | Migrate the old Cloudflare D1 database into one account |
 | `npm run seed:demo -- --email <a>` | Fill an account with demo study history for recording |
