@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Topic } from "./study-tracker-app";
+import { formatStudyTime } from "./study-hours";
+import { pointMinutes, roundMinutes, timeBudget, type TimeBudget } from "./study-time";
 import { subjectName, type Subject } from "./subjects";
 import { getTopicStage, subjectHasStages, type SyllabusStage } from "./syllabus-stage";
 import { api, apiMessage } from "./data/api";
@@ -286,6 +288,14 @@ export default function ExamPlanner({ topics, subjects, today, onMessage }: {
               const nextDate = upcoming.find((date) => date >= today) ?? null;
               const overdue = upcoming.filter((date) => date < today).length;
               const subject = subjectLookup.get(exam.subjectId);
+              const examPoints = exam.topics
+                .map((entry) => topicLookup.get(entry.topicId))
+                .filter((topic): topic is Topic => Boolean(topic));
+              const budget = timeBudget(examPoints, {
+                daysLeft: days,
+                weeklyHours: exam.weeklyHours,
+                studyDays: exam.studyDays,
+              });
 
               return (
                 <li key={exam.id} className={`exam-card ${days < 0 ? "past" : ""}`}>
@@ -314,6 +324,12 @@ export default function ExamPlanner({ topics, subjects, today, onMessage }: {
                     <span>{covered} of {total} topics done</span>
                     {overdue ? <span className="behind">{overdue} revision date{overdue === 1 ? "" : "s"} passed</span> : null}
                     {nextDate ? <span>Next revision {shortDate(nextDate)}</span> : null}
+                    {budget && days > 0 ? (
+                      <span>
+                        <b>{formatStudyTime(roundMinutes(budget.availableMinutes))}</b> to revise ·
+                        about {formatStudyTime(roundMinutes(budget.availableMinutes / total))} a topic
+                      </span>
+                    ) : null}
                   </p>
                   {exam.notes ? <p className="exam-notes">{exam.notes}</p> : null}
 
@@ -327,7 +343,7 @@ export default function ExamPlanner({ topics, subjects, today, onMessage }: {
                     </button>
                   </div>
 
-                  {openPlanId === exam.id ? <ExamPlan exam={exam} topics={topicLookup} today={today} /> : null}
+                  {openPlanId === exam.id ? <ExamPlan exam={exam} topics={topicLookup} today={today} budget={budget} /> : null}
                 </li>
               );
             })}
@@ -501,7 +517,13 @@ export default function ExamPlanner({ topics, subjects, today, onMessage }: {
 }
 
 /** The generated revision schedule, grouped by day. */
-function ExamPlan({ exam, topics, today }: { exam: Exam; topics: Map<string, Topic>; today: string }) {
+function ExamPlan({ exam, topics, today, budget }: {
+  exam: Exam;
+  topics: Map<string, Topic>;
+  today: string;
+  /** The exam's own time budget, so a day says how long it will take. */
+  budget: TimeBudget | null;
+}) {
   const days = useMemo(() => {
     const byDate = new Map<string, Topic[]>();
     for (const entry of exam.topics) {
@@ -535,12 +557,16 @@ function ExamPlan({ exam, topics, today }: { exam: Exam; topics: Map<string, Top
           <li key={date} className={date < today ? "missed" : date === today ? "today" : ""}>
             <div className="plan-date">
               <strong>{shortDate(date)}</strong>
-              <small>{items.length} topic{items.length === 1 ? "" : "s"}</small>
+              <small>
+                {items.length} topic{items.length === 1 ? "" : "s"} ·{" "}
+                {formatStudyTime(items.reduce((sum, topic) => sum + pointMinutes(topic.status, budget), 0))}
+              </small>
             </div>
             <ul>
               {items.map((topic) => (
                 <li key={topic.id} className={isComplete(topic) ? "done" : ""}>
                   <b>{topic.code}</b> {topic.title}
+                  <em>{formatStudyTime(pointMinutes(topic.status, budget))}</em>
                 </li>
               ))}
             </ul>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PaperMeta, PastPaper } from "../past-papers";
 import type { PlannedExam } from "../exams";
+import type { StudyGoal } from "../goals";
 import type { StudySession } from "../study-hours";
 import type { Subject } from "../subjects";
 import type { StudyTask } from "../tasks";
@@ -39,6 +40,9 @@ export function useStudyWorkspace(onError: (message: string) => void) {
   // first paint shows yesterday's due dates.
   const [topics, setTopics] = useState<Topic[]>([]);
   const [topicsFailed, setTopicsFailed] = useState(false);
+  // Kept from the call below rather than fetched again: the board divides each
+  // goal's weekly hours across the points it still has to cover.
+  const [goals, setGoals] = useState<StudyGoal[]>([]);
 
   const reloadTopics = useCallback(async () => {
     try {
@@ -50,14 +54,20 @@ export function useStudyWorkspace(onError: (message: string) => void) {
     }
   }, []);
 
-  useEffect(() => {
+  const reloadGoals = useCallback(async () => {
     // A failure here is not fatal — the schedule is simply not refreshed, and
     // the topics still load — so it is swallowed rather than surfaced.
-    void api
-      .get(studyApi.goals.path)
-      .catch(() => null)
-      .then(reloadTopics);
+    const data = await api
+      .get<{ goals: StudyGoal[] }>(studyApi.goals.path)
+      .catch(() => null);
+    if (data) setGoals(data.goals);
+    await reloadTopics();
   }, [reloadTopics]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void reloadGoals();
+  }, [reloadGoals]);
 
   return {
     subjects,
@@ -67,5 +77,6 @@ export function useStudyWorkspace(onError: (message: string) => void) {
     papers,
     paperMeta,
     topics: { value: topics, setValue: setTopics, failed: topicsFailed, reload: reloadTopics },
+    goals: { value: goals, reload: reloadGoals },
   };
 }

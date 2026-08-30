@@ -498,9 +498,9 @@ test("includes durable tracking, goals, grouped reviews, subject tasks, study ho
   assert.match(calendarClient, /goal-task/);
   assert.match(client, /scheduledDate/);
   assert.match(client, /Goal plan/);
-  assert.match(client, /onScheduleChanged=\{refreshTopics\}/);
+  assert.match(client, /onScheduleChanged=\{refreshGoals\}/);
   assert.match(workspace, /studyApi\.goals\.path/);
-  assert.match(workspace, /\.then\(reloadTopics\)/);
+  assert.match(workspace, /await reloadTopics\(\)/);
   assert.match(calendarClient, /review|task|study|deadline|milestone/);
   assert.match(migrations, /create table public\.topics/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
@@ -593,6 +593,51 @@ test("plans from both planners land on one review board", async () => {
   // so the queue, the counters and a subject's own page cannot disagree.
   assert.match(shell, /const dueOn = useCallback/);
   assert.ok(!/scheduledDate\(topic\)/.test(shell), "every reading should pass the exam date");
+});
+
+test("every plan says how long each syllabus point gets", async () => {
+  const [budget, shell, goalsView, examsView, workspace] = await Promise.all([
+    read("app/study-time.ts"),
+    read("app/study-tracker-app.tsx"),
+    read("app/goals.tsx"),
+    read("app/exams.tsx"),
+    read("app/data/use-workspace.ts"),
+  ]);
+
+  // One module answers "how long on this point" so a learner is never told two
+  // different things about the same hour.
+  assert.match(budget, /export function timeBudget/);
+  assert.match(budget, /export function pointMinutes/);
+  // Derived from the progress weighting rather than a second table of its own.
+  assert.match(budget, /1 - progressWeight\(status\)/);
+
+  // A goal's hours, an exam's hours, and the board reading whichever plan owns
+  // the point — all three go through it.
+  for (const [name, source] of [["goals", goalsView], ["exams", examsView], ["the board", shell]]) {
+    assert.match(source, /from "\.\/study-time"/, `${name} should read the shared budget`);
+    assert.match(source, /timeBudget\(|pointMinutes\(/, `${name} should show the time it works out`);
+  }
+  assert.match(goalsView, /TIME PER SYLLABUS POINT/);
+  assert.match(shell, /const budgetByTopic = useMemo/);
+  // The board needs the goals themselves, not just the dates they wrote.
+  assert.match(workspace, /goals: \{ value: goals/);
+});
+
+test("a review board chapter folds away", async () => {
+  const [shell, css] = await Promise.all([
+    read("app/study-tracker-app.tsx"),
+    read("app/globals.css"),
+  ]);
+
+  // A checkbox inside a label swallows any button beside it, so the disclosure
+  // control is a sibling of the checkbox rather than a child of the heading.
+  assert.match(shell, /className="queue-group-toggle"/);
+  assert.match(shell, /aria-expanded=\{isOpen\}/);
+  assert.ok(!/<label className="queue-group-heading"/.test(shell),
+            "the heading should no longer be a label wrapping the toggle");
+  assert.match(css, /\.queue-group\.open \.chevron/);
+  // Landing on the board leaves the top of the queue open and folds the rest.
+  assert.match(shell, /queueGroups\.slice\(0, 1\)/);
 });
 
 test("every colour is a token, so the app can be themed", async () => {

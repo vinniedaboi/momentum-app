@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { StudySession } from "./study-hours";
+import { formatStudyTime, type StudySession } from "./study-hours";
+import { pointMinutes, roundMinutes, timeBudget, totalMinutes, verdictNote } from "./study-time";
 import type { Topic } from "./study-tracker-app";
 import { progressWeight, syllabusProgress } from "./syllabus-progress";
 import { subjectName, type Subject } from "./subjects";
@@ -11,7 +12,7 @@ import { api, apiMessage } from "./data/api";
 import { studyApi } from "./data/endpoints";
 
 
-type StudyGoal = {
+export type StudyGoal = {
   subjectId: string;
   stage: SyllabusStage;
   startDate: string;
@@ -139,6 +140,11 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
     const weeklyMinutes = sessions
       .filter((session) => session.subjectId === currentSubject && session.studyDate >= weekStart && session.studyDate <= today)
       .reduce((sum, session) => sum + session.minutes, 0);
+    const budget = timeBudget(points, {
+      daysLeft,
+      weeklyHours: activeGoal.weeklyHours,
+      studyDays: activeGoal.studyDays,
+    });
     const milestones = chapters.map((chapter, chapterIndex) => {
       const children = points.filter((point) => point.parentId === chapter.id);
       const complete = children.filter(isCovered).length;
@@ -157,12 +163,13 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
         percent,
         total: children.length,
         dueDate,
+        minutes: totalMinutes(children, () => budget),
         done: children.length > 0 && complete === children.length,
       };
     });
     const nextMilestone = milestones.find((milestone) => !milestone.done) ?? null;
     const pointsPerStudyDay = activeGoal.studyDays ? weeklyPace / activeGoal.studyDays : weeklyPace;
-    return { totalPoints, coveredPoints, examReadyPoints, earned, progressPercent, remainingPoints, daysLeft, plannedReady, weeklyPace, pointsPerStudyDay, weeklyMinutes, milestones, nextMilestone };
+    return { totalPoints, coveredPoints, examReadyPoints, earned, progressPercent, remainingPoints, daysLeft, plannedReady, weeklyPace, pointsPerStudyDay, weeklyMinutes, budget, milestones, nextMilestone };
   }, [activeGoal, activeStage, currentSubject, lookup, sessions, today, topics]);
 
   function beginNewGoal() {
@@ -305,6 +312,22 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
             <article><span>Study hours</span><strong>{formatHours(plan.weeklyMinutes)}</strong><small>of {activeGoal.weeklyHours}h in the last 7 days</small><div className="mini-progress"><i style={{ width: `${Math.min(100, plan.weeklyMinutes / (activeGoal.weeklyHours * 60) * 100)}%` }} /></div></article>
           </section>
 
+          {plan.budget && (
+            <section className={`time-budget ${plan.budget.verdict}`} aria-label="Time per syllabus point">
+              <div className="time-budget-figure">
+                <p className="eyebrow">TIME PER SYLLABUS POINT</p>
+                <strong>{plan.daysLeft ? formatStudyTime(roundMinutes(plan.budget.minutesPerPoint)) : "No time left"}</strong>
+                <span>for a point you have not started yet</span>
+              </div>
+              <div className="time-budget-split">
+                <div><b>{formatStudyTime(roundMinutes(plan.budget.minutesPerStudyDay))}</b><small>each study day</small></div>
+                <div><b>{formatStudyTime(pointMinutes("Practising", plan.budget))}</b><small>for one you are practising</small></div>
+                <div><b>{formatStudyTime(pointMinutes("Exam Ready", plan.budget))}</b><small>to read back one you know</small></div>
+              </div>
+              <p className="time-budget-note">{plan.daysLeft ? verdictNote(plan.budget) : "Your finish date has passed. Move it to plan the rest."}</p>
+            </section>
+          )}
+
           <section className="goal-timeline panel-card">
             <div className="section-heading">
               <div><p className="eyebrow">CHAPTER TIMELINE</p><h3>Your route to completion</h3></div>
@@ -316,7 +339,7 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
                 return (
                   <article className={`timeline-item ${state}`} key={milestone.id}>
                     <div className="timeline-marker"><i>{milestone.done ? <Icon name="check" /> : index + 1}</i></div>
-                    <div className="timeline-copy"><small>{milestone.code}</small><strong>{milestone.title}</strong><span>{milestone.complete} / {milestone.total} points covered</span></div>
+                    <div className="timeline-copy"><small>{milestone.code}</small><strong>{milestone.title}</strong><span>{milestone.complete} / {milestone.total} points covered{milestone.done ? "" : ` · ${formatStudyTime(milestone.minutes)} left`}</span></div>
                     <div className="timeline-progress"><div><i style={{ width: `${milestone.percent}%` }} /></div><span>{milestone.percent}%</span></div>
                     <div className="timeline-date"><strong>{shortDate(milestone.dueDate)}</strong><span>{state === "done" ? "Complete" : state === "late" ? "Needs attention" : state === "current" ? "Work on this next" : "Planned"}</span></div>
                   </article>

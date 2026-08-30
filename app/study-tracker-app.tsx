@@ -10,6 +10,7 @@ import MomentumMark from "./momentum-mark";
 import NotesView from "./notes";
 import PastPapersView, { type PaperDifficulty, type PaperMeta, type PastPaper, type PastPaperInput } from "./past-papers";
 import StudyHoursView, { formatStudyTime, type StudySession } from "./study-hours";
+import { pointMinutes, timeBudget, type TimeBudget } from "./study-time";
 import { progressSegments, segmentSlug, syllabusProgress } from "./syllabus-progress";
 import SubjectSettings from "./subject-settings";
 import { activeSubjects, subjectById, subjectName, type Subject } from "./subjects";
@@ -32,7 +33,7 @@ function viewSubjectId(view: ActiveView) {
   return typeof view === "object" ? view.subjectId : null;
 }
 type QueueFilter = "all" | "overdue" | "today" | "upcoming";
-type QueueGroup = { chapter: Topic | null; items: Topic[] };
+type QueueGroup = { key: string; chapter: Topic | null; items: Topic[] };
 
 
 function localDate() {
@@ -96,6 +97,10 @@ function examSchedule(exams: PlannedExam[]) {
   return due;
 }
 
+function daysUntil(today: string, date: string) {
+  return Math.round((Date.parse(date) - Date.parse(today)) / 86400000);
+}
+
 function statusSlug(status: StudyStatus) {
   return status.toLowerCase().replaceAll(" ", "-");
 }
@@ -124,10 +129,14 @@ export default function StudyTrackerApp() {
   const { value: pastPapers, setValue: setPastPapers, failed: papersError } = workspace.papers;
   const { value: paperMeta, setValue: setPaperMeta } = workspace.paperMeta;
   const { value: exams } = workspace.exams;
+  const { value: goals, reload: refreshGoals } = workspace.goals;
   const [activeView, setActiveView] = useState<ActiveView>("Today");
   const [queueFilter, setQueueFilter] = useState<QueueFilter>("all");
   const [query, setQuery] = useState("");
   const [openChapters, setOpenChapters] = useState<Set<string>>(new Set());
+  // Null until the learner opens or closes a chapter on the board, which is
+  // what lets the default below depend on a queue that has not loaded yet.
+  const [openGroups, setOpenGroups] = useState<Set<string> | null>(null);
   const [updating, setUpdating] = useState<Set<string>>(new Set());
   const [selectedReviews, setSelectedReviews] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<StudyStatus>("Practising");
@@ -210,12 +219,77 @@ export default function StudyTrackerApp() {
     const groups = new Map<string, QueueGroup>();
     queue.slice(0, 30).forEach((topic) => {
       const key = topic.parentId ?? `${topic.subjectId}:${topic.section ?? "Other"}`;
-      const group = groups.get(key) ?? { chapter: topic.parentId ? chapterById.get(topic.parentId) ?? null : null, items: [] };
+      const group = groups.get(key) ?? { key, chapter: topic.parentId ? chapterById.get(topic.parentId) ?? null : null, items: [] };
       group.items.push(topic);
       groups.set(key, group);
     });
     return [...groups.values()];
   }, [queue, topics]);
+
+  /**
+   * How long each point on the board is worth, taken from the plan that put it
+   * there rather than from a flat guess.
+   *
+   * A goal divides its weekly hours across every point of its syllabus stage;
+   * an exam divides its own across the topics it covers. Where both want a
+   * point, the one whose date the board is showing is the one that pays for it,
+   * which is the same rule the row uses to name the plan.
+   */
+  const budgetByTopic = useMemo(() => {
+    const byTopic = new Map<string, TimeBudget>();
+    const pointById = new Map(points.map((topic) => [topic.id, topic]));
+
+    for (const goal of goals) {
+      const subject = subjectLookup.get(goal.subjectId);
+      const subjectTopics = topics.filter((topic) => topic.subjectId === goal.subjectId);
+      const chapterIds = new Set(subjectTopics
+        .filter((topic) => topic.kind === "chapter" && getTopicStage(topic, subjectTopics, subject) === goal.stage)
+        .map((chapter) => chapter.id));
+      const covered = subjectTopics.filter((topic) =>
+        topic.kind === "point" && topic.parentId && chapterIds.has(topic.parentId));
+      const budget = timeBudget(covered, {
+        daysLeft: daysUntil(today, goal.targetDate),
+        weeklyHours: goal.weeklyHours,
+        studyDays: goal.studyDays,
+      });
+      if (budget) covered.forEach((topic) => byTopic.set(topic.id, budget));
+    }
+
+    for (const exam of exams) {
+      const covered = exam.topics
+        .map((entry) => pointById.get(entry.topicId))
+        .filter((topic): topic is Topic => Boolean(topic));
+      const budget = timeBudget(covered, {
+        daysLeft: daysUntil(today, exam.examDate),
+        weeklyHours: exam.weeklyHours,
+        studyDays: exam.studyDays,
+      });
+      if (!budget) continue;
+      for (const entry of exam.topics) {
+        const topic = pointById.get(entry.topicId);
+        if (topic && entry.reviseOn && dueOn(topic) === entry.reviseOn) byTopic.set(topic.id, budget);
+      }
+    }
+    return byTopic;
+  }, [goals, exams, points, topics, subjectLookup, today, dueOn]);
+
+  const queueMinutes = useMemo(
+    () => queueGroups.reduce((sum, group) => sum + group.items.reduce(
+      (groupSum, topic) => groupSum + pointMinutes(topic.status, budgetByTopic.get(topic.id) ?? null), 0), 0),
+    [queueGroups, budgetByTopic],
+  );
+
+  // Until one is touched, the top of the queue is open and the rest are folded:
+  // the work to start now is in reach and everything else stays scannable.
+  const openQueueGroups = openGroups ?? new Set(queueGroups.slice(0, 1).map((group) => group.key));
+
+  function toggleQueueGroup(key: string) {
+    setOpenGroups((current) => {
+      const next = new Set(current ?? queueGroups.slice(0, 1).map((group) => group.key));
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
 
   const visibleQueueIds = useMemo(() => queueGroups.flatMap((group) => group.items.map((topic) => topic.id)), [queueGroups]);
 
@@ -551,7 +625,7 @@ export default function StudyTrackerApp() {
         ) : activeView === "Calendar" ? (
           <CalendarView topics={topics} subjects={subjectLookup} sessions={studySessions} tasks={tasks} today={today} onMessage={setMessage} />
         ) : activeView === "Goals" ? (
-          <GoalPlanner topics={topics} subjects={subjects} sessions={studySessions} today={today} onMessage={setMessage} onScheduleChanged={refreshTopics} />
+          <GoalPlanner topics={topics} subjects={subjects} sessions={studySessions} today={today} onMessage={setMessage} onScheduleChanged={refreshGoals} />
         ) : activeView === "Exams" ? (
           <ExamPlanner topics={topics} subjects={subjects} today={today} onMessage={setMessage} />
         ) : activeView === "Papers" ? (
@@ -569,13 +643,13 @@ export default function StudyTrackerApp() {
         ) : activeView === "Today" ? (
           <>
             <section className="summary-grid" aria-label="Review summary">
-              <button className={`summary-card urgent ${queueFilter === "overdue" ? "selected" : ""}`} onClick={() => { setQueueFilter(queueFilter === "overdue" ? "all" : "overdue"); setSelectedReviews(new Set()); }}>
+              <button className={`summary-card urgent ${queueFilter === "overdue" ? "selected" : ""}`} onClick={() => { setQueueFilter(queueFilter === "overdue" ? "all" : "overdue"); setSelectedReviews(new Set()); setOpenGroups(null); }}>
                 <span>Overdue</span><strong>{overdue.length}</strong><small>{overdue.length ? "Clear these first" : "You are caught up"}</small>
               </button>
-              <button className={`summary-card today ${queueFilter === "today" ? "selected" : ""}`} onClick={() => { setQueueFilter(queueFilter === "today" ? "all" : "today"); setSelectedReviews(new Set()); }}>
+              <button className={`summary-card today ${queueFilter === "today" ? "selected" : ""}`} onClick={() => { setQueueFilter(queueFilter === "today" ? "all" : "today"); setSelectedReviews(new Set()); setOpenGroups(null); }}>
                 <span>Due today</span><strong>{dueToday.length}</strong><small>{dueToday.length ? "Ready for review" : "Nothing due today"}</small>
               </button>
-              <button className={`summary-card upcoming ${queueFilter === "upcoming" ? "selected" : ""}`} onClick={() => { setQueueFilter(queueFilter === "upcoming" ? "all" : "upcoming"); setSelectedReviews(new Set()); }}>
+              <button className={`summary-card upcoming ${queueFilter === "upcoming" ? "selected" : ""}`} onClick={() => { setQueueFilter(queueFilter === "upcoming" ? "all" : "upcoming"); setSelectedReviews(new Set()); setOpenGroups(null); }}>
                 <span>Next 7 days</span><strong>{upcoming.length}</strong><small>Reviews, goals and exam revision</small>
               </button>
               <article className="summary-card ready">
@@ -596,31 +670,45 @@ export default function StudyTrackerApp() {
 
             <section className="review-panel">
               <div className="section-heading">
-                <div><p className="eyebrow">YOUR QUEUE</p><h3>{queueFilter === "all" ? "Review next" : queueFilter === "today" ? "Due today" : queueFilter === "overdue" ? "Overdue reviews" : "Coming up"}</h3></div>
+                <div>
+                  <p className="eyebrow">YOUR QUEUE</p>
+                  <h3>{queueFilter === "all" ? "Review next" : queueFilter === "today" ? "Due today" : queueFilter === "overdue" ? "Overdue reviews" : "Coming up"}</h3>
+                  {queue.length > 0 && <span className="queue-total">About {formatStudyTime(queueMinutes)} of work, at the pace your plans set</span>}
+                </div>
                 <div className="queue-heading-actions">
+                  {queueGroups.length > 1 && <button className="ghost-button" onClick={() => setOpenGroups(openQueueGroups.size === queueGroups.length ? new Set() : new Set(queueGroups.map((group) => group.key)))}>{openQueueGroups.size === queueGroups.length ? "Collapse all" : "Expand all"}</button>}
                   {queue.length > 0 && <button className="ghost-button" onClick={() => toggleReviewSelection(visibleQueueIds)}>{visibleQueueIds.every((id) => selectedReviews.has(id)) ? "Clear selection" : "Select all"}</button>}
-                  {queueFilter !== "all" && <button className="ghost-button" onClick={() => { setQueueFilter("all"); setSelectedReviews(new Set()); }}>Show all</button>}
+                  {queueFilter !== "all" && <button className="ghost-button" onClick={() => { setQueueFilter("all"); setSelectedReviews(new Set()); setOpenGroups(null); }}>Show all</button>}
                 </div>
               </div>
               {queue.length ? (
                 <div className="queue-groups">
-                  {queueGroups.map((group, index) => {
+                  {queueGroups.map((group) => {
                     const ids = group.items.map((topic) => topic.id);
                     const selectedCount = ids.filter((id) => selectedReviews.has(id)).length;
                     const label = group.chapter?.title ?? group.items[0]?.section ?? "Other topics";
+                    const groupMinutes = group.items.reduce((sum, topic) => sum + pointMinutes(topic.status, budgetByTopic.get(topic.id) ?? null), 0);
+                    const isOpen = openQueueGroups.has(group.key);
                     return (
-                      <section className="queue-group" key={group.chapter?.id ?? `${label}-${index}`}>
-                        <label className="queue-group-heading">
-                          <input type="checkbox" checked={selectedCount === ids.length} onChange={() => toggleReviewSelection(ids)} aria-label={`Select all reviews in ${label}`} />
-                          <i className={`subject-pin ${subjectLookup.get(group.items[0].subjectId)?.tone ?? "slate"}`} />
-                          <span><small>{subjectName(subjectLookup, group.items[0].subjectId)} · {getTopicStage(group.items[0], topics, subjectLookup.get(group.items[0].subjectId))} · {group.chapter?.code ?? group.items[0].code}</small><strong>{label}</strong></span>
-                          <b>{selectedCount ? `${selectedCount} of ${ids.length} selected` : `${ids.length} review${ids.length === 1 ? "" : "s"}`}</b>
-                        </label>
-                        <div className="review-list">
-                          {group.items.map((topic) => (
-                            <TopicRow key={topic.id} topic={topic} subjects={subjectLookup} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} selected={selectedReviews.has(topic.id)} onSelect={() => toggleReviewSelection([topic.id])} onOpenTimeline={setTimelineTopicId} exam={examDue.get(topic.id)} />
-                          ))}
+                      <section className={`queue-group ${isOpen ? "open" : ""}`} key={group.key}>
+                        <div className="queue-group-heading">
+                          <label className="queue-group-select">
+                            <input type="checkbox" checked={selectedCount === ids.length} onChange={() => toggleReviewSelection(ids)} aria-label={`Select all reviews in ${label}`} />
+                          </label>
+                          <button type="button" className="queue-group-toggle" aria-expanded={isOpen} onClick={() => toggleQueueGroup(group.key)}>
+                            <Icon name="chevron-right" className="chevron" />
+                            <i className={`subject-pin ${subjectLookup.get(group.items[0].subjectId)?.tone ?? "slate"}`} />
+                            <span><small>{subjectName(subjectLookup, group.items[0].subjectId)} · {getTopicStage(group.items[0], topics, subjectLookup.get(group.items[0].subjectId))} · {group.chapter?.code ?? group.items[0].code}</small><strong>{label}</strong></span>
+                            <b>{selectedCount ? `${selectedCount} of ${ids.length} selected` : `${ids.length} review${ids.length === 1 ? "" : "s"} · ${formatStudyTime(groupMinutes)}`}</b>
+                          </button>
                         </div>
+                        {isOpen && (
+                          <div className="review-list">
+                            {group.items.map((topic) => (
+                              <TopicRow key={topic.id} topic={topic} subjects={subjectLookup} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} selected={selectedReviews.has(topic.id)} onSelect={() => toggleReviewSelection([topic.id])} onOpenTimeline={setTimelineTopicId} exam={examDue.get(topic.id)} minutes={pointMinutes(topic.status, budgetByTopic.get(topic.id) ?? null)} />
+                            ))}
+                          </div>
+                        )}
                       </section>
                     );
                   })}
@@ -728,11 +816,13 @@ function ProgressBar({ segments }: { segments: ReturnType<typeof progressSegment
   );
 }
 
-function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onOpenTimeline, subjects, exam }: {
+function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onOpenTimeline, subjects, exam, minutes }: {
   topic: Topic;
   subjects: Map<string, Subject>;
   /** The exam wanting this topic soonest, where one does. */
   exam?: { date: string; title: string };
+  /** What the owning plan can afford this point. Absent away from the board. */
+  minutes?: number;
   today: string;
   updating: boolean;
   updateTopic: (topic: Topic, options: { status?: StudyStatus; reviewedNow?: boolean; wholeChapter?: boolean }) => void;
@@ -750,7 +840,10 @@ function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onO
     <article className={`review-row ${onSelect ? "selectable" : ""} ${selected ? "is-selected" : ""} ${updating ? "is-updating" : ""}`}>
       {onSelect ? <input className="review-check" type="checkbox" checked={selected} onChange={onSelect} aria-label={`Select ${topic.title}`} /> : <i className={`subject-pin ${subjects.get(topic.subjectId)?.tone ?? "slate"}`} />}
       <div className="review-copy">
-        <span>{subjectName(subjects, topic.subjectId)} · {topic.code}{plan ? ` · ${plan}` : ""}</span>
+        <span>
+          {subjectName(subjects, topic.subjectId)} · {topic.code}{plan ? ` · ${plan}` : ""}
+          {minutes ? <b className="review-minutes">{formatStudyTime(minutes)}</b> : null}
+        </span>
         <strong>{topic.title}</strong>
         <small className="topic-dates"><button onClick={() => onOpenTimeline(topic.id)}>View timeline</button><i />Updated {compactMoment(topic.updatedAt)}<i />Reviewed {compactMoment(topic.reviewedAt ?? topic.reviewedOn)}</small>
       </div>
