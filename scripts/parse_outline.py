@@ -22,6 +22,7 @@ from parse_syllabus import normalise_line  # noqa: E402
 BULLET = re.compile(r"^[•●▪‣·∙◦\-–]$")
 NUMBER_ONLY = re.compile(r"^(\d{1,2})$")
 SECTION = re.compile(r"^(Core content|Depth [Ss]tudy|Option|Component|Section|Theme|Unit|Paper)\b")
+SPECIFIED = re.compile(r"^specified content\b", re.I)
 SKIP = re.compile(
     r"^(back to contents|www\.|©|page \d|cambridge|learning outcomes|candidates should|"
     r"focus points?|specified content|key questions?|assessment objectives?|"
@@ -68,6 +69,57 @@ def usable_point(text):
     return bool(text) and 8 <= len(text) <= 300 and not SKIP.match(text)
 
 
+def numbered_heading(region, index):
+    """The heading `region[index]` numbers, where it is "1" on a line of its own."""
+    if not NUMBER_ONLY.match(clean(region[index])) or index + 1 >= len(region):
+        return None
+    title = clean(region[index + 1])
+    return title if is_heading(title) and not BULLET.match(title) else None
+
+
+def section_wide_content(region):
+    """Where each "Specified content" list that covers a whole section sits.
+
+    Cambridge History writes a Core content option as key question, focus points,
+    specified content, next key question — so each of those lists belongs to the
+    question above it. A Depth study is written the other way round: all four of
+    its key questions with their focus points, and then one specified content
+    list covering the study.
+
+    A section with several key questions and a single list has written that list
+    for the section, so its bullets belong to the section rather than to whichever
+    key question happened to come last. Without this, Depth study A's whole
+    content — thirty-one bullets of it — hung off "Why did Germany ask for an
+    armistice in 1918?".
+
+    Returns {line index of the list: the section heading it belongs to}.
+    """
+    marks = []
+    for index in range(len(region)):
+        line = clean(region[index])
+        if SECTION.match(line) and is_heading(line):
+            marks.append((index, "section", line))
+        elif SPECIFIED.match(line):
+            marks.append((index, "list", line))
+        elif numbered_heading(region, index):
+            marks.append((index, "question", line))
+
+    shared = {}
+    for position, (_, kind, heading) in enumerate(marks):
+        if kind != "section":
+            continue
+        inside = []
+        for mark in marks[position + 1:]:
+            if mark[1] == "section":
+                break
+            inside.append(mark)
+        lists = [mark for mark in inside if mark[1] == "list"]
+        questions = [mark for mark in inside if mark[1] == "question"]
+        if len(lists) == 1 and len(questions) > 1:
+            shared[lists[0][0]] = heading
+    return shared
+
+
 def parse(text):
     lines = [line.rstrip() for line in text.split("\n")]
     region = region_of(lines)
@@ -81,11 +133,17 @@ def parse(text):
 
     def open_chapter(title):
         """Headings repeat across pages and in contents lists; keep the first."""
+        # A heading that wraps leaves its comma behind on the line that is read.
+        # is_heading needs that comma to tell prose from a heading, so it goes
+        # here rather than in clean().
+        title = title.rstrip(",; ")
         key = title.lower()
         if key not in by_title:
             by_title[key] = str(len(chapters) + 1)
             chapters.append((by_title[key], title))
         return by_title[key]
+
+    shared = section_wide_content(region)
 
     index = 0
     while index < len(region):
@@ -94,14 +152,18 @@ def parse(text):
             index += 1
             continue
 
+        # A list of what a whole section covers reopens that section.
+        if index in shared:
+            current = open_chapter(shared[index])
+            index += 1
+            continue
+
         # "1" alone, with the heading it numbers on the next line.
-        number = NUMBER_ONLY.match(line)
-        if number and index + 1 < len(region):
-            title = clean(region[index + 1])
-            if is_heading(title) and not BULLET.match(title):
-                current = open_chapter(title)
-                index += 2
-                continue
+        title = numbered_heading(region, index)
+        if title:
+            current = open_chapter(title)
+            index += 2
+            continue
 
         if BULLET.match(line):
             look, pieces = index + 1, []
