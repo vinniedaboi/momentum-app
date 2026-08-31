@@ -12,7 +12,25 @@ import { studyApi } from "./data/endpoints";
 
 type Goal = { subjectId: string; stage: "AS" | "A2"; startDate: string; targetDate: string; paceMode: "steady" | "front-loaded" | "finish-line" };
 type Exam = { id: number; subjectId: string; title: string; stage: "AS" | "A2" | null; examDate: string; topics: Array<{ topicId: string; reviseOn: string | null }> };
-type CalendarEvent = { id: string; date: string; kind: "review" | "goal-task" | "task" | "study" | "goal" | "milestone" | "exam" | "exam-task"; title: string; detail: string };
+
+/**
+ * Where a day's items come from. The calendar gathers eight of these out of
+ * five different places, so the legend that names them is also what filters
+ * them: the colour a learner is looking for is the control they reach for.
+ */
+const EVENT_KINDS = [
+  { kind: "review", label: "Review" },
+  { kind: "goal-task", label: "Goal plan" },
+  { kind: "task", label: "Task" },
+  { kind: "study", label: "Study log" },
+  { kind: "milestone", label: "Milestone" },
+  { kind: "goal", label: "Goal" },
+  { kind: "exam-task", label: "Exam revision" },
+  { kind: "exam", label: "Exam" },
+] as const;
+
+type EventKind = (typeof EVENT_KINDS)[number]["kind"];
+type CalendarEvent = { id: string; date: string; kind: EventKind; title: string; detail: string };
 
 function addDays(date: string, days: number) {
   const value = new Date(`${date}T00:00:00Z`);
@@ -48,6 +66,7 @@ export default function CalendarView({ topics, subjects, sessions, tasks, today,
   const [exams, setExams] = useState<Exam[]>([]);
   const [month, setMonth] = useState(`${today.slice(0, 7)}-01`);
   const [selectedDate, setSelectedDate] = useState(today);
+  const [hidden, setHidden] = useState<ReadonlySet<EventKind>>(new Set());
 
   useEffect(() => {
     api.get<{ goals: Goal[] }>(studyApi.goals.path)
@@ -135,10 +154,24 @@ export default function CalendarView({ topics, subjects, sessions, tasks, today,
   }, [month]);
   const byDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
-    events.forEach((event) => map.set(event.date, [...(map.get(event.date) ?? []), event]));
+    events.filter((event) => !hidden.has(event.kind))
+      .forEach((event) => map.set(event.date, [...(map.get(event.date) ?? []), event]));
     return map;
-  }, [events]);
+  }, [events, hidden]);
   const selectedEvents = byDate.get(selectedDate) ?? [];
+  // An empty day reads differently when the filters are what emptied it.
+  const filteredOut = useMemo(
+    () => events.filter((event) => event.date === selectedDate && hidden.has(event.kind)).length,
+    [events, hidden, selectedDate],
+  );
+
+  function toggleKind(kind: EventKind) {
+    setHidden((current) => {
+      const next = new Set(current);
+      if (!next.delete(kind)) next.add(kind);
+      return next;
+    });
+  }
 
   function moveMonth(offset: number) {
     const value = new Date(`${month}T00:00:00Z`);
@@ -154,7 +187,17 @@ export default function CalendarView({ topics, subjects, sessions, tasks, today,
   return <div className="calendar-page">
     <section className="calendar-panel panel-card">
       <div className="calendar-toolbar"><button onClick={() => moveMonth(-1)} aria-label="Previous month"><Icon name="chevron-left" /></button><div><p className="eyebrow">STUDY CALENDAR</p><h3>{monthLabel}</h3></div><button onClick={() => moveMonth(1)} aria-label="Next month"><Icon name="chevron-right" /></button></div>
-      <div className="calendar-legend"><span className="review">Review</span><span className="goal-task">Goal plan</span><span className="task">Task</span><span className="study">Study log</span><span className="milestone">Milestone</span><span className="goal">Goal</span><span className="exam-task">Exam revision</span><span className="exam">Exam</span><button onClick={() => { setMonth(`${today.slice(0, 7)}-01`); setSelectedDate(today); }}>Today</button></div>
+      <div className="calendar-legend" role="group" aria-label="Show or hide calendar items by where they come from">
+        {EVENT_KINDS.map(({ kind, label }) => <button
+          key={kind}
+          type="button"
+          className={`calendar-filter ${kind}${hidden.has(kind) ? " off" : ""}`}
+          aria-pressed={!hidden.has(kind)}
+          onClick={() => toggleKind(kind)}
+        >{label}</button>)}
+        {hidden.size > 0 && <button type="button" className="calendar-show-all" onClick={() => setHidden(new Set())}>Show all</button>}
+        <button type="button" className="calendar-today" onClick={() => { setMonth(`${today.slice(0, 7)}-01`); setSelectedDate(today); }}>Today</button>
+      </div>
       <div className="calendar-weekdays">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <span key={day}>{day}</span>)}</div>
       <div className="calendar-grid">{calendarDays.map((date) => {
         const dayEvents = byDate.get(date) ?? [];
@@ -163,6 +206,6 @@ export default function CalendarView({ topics, subjects, sessions, tasks, today,
         </button>;
       })}</div>
     </section>
-    <aside className="calendar-agenda panel-card"><p className="eyebrow">SELECTED DAY</p><h3>{selectedLabel}</h3>{selectedEvents.length ? <div className="agenda-list">{selectedEvents.map((event) => <article key={event.id}><i className={event.kind} /><div><strong>{event.title}</strong><span>{event.detail}</span></div></article>)}</div> : <div className="agenda-empty"><span><Icon name="circle" /></span><strong>Nothing scheduled</strong><p>Select another day or enjoy the space.</p></div>}</aside>
+    <aside className="calendar-agenda panel-card"><p className="eyebrow">SELECTED DAY</p><h3>{selectedLabel}</h3>{selectedEvents.length ? <div className="agenda-list">{selectedEvents.map((event) => <article key={event.id}><i className={event.kind} /><div><strong>{event.title}</strong><span>{event.detail}</span></div></article>)}</div> : filteredOut ? <div className="agenda-empty"><span><Icon name="circle" /></span><strong>{filteredOut === 1 ? "1 item is hidden" : `${filteredOut} items are hidden`}</strong><p>Turn a filter back on above to see this day.</p></div> : <div className="agenda-empty"><span><Icon name="circle" /></span><strong>Nothing scheduled</strong><p>Select another day or enjoy the space.</p></div>}</aside>
   </div>;
 }

@@ -496,6 +496,12 @@ test("includes durable tracking, goals, grouped reviews, subject tasks, study ho
   assert.match(calendarClient, /STUDY CALENDAR/);
   assert.match(calendarClient, /paceFraction/);
   assert.match(calendarClient, /goal-task/);
+  // The legend doubles as the filter, so every kind it names is a toggle and
+  // the day grid is built from what those toggles leave showing.
+  assert.match(calendarClient, /EVENT_KINDS/);
+  assert.match(calendarClient, /aria-pressed=\{!hidden\.has\(kind\)\}/);
+  assert.match(calendarClient, /events\.filter\(\(event\) => !hidden\.has\(event\.kind\)\)/);
+  assert.match(calendarClient, /calendar-show-all/);
   assert.match(client, /scheduledDate/);
   assert.match(client, /Goal plan/);
   assert.match(client, /onScheduleChanged=\{refreshGoals\}/);

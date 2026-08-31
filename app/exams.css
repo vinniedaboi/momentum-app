@@ -218,8 +218,8 @@
 
 /* ---------- calendar kinds ---------- */
 
-.calendar-legend span.exam::before { background: var(--c-rose); }
-.calendar-legend span.exam-task::before { background: var(--c-tan); }
+.calendar-legend .calendar-filter.exam::before { background: var(--c-rose); }
+.calendar-legend .calendar-filter.exam-task::before { background: var(--c-tan); }
 
 .calendar-grid span.exam { border-color: var(--c-rose); background: var(--c-red-soft); color: var(--c-red-ink); font-weight: 900; }
 .calendar-grid span.exam-task { border-color: var(--c-tan); background: var(--c-red-soft); color: var(--c-rose); }
