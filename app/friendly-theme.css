@@ -662,7 +662,11 @@ input, select, textarea { color: var(--ink); }
   .topbar { gap: var(--space-5); margin-bottom: var(--space-6); }
   .topbar h2 { font-size: var(--text-3xl); }
   .topbar .muted { font-size: var(--text-sm); }
-  .search-box { width: 100%; }
+  /* The search box shares this row with the theme toggle. Full width plus the
+     `flex: 0 0 auto` it inherits meant it claimed the row and refused to give
+     any of it back, so the toggle was pushed 36px past the right edge — clipped
+     rather than scrollable, which left no way to change theme on a phone. */
+  .search-box { width: auto; flex: 1 1 auto; min-width: 0; }
   .search-box input { width: 100%; }
   .summary-grid { gap: var(--space-3); }
   .summary-card { min-height: 120px; padding: var(--space-4); }
