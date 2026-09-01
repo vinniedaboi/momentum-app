@@ -539,6 +539,24 @@ test("includes durable tracking, goals, grouped reviews, subject tasks, study ho
   assert.match(calendarClient, /aria-pressed=\{!hidden\.has\(kind\)\}/);
   assert.match(calendarClient, /events\.filter\(\(event\) => !hidden\.has\(event\.kind\)\)/);
   assert.match(calendarClient, /calendar-show-all/);
+
+  // History is one merged feed assembled at read time, not a second log that
+  // has to be kept in step with the rows it duplicates.
+  const [historyDb, historyView, historyApi] = await Promise.all([
+    read("lib/history-db.ts"),
+    read("app/history.tsx"),
+    read("app/api/history/route.ts"),
+  ]);
+  assert.match(historyDb, /union all/);
+  for (const source of ["topic_activity", "study_sessions", "past_papers", "study_tasks"]) {
+    assert.match(historyDb, new RegExp(source), `history should read ${source}`);
+  }
+  // Cursor paging, not offset: new activity lands at the top of this list.
+  assert.match(historyDb, /at < \$\{before\}/);
+  assert.doesNotMatch(historyDb, /offset\s*\$\{/i);
+  assert.match(historyApi, /before/);
+  assert.match(historyView, /history-filter/);
+  assert.match(client, /HistoryView today=/);
   assert.match(client, /scheduledDate/);
   assert.match(client, /Goal plan/);
   assert.match(client, /onScheduleChanged=\{refreshGoals\}/);

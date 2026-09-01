@@ -6,6 +6,7 @@ import FlashcardsView from "./flashcards";
 import ExamPlanner, { type PlannedExam } from "./exams";
 import GoalPlanner from "./goals";
 import GuideView from "./guide";
+import HistoryView from "./history";
 import MomentumMark from "./momentum-mark";
 import NotesView from "./notes";
 import PastPapersView, { type PaperDifficulty, type PaperMeta, type PastPaper, type PastPaperInput } from "./past-papers";
@@ -27,7 +28,7 @@ import { useStudyWorkspace } from "./data/use-workspace";
 // Re-exported so the eight views that import `Topic` from here keep working.
 export type { Topic };
 
-type ActiveView = "Today" | "Tasks" | "Calendar" | "Flashcards" | "Notes" | "Goals" | "Exams" | "Hours" | "Papers" | "Subjects" | "Guide" | { subjectId: string };
+type ActiveView = "Today" | "Tasks" | "Calendar" | "Flashcards" | "Notes" | "Goals" | "Exams" | "Hours" | "Papers" | "Subjects" | "History" | "Guide" | { subjectId: string };
 
 function viewSubjectId(view: ActiveView) {
   return typeof view === "object" ? view.subjectId : null;
@@ -567,6 +568,10 @@ export default function StudyTrackerApp() {
             <span className="nav-label"><Icon name="subjects" className="nav-symbol utility-symbol" />Subjects</span>
             <small>Setup</small>
           </button>
+          <button className={`nav-item ${activeView === "History" ? "active" : ""}`} onClick={() => selectView("History")}>
+            <span className="nav-label"><Icon name="trending" className="nav-symbol utility-symbol" />History</span>
+            <small>What you have done</small>
+          </button>
           <button className={`nav-item ${activeView === "Guide" ? "active" : ""}`} onClick={() => selectView("Guide")}>
             <span className="nav-label"><Icon name="book" className="nav-symbol utility-symbol" />Guide</span>
             <small>How it works</small>
@@ -601,11 +606,11 @@ export default function StudyTrackerApp() {
         <header className="topbar">
           <div>
             <p className="eyebrow">{dayHeading.toUpperCase()}</p>
-            <h2>{query ? "Search results" : activeView === "Today" ? "Your review board" : activeView === "Tasks" ? "Your tasks" : activeView === "Hours" ? "Study hours" : activeView === "Papers" ? "Past papers" : activeView === "Goals" ? "Syllabus goals" : activeView === "Exams" ? "Exam planner" : activeView === "Calendar" ? "Study calendar" : activeView === "Flashcards" ? "Flashcard maker" : activeView === "Notes" ? "Notes library" : activeView === "Subjects" ? "Subjects" : activeView === "Guide" ? "How Momentum works" : subjectName(subjectLookup, viewSubjectId(activeView))}</h2>
-            <p className="muted">{query ? `Matching “${query}” across your syllabus.` : activeView === "Today" ? "Know exactly what to review, without hunting through rows." : activeView === "Tasks" ? "Keep subject work and everything else on one list." : activeView === "Hours" ? "Log your YPT time and see your daily study rhythm." : activeView === "Papers" ? "Log every attempt, watch the scores move, and see where marks keep going." : activeView === "Goals" ? "Turn a finish date into a chapter-by-chapter plan." : activeView === "Exams" ? "Pick the topics an assessment actually covers, and get a revision run-up." : activeView === "Calendar" ? "See reviews, tasks, study sessions, milestones and deadlines in one place." : activeView === "Flashcards" ? "Create focused decks and test your recall." : activeView === "Notes" ? "Keep your study files organised by subject and stage." : activeView === "Subjects" ? "Add the subjects you study, and set how each one is structured." : activeView === "Guide" ? "Every feature, what it is for, and the rules the screens do not spell out." : "Work chapter by chapter, or update one syllabus point at a time."}</p>
+            <h2>{query ? "Search results" : activeView === "Today" ? "Your review board" : activeView === "Tasks" ? "Your tasks" : activeView === "Hours" ? "Study hours" : activeView === "Papers" ? "Past papers" : activeView === "Goals" ? "Syllabus goals" : activeView === "Exams" ? "Exam planner" : activeView === "Calendar" ? "Study calendar" : activeView === "Flashcards" ? "Flashcard maker" : activeView === "Notes" ? "Notes library" : activeView === "Subjects" ? "Subjects" : activeView === "History" ? "Your history" : activeView === "Guide" ? "How Momentum works" : subjectName(subjectLookup, viewSubjectId(activeView))}</h2>
+            <p className="muted">{query ? `Matching “${query}” across your syllabus.` : activeView === "Today" ? "Know exactly what to review, without hunting through rows." : activeView === "Tasks" ? "Keep subject work and everything else on one list." : activeView === "Hours" ? "Log your YPT time and see your daily study rhythm." : activeView === "Papers" ? "Log every attempt, watch the scores move, and see where marks keep going." : activeView === "Goals" ? "Turn a finish date into a chapter-by-chapter plan." : activeView === "Exams" ? "Pick the topics an assessment actually covers, and get a revision run-up." : activeView === "Calendar" ? "See reviews, tasks, study sessions, milestones and deadlines in one place." : activeView === "Flashcards" ? "Create focused decks and test your recall." : activeView === "Notes" ? "Keep your study files organised by subject and stage." : activeView === "Subjects" ? "Add the subjects you study, and set how each one is structured." : activeView === "History" ? "Every review, status change, session and paper, newest first." : activeView === "Guide" ? "Every feature, what it is for, and the rules the screens do not spell out." : "Work chapter by chapter, or update one syllabus point at a time."}</p>
           </div>
           <div className="topbar-tools">
-          {!(["Tasks", "Hours", "Papers", "Goals", "Exams", "Calendar", "Flashcards", "Notes", "Subjects", "Guide"] as ActiveView[]).includes(activeView) && <label className="search-box">
+          {!(["Tasks", "Hours", "Papers", "Goals", "Exams", "Calendar", "Flashcards", "Notes", "Subjects", "History", "Guide"] as ActiveView[]).includes(activeView) && <label className="search-box">
             <Icon name="search" className="search-icon" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search topics" placeholder="Search topic, chapter or code" />
             {query && <button onClick={() => setQuery("")} aria-label="Clear search"><Icon name="close" /></button>}
@@ -614,7 +619,9 @@ export default function StudyTrackerApp() {
           </div>
         </header>
 
-        {activeView === "Guide" ? (
+        {activeView === "History" ? (
+          <HistoryView today={today} onMessage={setMessage} />
+        ) : activeView === "Guide" ? (
           <GuideView onOpenView={(view) => selectView(view as ActiveView)} />
         ) : activeView === "Tasks" ? (
           <TasksView tasks={tasks} subjects={subjects} today={today} adding={taskAdding} busyIds={taskBusyIds} onAdd={addTask} onUpdate={updateTask} onDelete={deleteTask} />

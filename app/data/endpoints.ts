@@ -26,6 +26,7 @@ const PATHS = {
   flashcards: "/api/flashcards",
   notes: "/api/notes",
   topicActivity: "/api/topic-activity",
+  history: "/api/history",
   syllabus: "/api/syllabus",
   onboarding: "/api/onboarding",
 } as const;
@@ -123,6 +124,16 @@ export const studyApi = {
     content: <T>(recordId: string) => api.get<T>(`${PATHS.syllabus}?content=${encodeURIComponent(recordId)}`),
   },
 
+  history: {
+    /** `before` is the last row's timestamp, so paging survives new activity. */
+    list: <T>(options: { kinds?: string[]; before?: string | null } = {}) => {
+      const query = new URLSearchParams();
+      if (options.kinds?.length) query.set("kinds", options.kinds.join(","));
+      if (options.before) query.set("before", options.before);
+      const search = query.toString();
+      return api.get<T>(search ? `${PATHS.history}?${search}` : PATHS.history);
+    },
+  },
   onboarding: {
     complete: <T>(body: unknown) => api.post<T>(PATHS.onboarding, body),
     /** The chapters of the chosen syllabuses, read before any of them import. */
