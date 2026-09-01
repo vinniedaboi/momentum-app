@@ -189,6 +189,20 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     items: [
       { term: "What it shows", detail: "Reviews due, task deadlines, logged study sessions, goal milestones, scheduled syllabus points, exam revision and exam days." },
       { term: "What it is for", detail: "Seeing the week before it happens — where the load is, and which days are already full." },
+      { term: "Show only what you want", detail: "The chips along the top turn each source on and off, so a month can be read as just its exams, or just what is due." },
     ],
+  },
+  {
+    id: "history",
+    icon: "trending",
+    title: "History",
+    lead: "Everything you have done, newest first — the answer to “what have I actually got through this week”.",
+    items: [
+      { term: "What it collects", detail: "Every review and status change, the notes you write on a topic, each session you log, each task you tick off and each paper you sit. All of it in one list." },
+      { term: "Grouped by day", detail: "Today and yesterday are named and everything older carries its date, so a heavy day reads as a run of marks down the rail and a quiet one as a gap." },
+      { term: "Filter by kind", detail: "The chips turn each kind on and off and carry the number of each you have logged." },
+      { term: "What happened, not what was planned", detail: "The calendar shows what is scheduled; this shows what you did. A paper sat last week but recorded today sits under today, with the day you sat it beside it." },
+    ],
+    tip: "An empty week here is worth more than a full review board — it is the one screen that will not flatter you.",
   },
 ];
