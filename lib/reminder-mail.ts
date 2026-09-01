@@ -21,9 +21,20 @@ const INK = "#263b35";
 const MUTED = "#687487";
 const LINE = "#dbe5dd";
 
+/**
+ * Where the links in a reminder point.
+ *
+ * `REMINDER_SITE_URL` first, and its own variable rather than only
+ * `NEXT_PUBLIC_SITE_URL`, because that one also fixes the origin Supabase puts
+ * in a confirmation email — and an origin missing from Supabase's redirect
+ * allowlist silently breaks every sign-up. Turning reminders on must not be
+ * able to do that. `NEXT_PUBLIC_SITE_URL` is still read where it is already
+ * set, so a deployment that has one correct answer only has to give it once.
+ */
 function origin() {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
-  return configured || "https://momentumstudies.com";
+  const configured = (process.env.REMINDER_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "")
+    .trim().replace(/\/$/, "");
+  return configured || "https://www.momentumstudies.com";
 }
 
 function link(path: string, source: string) {

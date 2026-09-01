@@ -59,11 +59,14 @@ Copy `.env.example` to `.env.local` and fill it in:
   **Transaction pooler** (port 6543). Serverless functions must use the pooler,
   never the direct `5432` host.
 - `NEXT_PUBLIC_SITE_URL` — optional; leave it unset unless you want every
-  confirmation email to point at one fixed origin. Reminder emails do use it,
-  and fall back to `https://momentumstudies.com`, so a deployment that sends
-  them should set it or every link in one points at the wrong host.
+  confirmation email to point at one fixed origin. Note that it has to be in
+  Supabase's redirect allowlist, or sign-up confirmation stops working.
 - `BREVO_API_KEY`, `CRON_SECRET`, `REMINDER_SECRET` — reminder emails. Leave
   them unset and nothing sends; see **Reminder emails** below.
+- `REMINDER_SITE_URL` — optional; where the links in a reminder point. Falls
+  back to `NEXT_PUBLIC_SITE_URL` and then to the production origin. It exists so
+  that turning reminders on never means touching the variable Supabase's
+  confirmation links depend on.
 
 Then:
 
@@ -153,7 +156,7 @@ behind it do not, so any note downloads will 404.
    | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | same page |
    | `DATABASE_URL` | Database → Connection string → **Transaction pooler** (port 6543) |
 
-   `NEXT_PUBLIC_SITE_URL` is optional for auth but wanted for reminders. The two
+   `NEXT_PUBLIC_SITE_URL` is optional. The two
    `NEXT_PUBLIC_*` values are inlined at build time, so they must exist before
    the first build, and changing them needs a redeploy.
 
@@ -164,6 +167,7 @@ behind it do not, so any note downloads will 404.
    | `BREVO_API_KEY` | Brevo → SMTP & API → API keys |
    | `CRON_SECRET` | any long random string; Vercel sends it as `Authorization: Bearer …` |
    | `REMINDER_SECRET` | any long random string; signs the unsubscribe links |
+   | `REMINDER_SITE_URL` | your production origin, e.g. `https://www.momentumstudies.com` |
 
 3. In Supabase → Authentication → URL Configuration:
    - **Site URL** → your production origin.
