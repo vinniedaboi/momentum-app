@@ -59,7 +59,11 @@ Copy `.env.example` to `.env.local` and fill it in:
   **Transaction pooler** (port 6543). Serverless functions must use the pooler,
   never the direct `5432` host.
 - `NEXT_PUBLIC_SITE_URL` — optional; leave it unset unless you want every
-  confirmation email to point at one fixed origin.
+  confirmation email to point at one fixed origin. Reminder emails do use it,
+  and fall back to `https://momentumstudies.com`, so a deployment that sends
+  them should set it or every link in one points at the wrong host.
+- `BREVO_API_KEY`, `CRON_SECRET`, `REMINDER_SECRET` — reminder emails. Leave
+  them unset and nothing sends; see **Reminder emails** below.
 
 Then:
 
@@ -149,9 +153,17 @@ behind it do not, so any note downloads will 404.
    | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | same page |
    | `DATABASE_URL` | Database → Connection string → **Transaction pooler** (port 6543) |
 
-   `NEXT_PUBLIC_SITE_URL` is optional — see `.env.example`. The two
+   `NEXT_PUBLIC_SITE_URL` is optional for auth but wanted for reminders. The two
    `NEXT_PUBLIC_*` values are inlined at build time, so they must exist before
    the first build, and changing them needs a redeploy.
+
+   To send reminder emails, add three more:
+
+   | Variable | Value |
+   | --- | --- |
+   | `BREVO_API_KEY` | Brevo → SMTP & API → API keys |
+   | `CRON_SECRET` | any long random string; Vercel sends it as `Authorization: Bearer …` |
+   | `REMINDER_SECRET` | any long random string; signs the unsubscribe links |
 
 3. In Supabase → Authentication → URL Configuration:
    - **Site URL** → your production origin.
@@ -222,6 +234,45 @@ developer's machine, not from a function.
 | `npm run import:legacy` | Migrate the old Cloudflare D1 database into one account |
 | `npm run seed:demo -- --email <a>` | Fill an account with demo study history for recording |
 | `npm run smoke -- <workspace-uuid>` | Exercise the data layer against real Postgres (writes to that workspace) |
+| `npm run reminder:test -- --to <address>` | Send today's reminder to one address without logging it (`--print` renders only) |
+
+---
+
+## Reminder emails
+
+A learner who set a syllabus up and stopped opening the app hears nothing, and
+the app knows exactly what they are missing. Once a day `vercel.json` calls
+`/api/cron/reminders`, which reads every account and sends at most one of two
+mails:
+
+- **digest** — what is due today: reviews that have come round, tasks past their
+  date, an exam inside a fortnight. Nothing due, nothing sent.
+- **activation** — for an account that imported a syllabus and never marked a
+  point on it. It has no review dates, so a digest would be empty for it every
+  day forever. Three of these in the first week, then silence.
+
+What stops it becoming a nuisance is all in `lib/reminders-db.ts`: someone who
+already studied today hears nothing, a mail with nothing to report is never
+sent, `notification_log` has a unique index per account per day so a retried
+cron run cannot send twice, and a run of sends that brings nobody back eases to
+weekly and then stops.
+
+Two routes sit outside the session gate, both listed in the proxy's public
+prefixes and both authorising themselves: the cron run holds `CRON_SECRET`, and
+the unsubscribe link carries a workspace id signed with `REMINDER_SECRET` —
+signed because the id is a foreign key, not a secret.
+
+Before changing any of the copy:
+
+```bash
+npm run reminder:test -- --to you@example.com --print   # render, send nothing
+curl -H "Authorization: Bearer $CRON_SECRET"   "https://<your-domain>/api/cron/reminders?dry=1"      # what today would send
+```
+
+Every account is `Asia/Singapore` today, so one run at `0 0 * * *` UTC lands at
+08:00 for all of them. When that stops being true, move the cron to hourly and
+have the route read `profiles.timezone` per learner — which is why that column
+is already there.
 
 ---
 

@@ -1,6 +1,7 @@
 import { catalogueSubjectDirectory } from "./catalogue-db";
 import { series } from "./db";
-import { getSyllabusVersions } from "./syllabus-db";
+import { getSyllabusContent, getSyllabusVersions } from "./syllabus-db";
+import { seedTopics } from "./seed-data";
 import { STARTER_SUBJECTS, subjectSlug, type SubjectTone } from "./subjects-db";
 import { templateTopicCount } from "./topics-db";
 import { stagesForQualification } from "../app/syllabus-stage";
@@ -167,4 +168,63 @@ export async function availableOnboardingSubjects(): Promise<OnboardingSubject[]
   return subjects.sort(
     (a, b) => a.qualification.localeCompare(b.qualification) || a.name.localeCompare(b.name),
   );
+}
+
+/** A chapter a learner can say they are already working on, before it is imported. */
+export type PreviewChapter = { code: string; title: string; points: number };
+export type SubjectChapters = { key: string; subjectId: string; name: string; chapters: PreviewChapter[] };
+
+/**
+ * The chapters of the syllabuses a learner has picked, read before any of them
+ * are imported.
+ *
+ * Onboarding asks what they are already working on, and it has to ask before the
+ * import so that the import and the answer can be applied in one submission. The
+ * two sources are read the same way they are seeded: an official syllabus from
+ * `syllabus_content`, a bundled one from the template that ships with the app.
+ */
+export async function previewChapters(picks: OnboardingSubject[]): Promise<SubjectChapters[]> {
+  const out: SubjectChapters[] = [];
+  const seen = new Set<string>();
+
+  for (const pick of picks) {
+    if (seen.has(pick.subjectId)) continue;
+    seen.add(pick.subjectId);
+
+    let rows: Array<{ code: string; title: string; kind: "chapter" | "point"; parentCode: string | null }> = [];
+    if (pick.source === "official" && pick.recordId) {
+      rows = (await getSyllabusContent(pick.recordId)).map((row) => ({
+        code: row.code, title: row.title, kind: row.kind, parentCode: row.parentCode,
+      }));
+    } else if (pick.source === "bundled") {
+      rows = seedTopics
+        .filter((topic) => subjectSlug(topic.subject) === pick.subjectId)
+        .map((topic) => ({
+          code: topic.code,
+          title: topic.title,
+          kind: topic.kind,
+          // Seed topics carry a parent id rather than a parent code; the code is
+          // what the chapter list is keyed on, so resolve it through the ids.
+          parentCode: topic.parentId
+            ? seedTopics.find((item) => item.id === topic.parentId)?.code ?? null
+            : null,
+        }));
+    }
+
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      if (row.kind !== "point" || !row.parentCode) continue;
+      counts.set(row.parentCode, (counts.get(row.parentCode) ?? 0) + 1);
+    }
+
+    const chapters = rows
+      .filter((row) => row.kind === "chapter")
+      .map((row) => ({ code: row.code, title: row.title, points: counts.get(row.code) ?? 0 }))
+      .filter((chapter) => chapter.points > 0);
+
+    if (chapters.length) {
+      out.push({ key: pick.key, subjectId: pick.subjectId, name: pick.name, chapters });
+    }
+  }
+  return out;
 }

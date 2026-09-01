@@ -1,8 +1,18 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-/** Paths reachable without a session. Everything else redirects to /login. */
-const PUBLIC_PREFIXES = ["/login", "/signup", "/auth", "/check-email"];
+/**
+ * Paths reachable without a session. Everything else redirects to /login.
+ *
+ * The two reminder paths are here because neither has a user behind it: the
+ * cron run is a machine holding a shared secret, and the unsubscribe link is
+ * clicked by someone who has stopped signing in, which is the whole reason they
+ * are unsubscribing. Both authorise themselves — see the routes.
+ */
+const PUBLIC_PREFIXES = [
+  "/login", "/signup", "/auth", "/check-email",
+  "/api/cron", "/api/reminders/stop",
+];
 
 function isPublic(pathname: string) {
   return PUBLIC_PREFIXES.some(

@@ -125,5 +125,8 @@ export const studyApi = {
 
   onboarding: {
     complete: <T>(body: unknown) => api.post<T>(PATHS.onboarding, body),
+    /** The chapters of the chosen syllabuses, read before any of them import. */
+    chapters: <T>(keys: string[]) =>
+      api.get<T>(`${PATHS.onboarding}?keys=${encodeURIComponent(keys.join(","))}`),
   },
 } as const;

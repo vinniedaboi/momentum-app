@@ -49,15 +49,52 @@ test("no Cloudflare or D1 bindings survive the migration", async () => {
   }
 });
 
+/**
+ * The two routes with no session behind them, and what guards each instead.
+ * Both are also listed in the proxy's public prefixes, which the test below
+ * checks, so adding one here alone does not make it reachable.
+ */
+const UNAUTHENTICATED_ROUTES = {
+  // Called by Vercel Cron, which carries a shared secret and no cookies.
+  "cron/reminders": /CRON_SECRET/,
+  // Clicked from a mail by someone who is not signed in, and may never be again.
+  "reminders/stop": /verifyUnsubscribeToken/,
+};
+
+/** Every route.ts under app/api, nested ones included, as `a/b` paths. */
+async function apiRoutes(prefix = "") {
+  const entries = await readdir(new URL(`../app/api/${prefix}`, import.meta.url), { withFileTypes: true });
+  const found = [];
+  for (const entry of entries) {
+    if (entry.isDirectory()) found.push(...await apiRoutes(`${prefix}${entry.name}/`));
+    else if (entry.name === "route.ts") found.push(prefix.replace(/\/$/, ""));
+  }
+  return found;
+}
+
 test("every API route requires a session and runs on Node", async () => {
-  const routes = await readdir(new URL("../app/api", import.meta.url));
+  const routes = await apiRoutes();
   assert.ok(routes.length >= 12, "expected the full API surface");
 
   for (const route of routes) {
     const source = await read(`app/api/${route}/route.ts`);
-    assert.match(source, /withWorkspace/, `/api/${route} should be behind withWorkspace`);
+    const ownGuard = UNAUTHENTICATED_ROUTES[route];
+    if (ownGuard) {
+      // Exempt from the session, never from having a guard of its own.
+      assert.match(source, ownGuard, `/api/${route} should authorise itself`);
+    } else {
+      assert.match(source, /withWorkspace/, `/api/${route} should be behind withWorkspace`);
+    }
     // postgres.js opens TCP sockets, which the edge runtime cannot do.
     assert.match(source, /runtime = "nodejs"/, `/api/${route} should run on the Node runtime`);
+  }
+
+  // A route reachable without a session has to be public in the proxy too, and
+  // nothing else should be.
+  const proxy = await read("lib/supabase/session.ts");
+  for (const route of Object.keys(UNAUTHENTICATED_ROUTES)) {
+    const segment = route.split("/")[0];
+    assert.ok(proxy.includes(`/api/${segment}`), `the proxy should let /api/${route} through`);
   }
 });
 

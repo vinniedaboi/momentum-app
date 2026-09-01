@@ -1,8 +1,8 @@
 import { withWorkspace } from "../../../lib/auth";
 import { completeOnboarding } from "../../../lib/profile-db";
 import { createSubjects, type SubjectSpec } from "../../../lib/subjects-db";
-import { importSubjectTopics, seedSubjectTopicsFromTemplate, type ImportTopicRow } from "../../../lib/topics-db";
-import { availableOnboardingSubjects } from "../../../lib/onboarding-catalogue";
+import { importSubjectTopics, seedSubjectTopicsFromTemplate, startChapters, type ImportTopicRow } from "../../../lib/topics-db";
+import { availableOnboardingSubjects, previewChapters } from "../../../lib/onboarding-catalogue";
 import { getSyllabusContent } from "../../../lib/syllabus-db";
 
 export const runtime = "nodejs";
@@ -12,6 +12,25 @@ export const maxDuration = 60;
 
 /** More than this in one sitting is a mis-click, not a course load. */
 const MAX_SUBJECTS = 12;
+
+/**
+ * The chapters of the syllabuses a learner has picked, so onboarding can ask
+ * what they are already working on before importing anything. Asking first is
+ * what lets the import and the answer land in one submission, which keeps the
+ * flow re-runnable: nothing is written until the last step.
+ */
+export async function GET(request: Request) {
+  return withWorkspace(async () => {
+    const keys = (new URL(request.url).searchParams.get("keys") ?? "")
+      .split(",").map((key) => key.trim()).filter(Boolean).slice(0, MAX_SUBJECTS);
+    if (!keys.length) return Response.json({ subjects: [] });
+
+    const available = await availableOnboardingSubjects();
+    const byKey = new Map(available.map((subject) => [subject.key, subject]));
+    const picks = keys.map((key) => byKey.get(key)).filter((pick) => pick !== undefined);
+    return Response.json({ subjects: await previewChapters(picks) });
+  });
+}
 
 export async function POST(request: Request) {
   return withWorkspace(async (workspaceId) => {
@@ -23,6 +42,7 @@ export async function POST(request: Request) {
         weeklyHoursTarget?: number;
         timezone?: string;
         subjectKeys?: unknown;
+        startingChapters?: unknown;
       };
 
       const fullName = body.fullName?.trim().slice(0, 80) ?? "";
@@ -77,6 +97,10 @@ export async function POST(request: Request) {
         });
       }
 
+      // The import loop below drains `claimed`, so the set of ids this request
+      // actually created is kept separately for validating the chapter picks.
+      const claimedSubjectIds = new Set(claimed);
+
       await createSubjects(workspaceId, specs);
 
       let topicsLoaded = 0;
@@ -108,6 +132,28 @@ export async function POST(request: Request) {
         // `empty` subjects are created without a syllabus, on purpose.
       }
 
+      // What they said they are already working on, marked before the profile is
+      // stamped as onboarded — so an account that reaches the app has always been
+      // through this, and always has a review date to come back for.
+      const starting = Array.isArray(body.startingChapters)
+        ? body.startingChapters.filter((entry): entry is string => typeof entry === "string").slice(0, 60)
+        : [];
+      let started = 0;
+      if (starting.length) {
+        const wanted = new Map<string, string[]>();
+        for (const entry of starting) {
+          const split = entry.indexOf(":");
+          if (split <= 0) continue;
+          const subjectId = entry.slice(0, split);
+          const code = entry.slice(split + 1);
+          if (!claimedSubjectIds.has(subjectId) || !code) continue;
+          wanted.set(subjectId, [...(wanted.get(subjectId) ?? []), code]);
+        }
+        for (const [subjectId, codes] of wanted) {
+          started += await startChapters(workspaceId, subjectId, codes, body.timezone);
+        }
+      }
+
       const profile = await completeOnboarding(workspaceId, {
         fullName,
         examBoard: body.qualification?.includes("Cambridge") ? "CAIE" : null,
@@ -117,7 +163,7 @@ export async function POST(request: Request) {
         timezone: body.timezone?.trim().slice(0, 60) || "Asia/Singapore",
       });
 
-      return Response.json({ profile, subjects: specs.length, topics: topicsLoaded });
+      return Response.json({ profile, subjects: specs.length, topics: topicsLoaded, started });
     } catch (error) {
       console.error(error);
       return Response.json({ error: "Your workspace could not be set up." }, { status: 500 });

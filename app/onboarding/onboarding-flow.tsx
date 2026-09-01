@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "../icons";
 import { CORE_LOOP, STATUS_GUIDE } from "../guide-content";
@@ -29,7 +29,17 @@ type Props = {
 type SubjectGroup = { name: string; options: PickableSubject[] };
 
 const MAX_SUBJECTS = 12;
-const LAST_STEP = 3;
+const LAST_STEP = 4;
+/** Where the "what are you working on" step sits. */
+const STARTING_STEP = 3;
+
+type PreviewChapter = { code: string; title: string; points: number };
+type SubjectChapters = { key: string; subjectId: string; name: string; chapters: PreviewChapter[] };
+
+/** A chapter pick, as the API wants it: `<subjectId>:<chapterCode>`. */
+function chapterId(subjectId: string, code: string) {
+  return `${subjectId}:${code}`;
+}
 
 export default function OnboardingFlow({ subjects, defaultName, currentYear }: Props) {
   const router = useRouter();
@@ -42,6 +52,8 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [chapterSets, setChapterSets] = useState<SubjectChapters[] | null>(null);
+  const [starting, setStarting] = useState<string[]>([]);
 
   const groups = useMemo(() => {
     const names: string[] = [];
@@ -108,6 +120,33 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
     });
   }
 
+  useEffect(() => {
+    if (step < 2 || !selected.length) return;
+    let live = true;
+    studyApi.onboarding.chapters<{ subjects: SubjectChapters[] }>(selected)
+      .then((data) => { if (live) setChapterSets(data.subjects); })
+      // A syllabus that will not preview should not block setup: the step below
+      // falls back to letting them past, and they can mark topics in the app.
+      .catch(() => { if (live) setChapterSets([]); });
+    return () => { live = false; };
+  }, [selected, step]);
+
+  const startable = chapterSets ?? [];
+  const hasChapters = startable.some((subject) => subject.chapters.length > 0);
+
+  function toggleChapter(id: string) {
+    setStarting((current) => (
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    ));
+  }
+
+  /** Everyone has to start somewhere: the opening chapter of every syllabus. */
+  function startAtTheBeginning() {
+    setStarting(startable
+      .filter((subject) => subject.chapters.length > 0)
+      .map((subject) => chapterId(subject.subjectId, subject.chapters[0].code)));
+  }
+
   function goNext() {
     setError(null);
     if (step === 0 && !fullName.trim()) {
@@ -116,6 +155,13 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
     }
     if (step === 1 && !selected.length) {
       setError("Pick at least one subject to track.");
+      return;
+    }
+    // The one answer setup will not skip. Momentum schedules nothing until it
+    // knows where a learner is, so an account that finishes here with every
+    // point unmarked has an empty board and no reason to come back to it.
+    if (step === STARTING_STEP && hasChapters && !starting.length) {
+      setError("Pick at least one chapter, or choose to start at the beginning.");
       return;
     }
     setStep((current) => Math.min(LAST_STEP, current + 1));
@@ -132,6 +178,7 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
         targetYear: Number(targetYear),
         weeklyHoursTarget: Number(weeklyHours),
         subjectKeys: selected,
+        startingChapters: starting,
       });
     } catch (failure) {
       setError(apiMessage(failure, "Setup could not be completed."));
@@ -355,6 +402,66 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
         </>
       ) : null}
 
+      {step === STARTING_STEP ? (
+        <>
+          <h2>What are you working on right now?</h2>
+          <p className="muted">
+            Pick the chapters you have already started. Momentum marks them as Learning
+            and brings them back in three days — that is the loop, and this is where it
+            begins. Everything else stays untouched until you say otherwise.
+          </p>
+
+          {chapterSets === null ? (
+            <p className="muted">Reading your syllabuses…</p>
+          ) : !hasChapters ? (
+            <p className="muted">
+              These subjects arrive without a syllabus tree, so there is nothing to mark
+              yet. You can import one from subject settings once you are in.
+            </p>
+          ) : (
+            <>
+              <div className="onboarding-actions-inline">
+                <button type="button" className="ghost-button" onClick={startAtTheBeginning}>
+                  I am starting at the beginning
+                </button>
+                {starting.length ? (
+                  <button type="button" className="ghost-button" onClick={() => setStarting([])}>
+                    Clear ({starting.length})
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="onboarding-chapters">
+                {startable.map((subject) => (
+                  <section key={subject.key}>
+                    <h3>{subject.name}</h3>
+                    <div className="onboarding-chapter-chips">
+                      {subject.chapters.map((chapter) => {
+                        const id = chapterId(subject.subjectId, chapter.code);
+                        const on = starting.includes(id);
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            className={on ? "active" : ""}
+                            aria-pressed={on}
+                            onClick={() => toggleChapter(id)}
+                          >
+                            <b>{chapter.code}</b>
+                            <span>{chapter.title}</span>
+                            <small>{chapter.points} point{chapter.points === 1 ? "" : "s"}</small>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      ) : null}
+
       {step === LAST_STEP ? (
         <>
           <h2>Ready to go</h2>
@@ -371,6 +478,14 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
             <div>
               <span>Subjects</span>
               <strong>{chosen.map((subject) => subject.name).join(", ") || "None"}</strong>
+            </div>
+            <div>
+              <span>Starting on</span>
+              <strong>
+                {starting.length
+                  ? `${starting.length} chapter${starting.length === 1 ? "" : "s"}`
+                  : "Nothing marked yet"}
+              </strong>
             </div>
             <div>
               <span>Syllabus rows loading</span>

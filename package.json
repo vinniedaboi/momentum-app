@@ -17,6 +17,7 @@
     "release:check": "node scripts/cut-release.mjs --check",
     "import:shared": "node scripts/import-shared-data.mjs",
     "import:legacy": "node scripts/import-legacy-d1.mjs",
+    "reminder:test": "node --import ./scripts/ts-resolve.mjs --env-file=.env.local scripts/send-test-reminder.mjs",
     "seed:demo": "node --import ./scripts/ts-resolve.mjs --env-file=.env.local scripts/seed-demo.ts",
     "smoke": "node --import ./scripts/ts-resolve.mjs --env-file=.env.local scripts/smoke.ts"
   },

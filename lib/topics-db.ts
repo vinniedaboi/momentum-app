@@ -566,3 +566,45 @@ export function templateTopicCount(subjectId: string) {
     0,
   );
 }
+
+/**
+ * Marks every point under the named chapters as `Learning`, and returns how many
+ * chapters were found.
+ *
+ * Onboarding calls this with what a learner said they are already working on.
+ * It is the same move the review board makes when a chapter is set from its own
+ * header — status, review date and activity all cascade to the points beneath —
+ * so a learner arriving in the app finds the state they would have made by hand,
+ * and a review date that brings them back in three days.
+ *
+ * Chapters are named by code because the picking happened before the import,
+ * when no topic had an id yet.
+ */
+export async function startChapters(
+  workspaceId: string,
+  subjectId: string,
+  chapterCodes: string[],
+  timeZone?: string,
+) {
+  const sql = getSql();
+  const codes = [...new Set(chapterCodes)].slice(0, 40);
+  if (!codes.length) return 0;
+
+  const chapters = await sql<{ id: string }[]>`
+    SELECT id FROM topics
+    WHERE workspace_id = ${workspaceId}
+      AND subject_id = ${subjectId}
+      AND kind = 'chapter'
+      AND code = ANY(${codes}::text[])
+  `;
+
+  for (const chapter of chapters) {
+    await updateStudyTracking(workspaceId, {
+      id: chapter.id,
+      status: "Learning",
+      wholeChapter: true,
+      timeZone,
+    });
+  }
+  return chapters.length;
+}

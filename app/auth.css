@@ -318,6 +318,33 @@
 .onboarding-summary dt, .onboarding-summary span:first-child { color: var(--muted); }
 .onboarding-summary strong { font-weight: 800; text-align: right; }
 
+/* The "what are you working on" step. A chapter is a chip that reads as pressed
+   or not, the same idiom the review board uses, so the gesture is already
+   familiar by the time a learner reaches the board itself. */
+.onboarding-actions-inline { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.onboarding-chapters { display: grid; gap: var(--space-5); max-height: 40vh; overflow-y: auto; padding-right: var(--space-2); }
+.onboarding-chapters h3 { margin: 0 0 var(--space-3); font: 700 var(--text-sm) var(--font-body); color: var(--c-ink-soft); }
+.onboarding-chapter-chips { display: grid; gap: var(--space-2); }
+.onboarding-chapter-chips button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  text-align: left;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-md);
+  background: var(--c-surface);
+  color: var(--c-ink);
+  font-size: var(--text-2xs);
+}
+.onboarding-chapter-chips button:hover { border-color: var(--c-teal); }
+.onboarding-chapter-chips button.active { border-color: var(--c-teal); background: var(--c-mint); }
+.onboarding-chapter-chips b { font-size: var(--text-3xs); font-weight: 900; color: var(--c-teal-deep); min-width: 28px; }
+.onboarding-chapter-chips span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.onboarding-chapter-chips small { color: var(--c-muted); font-size: var(--text-3xs); white-space: nowrap; }
+
 /* Sidebar account footer inside the signed-in app shell. */
 .sidebar-account { margin-top: var(--space-3); }
 
