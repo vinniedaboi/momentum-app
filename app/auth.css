@@ -523,12 +523,18 @@
   color: var(--ink);
 }
 
-.board-filter legend small {
-  display: block;
-  margin-top: var(--space-1);
+/*
+ * The hint used to live inside the legend. A legend is drawn straddling the
+ * fieldset's top border, so on a narrow screen — where the hint wraps to two
+ * lines — the second line landed inside the panel and sat across its edge. It
+ * is an ordinary paragraph now, and stays inside the box it belongs to.
+ */
+.board-filter-hint {
+  margin: 0 0 var(--space-1);
   font-weight: 600;
   color: var(--muted);
   font-size: var(--text-xs);
+  line-height: 1.45;
 }
 
 .board-chips {

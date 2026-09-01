@@ -271,7 +271,8 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear, pre
           </p>
 
           <fieldset className="board-filter">
-            <legend>Which boards do you study? <small>Pick as many as you need — subjects can come from any of them</small></legend>
+            <legend>Which boards do you study?</legend>
+            <p className="board-filter-hint">Pick as many as you need — subjects can come from any of them</p>
             <div className="board-chips">
               {groups.map((name) => {
                 const picked = boards.includes(name);
