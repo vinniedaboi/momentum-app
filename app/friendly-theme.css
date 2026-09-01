@@ -679,7 +679,11 @@ input, select, textarea { color: var(--ink); }
   .task-filters select { width: 100%; }
   .calendar-toolbar { align-items: flex-start; }
   .calendar-grid > button { min-height: 80px; padding: var(--space-2); }
-  .calendar-grid > button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* A phone has no room for an item's title, so a day's items collapse to dots.
+     The theme sets a font-size on these with more weight than the rule that
+     collapses them, which put ten-pixel text inside an eight-pixel dot and left
+     every day cell showing clipped fragments of a word. */
+  .calendar-grid > button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0; }
   .subject-overview { grid-template-columns: 1fr 1fr; gap: var(--space-5); }
   .chapter-header {
     grid-template-columns: minmax(0, 1fr) minmax(120px, 140px);
