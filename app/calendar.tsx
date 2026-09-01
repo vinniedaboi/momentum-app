@@ -188,6 +188,7 @@ export default function CalendarView({ topics, subjects, sessions, tasks, today,
     <section className="calendar-panel panel-card">
       <div className="calendar-toolbar"><button onClick={() => moveMonth(-1)} aria-label="Previous month"><Icon name="chevron-left" /></button><div><p className="eyebrow">STUDY CALENDAR</p><h3>{monthLabel}</h3></div><button onClick={() => moveMonth(1)} aria-label="Next month"><Icon name="chevron-right" /></button></div>
       <div className="calendar-legend" role="group" aria-label="Show or hide calendar items by where they come from">
+        <span className="calendar-filter-label" aria-hidden="true">Show</span>
         {EVENT_KINDS.map(({ kind, label }) => <button
           key={kind}
           type="button"

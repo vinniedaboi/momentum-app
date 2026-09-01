@@ -146,7 +146,7 @@
 }
 
 .auth-alert.error { background: var(--c-red-soft); border-color: var(--c-red-soft); color: var(--c-red-ink); }
-.auth-alert.info { background: var(--soft-mint); border-color: var(--c-on-panel); color: var(--c-navy); }
+.auth-alert.info { background: var(--soft-mint); border-color: var(--c-on-panel); color: var(--c-ink); }
 
 .auth-swap {
   margin: var(--space-6) 0 0;

@@ -134,7 +134,7 @@
    */
   --c-on-panel-strong: #dbe5dd;
   --c-on-panel: #b8cdc6;
-  --c-on-panel-soft: #9aa7b8;
+  --c-on-panel-soft: #a3b7af;
   /* And the label on a filled accent button, which is bright enough in dark
      mode that white on it fails contrast. */
   --c-on-accent: #fffdf8;
