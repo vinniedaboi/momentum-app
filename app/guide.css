@@ -286,3 +286,17 @@
   .guide-section-mark { width: 32px; height: 32px; font-size: var(--text-md); }
   .guide-section-body { padding: 0 var(--space-3) var(--space-4); }
 }
+
+/* The way back to the setup walkthrough, from the guide that replaced it. */
+.guide-walkthrough {
+  display: inline-block;
+  margin-top: var(--space-4);
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius-pill);
+  padding: var(--space-2) var(--space-4);
+  color: var(--c-teal-deep);
+  font-size: var(--text-2xs);
+  font-weight: 850;
+  text-decoration: none;
+}
+.guide-walkthrough:hover { border-color: var(--c-teal); background: var(--c-mint); }

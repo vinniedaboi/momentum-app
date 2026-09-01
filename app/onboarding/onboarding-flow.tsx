@@ -23,6 +23,12 @@ type Props = {
   defaultName: string;
   /** Resolved on the server: reading the clock during render is not allowed. */
   currentYear: number;
+  /**
+   * Walking the flow again after setup is done. Every screen renders; the last
+   * step will not submit, because doing so would import a second copy of every
+   * subject the account already has.
+   */
+  preview?: boolean;
 };
 
 /** A subject, and every board that teaches it. */
@@ -41,7 +47,7 @@ function chapterId(subjectId: string, code: string) {
   return `${subjectId}:${code}`;
 }
 
-export default function OnboardingFlow({ subjects, defaultName, currentYear }: Props) {
+export default function OnboardingFlow({ subjects, defaultName, currentYear, preview = false }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [fullName, setFullName] = useState(defaultName);
@@ -168,6 +174,10 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
   }
 
   async function finish() {
+    if (preview) {
+      setError("This is a walkthrough — nothing is saved. Add subjects from subject settings instead.");
+      return;
+    }
     setPending(true);
     setError(null);
 
@@ -192,6 +202,10 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
 
   return (
     <div className="onboarding-card">
+      {preview && <p className="onboarding-preview-note">
+        <b>Walkthrough</b> — this is the setup you already did, kept so you can read it again.
+        Nothing here is saved.
+      </p>}
       <div className="onboarding-steps" aria-hidden="true">
         {Array.from({ length: LAST_STEP + 1 }, (_, index) => (
           <span key={index} className={step >= index ? "done" : ""} />
@@ -515,8 +529,8 @@ export default function OnboardingFlow({ subjects, defaultName, currentYear }: P
             Continue
           </button>
         ) : (
-          <button type="button" className="auth-submit" onClick={finish} disabled={pending}>
-            {pending ? "Building your tracker…" : "Finish setup"}
+          <button type="button" className="auth-submit" onClick={finish} disabled={pending || preview}>
+            {preview ? "Walkthrough only" : pending ? "Building your tracker…" : "Finish setup"}
           </button>
         )}
       </div>

@@ -24,6 +24,11 @@ export default function GuideView({ onOpenView }: { onOpenView: (view: string) =
           <p className="muted">
             Everything else feeds these. Read them once and the rest of the guide is detail.
           </p>
+          {/* Setup explains the loop before there is anything to look at, which
+              is the worst moment to take it in. This is the way back to it. */}
+          <a className="guide-walkthrough" href="/onboarding?preview=1">
+            Walk through setup again
+          </a>
         </div>
         <ol className="guide-loop-steps">
           {CORE_LOOP.map((step, index) => (

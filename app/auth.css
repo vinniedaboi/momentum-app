@@ -564,3 +564,16 @@
   font-size: var(--text-2xs);
   font-weight: 700;
 }
+
+/* The walkthrough banner. Setup and the walkthrough are the same screens, so
+   the difference has to be stated rather than implied. */
+.onboarding-preview-note {
+  margin: 0 0 var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--c-amber-soft);
+  color: var(--c-amber-ink);
+  font-size: var(--text-2xs);
+  line-height: 1.5;
+}
+.onboarding-preview-note b { font-weight: 900; }
