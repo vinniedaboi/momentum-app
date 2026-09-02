@@ -684,7 +684,7 @@ export default function StudyTrackerApp() {
             const stagePercent = (stage: SyllabusStage) => syllabusProgress(
               subjectPoints.filter((topic) => getTopicStage(topic, topics, subject) === stage)).percent;
             return (
-              <button key={subject.id} className={`nav-item ${viewSubjectId(activeView) === subject.id ? "active" : ""}`} onClick={() => selectView({ subjectId: subject.id })}>
+              <button key={subject.id} className={`nav-item subject-nav-item ${viewSubjectId(activeView) === subject.id ? "active" : ""}`} onClick={() => selectView({ subjectId: subject.id })}>
                 <span className="nav-label"><i className={`subject-pin ${subject.tone}`} />{subject.name}</span>
                 <small className="stage-progress">{subjectHasStages(subject)
                   ? subject.stages.map((stage) => `${stage} ${stagePercent(stage)}%`).join(" · ")

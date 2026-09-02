@@ -931,3 +931,25 @@ input, select, textarea { color: var(--ink); }
      button barely wider than the word itself. */
   .subject-row-actions { flex-wrap: wrap; row-gap: var(--space-2); }
 }
+
+/* ---------- Sidebar subject rows ----------
+   A subject row carries a name and its stage percentages. Side by side they
+   fitted only while the row was inactive: `.nav-item.active` sets weight 800,
+   the name grew, and "AS 55% · A2 14%" wrapped onto a second line printed over
+   it. Stacking gives each a line of its own, so neither the name's length nor
+   its weight can collide with the other. */
+
+.subject-nav-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  gap: 2px;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+.subject-nav-item .nav-label { min-width: 0; }
+/* Indented past the tone dot, so it sits under the name rather than the pin. */
+.subject-nav-item .stage-progress {
+  padding-left: calc(8px + var(--space-3));
+  white-space: nowrap;
+}
