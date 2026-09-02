@@ -94,16 +94,39 @@ function examReadiness(exam: Exam, done: number, today: string) {
 }
 
 /**
- * Hours logged against the exam's subject in the last seven days, read the same
- * way the goal planner reads them. Subject rather than topic: a session records
- * the topics it covered only when a learner ticks them, and an hour of revision
- * is no less real for having gone unticked.
+ * What counts as an hour spent on this exam.
+ *
+ * The exam's own topics, plus the chapters that own them. The two pickers work
+ * at different grains: an exam is chosen as points, while logging hours lets a
+ * learner tick a whole chapter rather than every point inside it. Without the
+ * parents, an hour recorded against chapter 9 would not count towards an exam
+ * that lists 9.1 to 9.5 — which is the same hour, described more briefly.
  */
-function weekMinutes(sessions: StudySession[], subjectId: string, today: string) {
+function examTopicKeys(exam: Exam, lookup: Map<string, Topic>) {
+  const keys = new Set<string>();
+  for (const entry of exam.topics) {
+    keys.add(entry.topicId);
+    const parentId = lookup.get(entry.topicId)?.parentId;
+    if (parentId) keys.add(parentId);
+  }
+  return keys;
+}
+
+/**
+ * Hours in the last seven days that went on this exam's own topics.
+ *
+ * Narrower than the goal planner's reading, which takes the whole subject: a
+ * goal covers a stage, so any hour on the subject is an hour on the goal, but
+ * an exam is a slice of one and the rest of the subject is not preparation for
+ * it. The cost is that an hour logged with nothing ticked counts for nothing —
+ * there is no way to tell what it was spent on — so the card says what it is
+ * counting rather than leaving a low number unexplained.
+ */
+function weekMinutes(sessions: StudySession[], keys: Set<string>, today: string) {
   const weekStart = addDays(today, -6);
   return sessions
-    .filter((session) => session.subjectId === subjectId
-      && session.studyDate >= weekStart && session.studyDate <= today)
+    .filter((session) => session.studyDate >= weekStart && session.studyDate <= today
+      && session.topics.some((topic) => keys.has(topic.id)))
     .reduce((sum, session) => sum + session.minutes, 0);
 }
 
@@ -354,7 +377,7 @@ export default function ExamPlanner({ topics, subjects, sessions, today, updatin
                 studyDays: exam.studyDays,
               });
               const readiness = examReadiness(exam, covered, today);
-              const loggedMinutes = weekMinutes(sessions, exam.subjectId, today);
+              const loggedMinutes = weekMinutes(sessions, examTopicKeys(exam, topicLookup), today);
               const targetMinutes = exam.weeklyHours * 60;
 
               return (
@@ -426,7 +449,7 @@ export default function ExamPlanner({ topics, subjects, sessions, today, updatin
                     <article>
                       <span>Study hours</span>
                       <strong>{formatHours(loggedMinutes)}</strong>
-                      <small>of {exam.weeklyHours}h in the last 7 days</small>
+                      <small>of {exam.weeklyHours}h in the last 7 days, on this exam&rsquo;s topics</small>
                       <div className="mini-progress">
                         <i style={{ width: `${Math.min(100, targetMinutes ? loggedMinutes / targetMinutes * 100 : 0)}%` }} />
                       </div>

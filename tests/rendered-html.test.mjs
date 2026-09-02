@@ -928,7 +928,13 @@ test("an exam answers the same four questions a syllabus goal does", async () =>
     assert.match(exams, new RegExp(`<span>${metric}</span>`), `the exam card does not report ${metric}`);
   }
   assert.match(exams, /examReadiness/);
-  assert.match(exams, /weekMinutes\(sessions/, "study hours should come from logged sessions");
+  // Hours count towards an exam only when they went on its own topics — the
+  // rest of the subject is not preparation for this paper — and a chapter
+  // ticked in the hours log stands for the points inside it.
+  assert.match(exams, /weekMinutes\(sessions, examTopicKeys\(exam, topicLookup\), today\)/);
+  assert.match(exams, /keys\.has\(topic\.id\)/, "study hours should be filtered to the exam's topics");
+  assert.match(exams, /if \(parentId\) keys\.add\(parentId\)/, "a chapter should stand for its points");
+  assert.ok(!/weekMinutes\(sessions, exam\.subjectId/.test(exams), "study hours should not count the whole subject");
   assert.match(exams, /onTrack \? "on-track" : "behind"/);
 
   // Ticking a topic off the revision plan is the review board's own write, not
