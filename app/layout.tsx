@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Nunito_Sans } from "next/font/google";
 import { headers } from "next/headers";
+import { Analytics } from "@vercel/analytics/next";
 import "./tokens.css";
 import "./globals.css";
 import "./features.css";
@@ -64,6 +65,13 @@ export default function RootLayout({
         className={`${nunito.variable} ${fraunces.variable} antialiased`}
       >
         {children}
+        {/*
+          * Page views and Web Vitals, collected by Vercel rather than by a
+          * third party: the script is served from this origin, so it needs no
+          * consent banner and nothing leaves the deployment. It is inert
+          * anywhere but a Vercel deployment, which keeps `next dev` quiet.
+          */}
+        <Analytics />
       </body>
     </html>
   );
