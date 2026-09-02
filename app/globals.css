@@ -39,6 +39,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .pulse-dot{margin-top:var(--space-1);width:8px;height:8px;border-radius:50%;background:var(--c-spring);box-shadow:0 0 0 5px var(--c-navy-mid)}
 .save-state{font-size:var(--text-2xs);color:var(--c-on-panel-soft);margin:var(--space-4) var(--space-1) 0}.save-state .save-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c-jade);margin-right:var(--space-2)}
 .workspace{padding:var(--space-8) clamp(var(--space-6),4.5vw,var(--space-10)) var(--space-10);min-width:0;overflow:hidden}
+.site-footer{padding:var(--space-8) var(--space-4) 0;color:var(--c-muted);font-size:var(--text-3xs);font-weight:600;text-align:center;letter-spacing:.02em}
 .topbar{display:flex;justify-content:space-between;gap:var(--space-7);align-items:flex-end;margin-bottom:var(--space-7)}
 .topbar h2{font:700 clamp(var(--text-3xl),4vw,var(--text-5xl)) var(--font-display);margin:0 0 var(--space-2);letter-spacing:-.04em}
 .muted{color:var(--muted);margin:0;line-height:1.5}

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import AuthAside from "../auth-aside";
+import SiteFooter from "../site-footer";
 import SignupForm from "./signup-form";
 
 export const metadata: Metadata = {
@@ -12,6 +13,7 @@ export default function SignupPage() {
       <AuthAside />
       <div className="auth-main">
         <SignupForm />
+        <SiteFooter />
       </div>
     </main>
   );

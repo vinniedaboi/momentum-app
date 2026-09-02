@@ -76,6 +76,10 @@
 
 .auth-main {
   display: grid;
+  /* The card keeps the whole free row and stays centred in it; the footer takes
+     the bottom. Without the named rows a second child would split the space
+     with the card and pull it off centre. */
+  grid-template-rows: 1fr auto;
   place-items: center;
   padding: clamp(var(--space-7), 5vw, var(--space-10)) clamp(var(--space-5), 5vw, var(--space-10));
 }
@@ -163,6 +167,7 @@
 .onboarding-shell {
   min-height: 100vh;
   display: grid;
+  grid-template-rows: 1fr auto;
   place-items: start center;
   padding: clamp(var(--space-7), 5vw, var(--space-10)) var(--space-5) var(--space-11);
 }

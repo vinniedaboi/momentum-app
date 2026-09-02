@@ -4,6 +4,7 @@ import { getStudySession } from "../../lib/auth";
 import { ensureProfile } from "../../lib/profile-db";
 import { availableOnboardingSubjects } from "../../lib/onboarding-catalogue";
 import OnboardingFlow from "./onboarding-flow";
+import SiteFooter from "../site-footer";
 
 export const metadata: Metadata = {
   title: "Set up your tracker · Momentum",
@@ -55,6 +56,7 @@ export default async function OnboardingPage({
         currentYear={new Date().getFullYear()}
         preview={preview && Boolean(profile.onboardedAt)}
       />
+      <SiteFooter />
     </main>
   );
 }

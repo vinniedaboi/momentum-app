@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import AuthAside from "../auth-aside";
+import SiteFooter from "../site-footer";
 
 export const metadata: Metadata = {
   title: "Confirm your email · Momentum",
@@ -31,6 +32,7 @@ export default async function CheckEmailPage({
             Already confirmed? <Link href="/login">Sign in</Link>
           </p>
         </div>
+        <SiteFooter />
       </div>
     </main>
   );

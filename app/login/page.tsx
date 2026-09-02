@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import AuthAside from "../auth-aside";
+import SiteFooter from "../site-footer";
 import LoginForm from "./login-form";
 
 export const metadata: Metadata = {
@@ -24,6 +25,7 @@ export default async function LoginPage({
       <AuthAside />
       <div className="auth-main">
         <LoginForm nextPath={safeNextPath(next)} />
+        <SiteFooter />
       </div>
     </main>
   );

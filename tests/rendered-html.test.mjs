@@ -879,3 +879,41 @@ test("offers the IB Diploma, split by level rather than by year", async () => {
   // out of order. An outline built from those halves was never in the brief.
   assert.match(reader, /FRAGMENT_LIMIT/);
 });
+
+test("every shell carries the copyright line, from one source", async () => {
+  const footer = await read("app/site-footer.tsx");
+
+  // Written once. A second copy is how two pages end up disagreeing about the
+  // year, which is the one thing a copyright notice cannot afford to do.
+  assert.match(footer, /© 2026 Momentum Studies\. All rights reserved\./);
+
+  // Each shell renders it, because they do not share a bottom: the signed-in
+  // app is a sticky full-height sidebar beside a scrolling column, and the auth
+  // and setup screens centre a card in the viewport.
+  const shells = {
+    "app/study-tracker-app.tsx": "the signed-in app",
+    "app/login/page.tsx": "sign in",
+    "app/signup/page.tsx": "sign up",
+    "app/check-email/page.tsx": "confirm your email",
+    "app/onboarding/page.tsx": "setup",
+  };
+  for (const [path, name] of Object.entries(shells)) {
+    const source = await read(path);
+    assert.match(source, /<SiteFooter \/>/, `${name} does not render the footer`);
+    assert.match(source, /from "\.\.?\/site-footer"/, `${name} does not import it from the shared module`);
+    assert.ok(!source.includes("All rights reserved"), `${name} writes its own copy of the notice`);
+  }
+
+  // The signed-in app puts it inside the column that scrolls. After the section
+  // it would land in the sidebar's grid track and be painted over by it.
+  const shell = await read("app/study-tracker-app.tsx");
+  assert.match(shell, /<SiteFooter \/>\s*<\/section>/, "the footer should close the workspace, not follow it");
+
+  // Both centred grids name their rows, so the card keeps the free space and
+  // the footer takes the bottom rather than splitting it.
+  const auth = await read("app/auth.css");
+  for (const rule of [".auth-main", ".onboarding-shell"]) {
+    const block = auth.slice(auth.indexOf(`${rule} {`), auth.indexOf("}", auth.indexOf(`${rule} {`)));
+    assert.match(block, /grid-template-rows: 1fr auto/, `${rule} would push its card off centre`);
+  }
+});

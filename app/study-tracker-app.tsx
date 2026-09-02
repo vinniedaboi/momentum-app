@@ -18,6 +18,7 @@ import { activeSubjects, subjectById, subjectName, type Subject } from "./subjec
 import { currentStage, getTopicStage, stageCaption, subjectHasStages, type SyllabusStage } from "./syllabus-stage";
 import TasksView, { DueTasksPanel, type StudyTask, type TaskInput } from "./tasks";
 import ThemeToggle from "./theme-toggle";
+import SiteFooter from "./site-footer";
 import TopicTimeline from "./topic-timeline";
 import Icon from "./icons";
 import { DIFFICULTIES, STATUSES, type StudyStatus, type Topic, type TopicDifficulty } from "./topics";
@@ -765,6 +766,7 @@ export default function StudyTrackerApp() {
             examDue={examDue}
           />
         )}
+        <SiteFooter />
       </section>
 
       {message && <div className="toast" role="status"><span><Icon name="check" /></span>{message}</div>}
