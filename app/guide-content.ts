@@ -122,7 +122,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       { term: "Search", detail: "The search box spans every topic, chapter and syllabus code across all your subjects." },
       { term: "Chapters fold away", detail: "The queue groups by chapter. The top one opens on arrival and the rest stay folded, each showing how many reviews it holds and how long they will take." },
       { term: "Every point carries its minutes", detail: "The time beside a point is its share of whichever plan put it there, so the whole queue adds up to a session you can actually sit." },
-      { term: "Say what you find hard", detail: "Every row carries a rating beside its status. Marking a point hard brings it back sooner and gives it a bigger slice of your planned hours; marking one easy does the reverse. Select several rows to rate them together." },
+      { term: "Say what you find hard", detail: "Every row carries a rating beside its status. Marking a point hard brings its review forward and gives it a bigger slice of your planned hours; marking one easy hands that time to the rest and lets it wait longer from its next review. A rating never defers a review you already owe, so nothing leaves the board while you are working down it." },
     ],
     tip: "An empty board is the goal, not a bug. It means nothing is due — pick a subject and push new content forward.",
   },

@@ -340,9 +340,11 @@ export default function StudyTrackerApp() {
       setTopics((current) => current.map((item) => changed.get(item.id) ?? item));
       const label = options.wholeChapter ? "Chapter schedule updated"
         : options.reviewedNow ? "Review logged and next date scheduled"
-        // Rating a point moves the date it already has rather than starting a
-        // new interval, so the message says so instead of claiming a review.
-        : options.difficulty && !options.status ? `Rated ${options.difficulty} — next review moved`
+        // A rating can bring a review forward but never defer one, so the two
+        // directions do different things and the message says which.
+        : options.difficulty === "hard" && !options.status ? "Rated hard — its review comes sooner"
+        : options.difficulty === "easy" && !options.status ? "Rated easy — it will wait longer after the next review"
+        : options.difficulty && !options.status ? "Rated normal"
         : "Status updated and tracking started";
       setMessage(label);
     } catch {

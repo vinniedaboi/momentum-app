@@ -1002,3 +1002,31 @@ test("every row on the board says which plan put it there", async () => {
     assert.ok(css.includes(`.review-source.${kind}{`), `.review-source.${kind} has no colour of its own`);
   }
 });
+
+test("rating a point never takes it off the review board", async () => {
+  const db = await read("lib/topics-db.ts");
+
+  // The board holds everything due within seven days. Rating a Practising point
+  // easy used to move its review from reviewed+7 to reviewed+11, which lifted
+  // the row out of that window and made it vanish under the hand that rated it
+  // — and, worse, discharged a review that was already owed.
+  assert.match(db, /function ratedReviewDue/);
+  assert.match(db, /return scheduled < current \? scheduled : current;/,
+    "a rating must keep whichever date is sooner");
+
+  // Both writing paths take the rule: one row from the board, and a selection
+  // rated together from the bulk bar.
+  const clamped = [...db.matchAll(/rateOnly \? ratedReviewDue\(/g)];
+  assert.equal(clamped.length, 2, "the single and bulk updates should both clamp");
+
+  // And only a rating is clamped. A status change or a logged review still
+  // reschedules from today, which is what they are for.
+  assert.match(db, /: scheduled;/);
+
+  // What the app promises about it, in the two places it says so.
+  const shell = await read("app/study-tracker-app.tsx");
+  assert.match(shell, /Rated hard — its review comes sooner/);
+  assert.match(shell, /Rated easy — it will wait longer after the next review/);
+  const guide = await read("app/guide-content.ts");
+  assert.match(guide, /never defers a review you already owe/);
+});

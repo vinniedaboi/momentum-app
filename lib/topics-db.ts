@@ -84,6 +84,25 @@ function nextReviewDue(reviewedOn: string | null, status: StudyStatus, difficult
   return addDays(reviewedOn, reviewInterval(status, difficulty));
 }
 
+/**
+ * A rating may pull a review towards you; it may never push one away.
+ *
+ * Calling a point easy is an opinion about the work, not the work itself, so it
+ * cannot discharge a review already owed — and it cannot quietly lift one out
+ * of the review board's seven-day window either, which is what made a row
+ * vanish under the hand that had just rated it. The longer gap an easy point
+ * earns takes effect from its next actual review, where it costs nothing that
+ * was already due.
+ *
+ * Calling a point hard still brings its review forward, which is the whole
+ * reason for saying so.
+ */
+function ratedReviewDue(current: string | null, scheduled: string | null) {
+  if (!current) return scheduled;
+  if (!scheduled) return current;
+  return scheduled < current ? scheduled : current;
+}
+
 function storedFor(status: StudyStatus): StoredStatus {
   return status === "Covered" ? "Practising" : status;
 }
@@ -325,8 +344,9 @@ export async function updateStudyTracking(workspaceId: string, input: {
     const currentRows = await tx<{
       status: StoredStatus; covered: boolean; kind: "chapter" | "point";
       difficulty: string | null; reviewed_on: string | null; reviewed_at: string | null;
+      review_due: string | null;
     }[]>`
-      SELECT status, covered, kind, difficulty, reviewed_on, reviewed_at FROM topics
+      SELECT status, covered, kind, difficulty, reviewed_on, reviewed_at, review_due FROM topics
       WHERE workspace_id = ${workspaceId} AND id = ${input.id}
     `;
     if (!currentRows.length) throw new Error("Topic not found.");
@@ -348,7 +368,8 @@ export async function updateStudyTracking(workspaceId: string, input: {
     const now = nowIso();
     const reviewedOn = rateOnly ? current.reviewed_on : status === "Not Started" ? null : today;
     const reviewedAt = rateOnly ? current.reviewed_at : status === "Not Started" ? null : now;
-    const reviewDue = nextReviewDue(reviewedOn, status, difficulty);
+    const scheduled = nextReviewDue(reviewedOn, status, difficulty);
+    const reviewDue = rateOnly ? ratedReviewDue(current.review_due, scheduled) : scheduled;
 
     const previous = spreadToChapter
       ? await tx<{ id: string; status: StoredStatus; covered: boolean }[]>`
@@ -443,8 +464,9 @@ export async function updateSelectedStudyTracking(workspaceId: string, input: {
     const current = await tx<{
       id: string; status: StoredStatus; covered: boolean;
       difficulty: string | null; reviewed_on: string | null; reviewed_at: string | null;
+      review_due: string | null;
     }[]>`
-      SELECT id, status, covered, difficulty, reviewed_on, reviewed_at FROM topics
+      SELECT id, status, covered, difficulty, reviewed_on, reviewed_at, review_due FROM topics
       WHERE workspace_id = ${workspaceId} AND kind = 'point' AND id = ANY(${ids}::text[])
     `;
 
@@ -470,7 +492,8 @@ export async function updateSelectedStudyTracking(workspaceId: string, input: {
         : input.status ?? (currentStatus === "Not Started" ? "Learning" : currentStatus);
       const reviewedOn = rateOnly ? topic.reviewed_on : status === "Not Started" ? null : today;
       const reviewedAt = rateOnly ? topic.reviewed_at : status === "Not Started" ? null : now;
-      const reviewDue = nextReviewDue(reviewedOn, status, difficulty);
+      const scheduled = nextReviewDue(reviewedOn, status, difficulty);
+      const reviewDue = rateOnly ? ratedReviewDue(topic.review_due, scheduled) : scheduled;
 
       if (input.reviewedNow || currentStatus !== status) {
         activityEntries.push({
