@@ -888,3 +888,45 @@ input, select, textarea { color: var(--ink); }
 }
 
 .auth-aside .theme-toggle:hover { background: var(--c-teal); border-color: var(--c-teal); color: var(--c-on-accent); }
+
+/* ---------- Mobile spacing ----------
+   These sit at the end of the file on purpose: the base `.topbar-tools` rule
+   above is written after this file's own media blocks, so an override placed
+   in one of them would lose on source order rather than on specificity. */
+
+@media (max-width: 640px) {
+  /* `.subject-filter` took `width: 100%` inside this flex row, which resolved
+     the search box — `flex: 1 1 auto; min-width: 0` — to 0px wide. Its padding
+     and its absolutely positioned clear button still painted, so the two
+     controls sat on top of one another and the filter read as unlabelled.
+     Three controls do not fit across 358px: the filter takes its own row. */
+  .topbar-tools { flex-wrap: wrap; row-gap: var(--space-2); }
+  .topbar-tools .search-box { flex: 1 1 200px; }
+  .subject-filter { flex: 1 1 100%; width: auto; max-width: none; height: 48px; }
+
+  /* The goal chips scroll sideways, but `calc(100vw - 32px)` ignored the card's
+     own padding, so the rail ran past the card edge and the last chip was cut
+     mid-word with nothing to show it continued. */
+  .goal-switcher > div {
+    max-width: 100%; min-width: 0;
+    overflow-x: auto; padding-bottom: var(--space-1);
+    scrollbar-width: none;
+  }
+  .goal-switcher > div::-webkit-scrollbar { display: none; }
+
+  /* Label beside value leaves the label about 110px at this width, so
+     "Papers attempted" and "papers with mark schemes" wrapped to three lines
+     next to a number that had a whole column to itself. Stack them. */
+  .paper-summary article { grid-template-columns: 1fr; gap: var(--space-1); }
+  .paper-summary strong { grid-row: auto; grid-column: 1; }
+
+  /* The same squeeze on the goal and exam counters, where "Time remaining" and
+     "days until the paper" were each taking two and three lines. */
+  .goal-metrics article, .exam-metrics article { padding: var(--space-3) var(--space-4); }
+  .goal-metrics span, .exam-metrics span { font-size: var(--text-3xs); }
+  .goal-metrics small, .exam-metrics small { line-height: 1.35; }
+
+  /* Four actions on one row crushed "Replace syllabus" onto two lines inside a
+     button barely wider than the word itself. */
+  .subject-row-actions { flex-wrap: wrap; row-gap: var(--space-2); }
+}
