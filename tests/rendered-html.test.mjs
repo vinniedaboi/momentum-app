@@ -972,3 +972,33 @@ test("the type scale climbs, and starts above a footnote", async () => {
     assert.ok(steps[i] > steps[i - 1], `step ${i} (${steps[i]}px) does not exceed ${steps[i - 1]}px`);
   }
 });
+
+test("every row on the board says which plan put it there", async () => {
+  const shell = await read("app/study-tracker-app.tsx");
+  const calendar = await read("app/calendar.tsx");
+
+  // Three plans can schedule a topic, and the row names whichever one owns the
+  // date it is showing. A spaced review is the commonest of the three and used
+  // to be the one that arrived unlabelled.
+  assert.match(shell, /function dueSource/);
+  assert.match(shell, /kind: "exam-task", label: exam\.title/);
+  assert.match(shell, /kind: "goal-task", label: "Goal plan"/);
+  assert.match(shell, /kind: "review", label: "Review"/);
+  assert.match(shell, /className={`review-source \${source\.kind}`}/);
+
+  // In the calendar's vocabulary, not a second one. A learner who has learnt
+  // what a colour means on one screen should not have to learn it again on the
+  // other, so every kind the board hands out has to be one the calendar knows.
+  const known = new Set([...calendar.matchAll(/\{ kind: "([\w-]+)"/g)].map((match) => match[1]));
+  const used = [...shell.matchAll(/kind: "([\w-]+)", label:/g)].map((match) => match[1]);
+  assert.ok(used.length >= 3, `expected every source to be named, found ${used.length}`);
+  for (const kind of used) {
+    assert.ok(known.has(kind), `the board invents a source the calendar has no name for: ${kind}`);
+  }
+
+  // And the chip is painted per kind, or they would all read the same.
+  const css = await read("app/globals.css");
+  for (const kind of used.filter((kind) => kind !== "review")) {
+    assert.ok(css.includes(`.review-source.${kind}{`), `.review-source.${kind} has no colour of its own`);
+  }
+});

@@ -84,6 +84,30 @@ function scheduledDate(topic: Pick<Topic, "reviewDue" | "goalDue">, examDue?: st
   return dates.length ? dates.reduce((earliest, date) => (date < earliest ? date : earliest)) : null;
 }
 
+/**
+ * Which plan put a row on the board, named the way the calendar names it.
+ *
+ * A date on the queue could have come from three places and the row said so
+ * only for two of them, so a spaced review — the commonest source of all —
+ * arrived unexplained. The kinds are the calendar's own, so the colour a
+ * learner has already learnt on one screen means the same thing on the other.
+ *
+ * Precedence follows whichever date the row is actually showing, which is why
+ * an exam outranks a goal falling on the same day: it is the one with a
+ * deadline behind it.
+ */
+function dueSource(
+  topic: Pick<Topic, "reviewDue" | "goalDue">,
+  dueDate: string | null,
+  exam?: { date: string; title: string },
+) {
+  if (!dueDate) return null;
+  if (exam && dueDate === exam.date) return { kind: "exam-task", label: exam.title };
+  if (topic.goalDue && dueDate === topic.goalDue) return { kind: "goal-task", label: "Goal plan" };
+  if (topic.reviewDue && dueDate === topic.reviewDue) return { kind: "review", label: "Review" };
+  return null;
+}
+
 /** The soonest exam revision date per topic, and the exam that wants it. */
 function examSchedule(exams: PlannedExam[]) {
   const due = new Map<string, { date: string; title: string }>();
@@ -885,17 +909,16 @@ function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onO
   onOpenTimeline: (id: string) => void;
 }) {
   const dueDate = scheduledDate(topic, exam?.date);
-  // Whichever plan owns the date is the one worth naming, and an exam outranks a
-  // goal on the same day: it is the one with a deadline behind it.
-  const plan = exam && dueDate === exam.date ? exam.title
-    : topic.goalDue && dueDate === topic.goalDue ? "Goal plan"
-    : null;
+  const source = dueSource(topic, dueDate, exam);
   return (
     <article className={`review-row ${onSelect ? "selectable" : ""} ${selected ? "is-selected" : ""} ${updating ? "is-updating" : ""}`}>
       {onSelect ? <input className="review-check" type="checkbox" checked={selected} onChange={onSelect} aria-label={`Select ${topic.title}`} /> : <i className={`subject-pin ${subjects.get(topic.subjectId)?.tone ?? "slate"}`} />}
       <div className="review-copy">
         <span>
-          {subjectName(subjects, topic.subjectId)} · {topic.code}{plan ? ` · ${plan}` : ""}
+          {subjectName(subjects, topic.subjectId)} · {topic.code}
+          {/* An exam's own title can run long, so the chip is capped and carries
+              the full name for anyone who hovers or reads it out. */}
+          {source ? <b className={`review-source ${source.kind}`} title={source.label}>{source.label}</b> : null}
           {minutes ? <b className="review-minutes">{formatStudyTime(minutes)}</b> : null}
         </span>
         <strong>{topic.title}</strong>
