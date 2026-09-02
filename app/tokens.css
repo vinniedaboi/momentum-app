@@ -34,17 +34,25 @@
    * 4xl  page headings
    * 5xl  hero
    */
-  --text-3xs: 10px;
-  --text-2xs: 11px;
-  --text-xs: 12px;
-  --text-sm: 14px;
-  --text-md: 16px;
-  --text-lg: 18px;
-  --text-xl: 22px;
-  --text-2xl: 26px;
-  --text-3xl: 32px;
-  --text-4xl: 40px;
-  --text-5xl: 48px;
+  /*
+   * Raised about a step across the board, weighted towards the small end where
+   * legibility actually bites: the 10px and 11px labels carry real information
+   * — a status, a due date, the minutes on a row — and were being read at the
+   * size of a footnote. The display sizes move least, because a heading that
+   * was already large gains nothing from more and a hero that outgrows its
+   * column costs a line break.
+   */
+  --text-3xs: 11px;
+  --text-2xs: 12px;
+  --text-xs: 13px;
+  --text-sm: 15px;
+  --text-md: 17px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 28px;
+  --text-3xl: 34px;
+  --text-4xl: 42px;
+  --text-5xl: 50px;
 
   /*
    * Spacing scale. Every step is a multiple of 4, and every step below 32 is a
