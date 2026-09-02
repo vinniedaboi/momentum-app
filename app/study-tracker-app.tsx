@@ -20,7 +20,7 @@ import TasksView, { DueTasksPanel, type StudyTask, type TaskInput } from "./task
 import ThemeToggle from "./theme-toggle";
 import TopicTimeline from "./topic-timeline";
 import Icon from "./icons";
-import { STATUSES, type StudyStatus, type Topic } from "./topics";
+import { DIFFICULTIES, STATUSES, type StudyStatus, type Topic, type TopicDifficulty } from "./topics";
 import { apiMessage } from "./data/api";
 import { studyApi } from "./data/endpoints";
 import { useStudyWorkspace } from "./data/use-workspace";
@@ -141,6 +141,7 @@ export default function StudyTrackerApp() {
   const [updating, setUpdating] = useState<Set<string>>(new Set());
   const [selectedReviews, setSelectedReviews] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<StudyStatus>("Practising");
+  const [bulkDifficulty, setBulkDifficulty] = useState<TopicDifficulty>("hard");
   const [hoursSaving, setHoursSaving] = useState(false);
   const [taskAdding, setTaskAdding] = useState(false);
   const [taskBusyIds, setTaskBusyIds] = useState<Set<number>>(new Set());
@@ -276,7 +277,7 @@ export default function StudyTrackerApp() {
 
   const queueMinutes = useMemo(
     () => queueGroups.reduce((sum, group) => sum + group.items.reduce(
-      (groupSum, topic) => groupSum + pointMinutes(topic.status, budgetByTopic.get(topic.id) ?? null), 0), 0),
+      (groupSum, topic) => groupSum + pointMinutes(topic, budgetByTopic.get(topic.id) ?? null), 0), 0),
     [queueGroups, budgetByTopic],
   );
 
@@ -303,7 +304,7 @@ export default function StudyTrackerApp() {
     ).slice(0, 80);
   }, [query, subjectLookup, topics]);
 
-  async function updateTopic(topic: Topic, options: { status?: StudyStatus; reviewedNow?: boolean; wholeChapter?: boolean }) {
+  async function updateTopic(topic: Topic, options: { status?: StudyStatus; difficulty?: TopicDifficulty; reviewedNow?: boolean; wholeChapter?: boolean }) {
     const ids = options.wholeChapter
       ? topics.filter((item) => item.id === topic.id || item.parentId === topic.id).map((item) => item.id)
       : [topic.id];
@@ -312,7 +313,12 @@ export default function StudyTrackerApp() {
       const data = await studyApi.topics.update<{ topics: Topic[] }>({ id: topic.id, ...options });
       const changed = new Map(data.topics.map((item) => [item.id, item]));
       setTopics((current) => current.map((item) => changed.get(item.id) ?? item));
-      const label = options.wholeChapter ? "Chapter schedule updated" : options.reviewedNow ? "Review logged and next date scheduled" : "Status updated and tracking started";
+      const label = options.wholeChapter ? "Chapter schedule updated"
+        : options.reviewedNow ? "Review logged and next date scheduled"
+        // Rating a point moves the date it already has rather than starting a
+        // new interval, so the message says so instead of claiming a review.
+        : options.difficulty && !options.status ? `Rated ${options.difficulty} — next review moved`
+        : "Status updated and tracking started";
       setMessage(label);
     } catch {
       setMessage("That change was not saved. Please try again.");
@@ -325,7 +331,7 @@ export default function StudyTrackerApp() {
     }
   }
 
-  async function updateSelectedReviews(options: { status?: StudyStatus; reviewedNow?: boolean }) {
+  async function updateSelectedReviews(options: { status?: StudyStatus; difficulty?: TopicDifficulty; reviewedNow?: boolean }) {
     const ids = [...selectedReviews];
     if (!ids.length) return;
     setUpdating((current) => new Set([...current, ...ids]));
@@ -334,7 +340,9 @@ export default function StudyTrackerApp() {
       const changed = new Map(data.topics.map((item) => [item.id, item]));
       setTopics((current) => current.map((item) => changed.get(item.id) ?? item));
       setSelectedReviews(new Set());
-      setMessage(options.reviewedNow ? `${ids.length} reviews logged and rescheduled` : `${ids.length} syllabus points updated`);
+      setMessage(options.reviewedNow ? `${ids.length} reviews logged and rescheduled`
+        : options.difficulty && !options.status ? `${ids.length} points rated ${options.difficulty}`
+        : `${ids.length} syllabus points updated`);
     } catch {
       setMessage("Those selected reviews were not saved. Please try again.");
     } finally {
@@ -694,7 +702,7 @@ export default function StudyTrackerApp() {
                     const ids = group.items.map((topic) => topic.id);
                     const selectedCount = ids.filter((id) => selectedReviews.has(id)).length;
                     const label = group.chapter?.title ?? group.items[0]?.section ?? "Other topics";
-                    const groupMinutes = group.items.reduce((sum, topic) => sum + pointMinutes(topic.status, budgetByTopic.get(topic.id) ?? null), 0);
+                    const groupMinutes = group.items.reduce((sum, topic) => sum + pointMinutes(topic, budgetByTopic.get(topic.id) ?? null), 0);
                     const isOpen = openQueueGroups.has(group.key);
                     return (
                       <section className={`queue-group ${isOpen ? "open" : ""}`} key={group.key}>
@@ -712,7 +720,7 @@ export default function StudyTrackerApp() {
                         {isOpen && (
                           <div className="review-list">
                             {group.items.map((topic) => (
-                              <TopicRow key={topic.id} topic={topic} subjects={subjectLookup} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} selected={selectedReviews.has(topic.id)} onSelect={() => toggleReviewSelection([topic.id])} onOpenTimeline={setTimelineTopicId} exam={examDue.get(topic.id)} minutes={pointMinutes(topic.status, budgetByTopic.get(topic.id) ?? null)} />
+                              <TopicRow key={topic.id} topic={topic} subjects={subjectLookup} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} selected={selectedReviews.has(topic.id)} onSelect={() => toggleReviewSelection([topic.id])} onOpenTimeline={setTimelineTopicId} exam={examDue.get(topic.id)} minutes={pointMinutes(topic, budgetByTopic.get(topic.id) ?? null)} />
                             ))}
                           </div>
                         )}
@@ -731,6 +739,10 @@ export default function StudyTrackerApp() {
                     {STATUSES.map((status) => <option key={status}>{status}</option>)}
                   </select>
                   <button className="ghost-button" disabled={[...selectedReviews].some((id) => updating.has(id))} onClick={() => updateSelectedReviews({ status: bulkStatus })}>Set status</button>
+                  <select value={bulkDifficulty} onChange={(event) => setBulkDifficulty(event.target.value as TopicDifficulty)} aria-label="Difficulty for selected reviews">
+                    {DIFFICULTIES.map((level) => <option key={level} value={level}>{DIFFICULTY_LABELS[level]}</option>)}
+                  </select>
+                  <button className="ghost-button" disabled={[...selectedReviews].some((id) => updating.has(id))} onClick={() => updateSelectedReviews({ difficulty: bulkDifficulty })}>Set difficulty</button>
                   <button className="primary-button" disabled={[...selectedReviews].some((id) => updating.has(id))} onClick={() => updateSelectedReviews({ reviewedNow: true })}>Reviewed selected</button>
                   <button className="clear-selection" onClick={() => setSelectedReviews(new Set())}>Clear</button>
                 </div>
@@ -823,6 +835,39 @@ function ProgressBar({ segments }: { segments: ReturnType<typeof progressSegment
   );
 }
 
+/** How each rating reads on a row. The values themselves are lower case. */
+const DIFFICULTY_LABELS: Record<TopicDifficulty, string> = {
+  easy: "Easy",
+  normal: "Normal",
+  hard: "Hard",
+};
+
+/**
+ * A learner's own reading of a point, set where its status is set.
+ *
+ * Both controls sit on the row because they answer different questions about
+ * the same line of syllabus — how far through it you are, and how it treats
+ * you — and the second is worth nothing if it takes a detour to reach.
+ */
+function DifficultySelect({ value, label, disabled, onChange }: {
+  value: TopicDifficulty;
+  label: string;
+  disabled: boolean;
+  onChange: (difficulty: TopicDifficulty) => void;
+}) {
+  return (
+    <select
+      className={`difficulty-select difficulty-${value}`}
+      value={value}
+      disabled={disabled}
+      aria-label={label}
+      onChange={(event) => onChange(event.target.value as TopicDifficulty)}
+    >
+      {DIFFICULTIES.map((level) => <option key={level} value={level}>{DIFFICULTY_LABELS[level]}</option>)}
+    </select>
+  );
+}
+
 function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onOpenTimeline, subjects, exam, minutes }: {
   topic: Topic;
   subjects: Map<string, Subject>;
@@ -832,7 +877,7 @@ function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onO
   minutes?: number;
   today: string;
   updating: boolean;
-  updateTopic: (topic: Topic, options: { status?: StudyStatus; reviewedNow?: boolean; wholeChapter?: boolean }) => void;
+  updateTopic: (topic: Topic, options: { status?: StudyStatus; difficulty?: TopicDifficulty; reviewedNow?: boolean; wholeChapter?: boolean }) => void;
   selected?: boolean;
   onSelect?: () => void;
   onOpenTimeline: (id: string) => void;
@@ -857,6 +902,7 @@ function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onO
       <span className={`date-badge ${dueDate && dueDate < today ? "overdue" : dueDate === today ? "due" : "soon"}`}>
         {dateLabel(dueDate, today)}
       </span>
+      <DifficultySelect value={topic.difficulty} label={`How hard you find ${topic.title}`} disabled={updating} onChange={(difficulty) => updateTopic(topic, { difficulty })} />
       <select className={`status-select status-${statusSlug(topic.status)}`} aria-label={`Status for ${topic.title}`} value={topic.status} disabled={updating} onChange={(event) => updateTopic(topic, { status: event.target.value as StudyStatus })}>
         {STATUSES.map((status) => <option key={status}>{status}</option>)}
       </select>
@@ -870,7 +916,7 @@ function SearchView({ results, subjects, today, updating, updateTopic, onOpenTim
   subjects: Map<string, Subject>;
   today: string;
   updating: Set<string>;
-  updateTopic: (topic: Topic, options: { status?: StudyStatus; reviewedNow?: boolean; wholeChapter?: boolean }) => void;
+  updateTopic: (topic: Topic, options: { status?: StudyStatus; difficulty?: TopicDifficulty; reviewedNow?: boolean; wholeChapter?: boolean }) => void;
   onOpenTimeline: (id: string) => void;
   examDue: Map<string, { date: string; title: string }>;
 }) {
@@ -892,7 +938,7 @@ function SubjectView({ subject, subjects, topics, today, openChapters, updating,
   openChapters: Set<string>;
   updating: Set<string>;
   toggleChapter: (id: string) => void;
-  updateTopic: (topic: Topic, options: { status?: StudyStatus; reviewedNow?: boolean; wholeChapter?: boolean }) => void;
+  updateTopic: (topic: Topic, options: { status?: StudyStatus; difficulty?: TopicDifficulty; reviewedNow?: boolean; wholeChapter?: boolean }) => void;
   onOpenTimeline: (id: string) => void;
   examDue: Map<string, { date: string; title: string }>;
 }) {

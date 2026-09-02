@@ -1,5 +1,6 @@
 import type { IconName } from "./icons";
-import { REVIEW_INTERVALS, STATUSES, type StudyStatus } from "./topics";
+import { DIFFICULTIES, REVIEW_INTERVALS, STATUSES, reviewInterval, type StudyStatus, type TopicDifficulty } from "./topics";
+import { DIFFICULTY_EFFORT } from "./study-time";
 
 /**
  * What the app does, written once.
@@ -82,6 +83,32 @@ export const STATUS_GUIDE: Array<{ status: StudyStatus; meaning: string; days: n
 const described = new Set(STATUS_GUIDE.map((row) => row.status));
 export const STATUSES_DESCRIBED = STATUSES.every((status) => described.has(status));
 
+const DIFFICULTY_MEANING: Record<TopicDifficulty, string> = {
+  easy: "Went in first time",
+  normal: "Nothing unusual",
+  hard: "Keeps not sticking",
+};
+
+/**
+ * What rating a point actually does, read from the two tables that do it rather
+ * than described in prose beside them. Days are quoted for a point at
+ * Practising, the middle of the status scale, because a factor on its own says
+ * nothing a learner can picture.
+ */
+export const DIFFICULTY_GUIDE: Array<{
+  difficulty: TopicDifficulty;
+  label: string;
+  meaning: string;
+  days: number;
+  share: number;
+}> = DIFFICULTIES.map((difficulty) => ({
+  difficulty,
+  label: difficulty[0].toUpperCase() + difficulty.slice(1),
+  meaning: DIFFICULTY_MEANING[difficulty],
+  days: reviewInterval("Practising", difficulty),
+  share: DIFFICULTY_EFFORT[difficulty],
+}));
+
 export const GUIDE_SECTIONS: GuideSection[] = [
   {
     id: "review-board",
@@ -95,6 +122,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       { term: "Search", detail: "The search box spans every topic, chapter and syllabus code across all your subjects." },
       { term: "Chapters fold away", detail: "The queue groups by chapter. The top one opens on arrival and the rest stay folded, each showing how many reviews it holds and how long they will take." },
       { term: "Every point carries its minutes", detail: "The time beside a point is its share of whichever plan put it there, so the whole queue adds up to a session you can actually sit." },
+      { term: "Say what you find hard", detail: "Every row carries a rating beside its status. Marking a point hard brings it back sooner and gives it a bigger slice of your planned hours; marking one easy does the reverse. Select several rows to rate them together." },
     ],
     tip: "An empty board is the goal, not a bug. It means nothing is due — pick a subject and push new content forward.",
   },
@@ -121,6 +149,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       { term: "It skips what is done", detail: "Points already Covered or Exam ready are left out, so the plan is the work that remains." },
       { term: "It adjusts", detail: "The required pace is recalculated from real progress, so falling behind changes the number rather than silently failing." },
       { term: "Time per point", detail: "Your weekly hours divided by the work still left. A point you have not started earns a full share, one you are practising earns less, and the plan says outright when the date leaves too little for either." },
+      { term: "Difficulty moves the hours, not the total", detail: "Minutes per point is your plan's time divided by the work left, so rating a point hard takes minutes from the ones you called easy rather than adding any to your week. Your weekly target never changes — only where it goes." },
     ],
     tip: "Scheduled dates appear on the review board next to reviews, so the plan and the queue are the same list.",
   },

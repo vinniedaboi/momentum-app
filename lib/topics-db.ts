@@ -1,5 +1,5 @@
 import { getSql, nowIso, type SqlClient } from "./db";
-import { REVIEW_INTERVALS } from "../app/topics";
+import { DIFFICULTIES, reviewInterval, type TopicDifficulty } from "../app/topics";
 import { seedTopics } from "./seed-data";
 import { recordTopicActivities } from "./topic-activity-db";
 import { subjectSlug } from "./subjects-db";
@@ -31,6 +31,7 @@ export type TopicRecord = {
   parentId: string | null;
   inScope: boolean;
   status: StudyStatus;
+  difficulty: TopicDifficulty;
   confidence: number | null;
   reviewedOn: string | null;
   reviewedAt: string | null;
@@ -67,8 +68,20 @@ function addDays(date: string, days: number) {
   return value.toISOString().slice(0, 10);
 }
 
-function intervalFor(status: StudyStatus) {
-  return REVIEW_INTERVALS[status];
+/** Unrated or unrecognised reads as normal, which bends nothing. */
+function difficultyOf(value: unknown): TopicDifficulty {
+  return DIFFICULTIES.includes(value as TopicDifficulty) ? value as TopicDifficulty : "normal";
+}
+
+/**
+ * When a point is next due, counted from the day it was last looked at rather
+ * than from today. Re-rating a point therefore moves the date it already has
+ * instead of restarting its clock: calling a chapter hard is an opinion about
+ * the work, not a claim to have just done it.
+ */
+function nextReviewDue(reviewedOn: string | null, status: StudyStatus, difficulty: TopicDifficulty) {
+  if (!reviewedOn || status === "Not Started") return null;
+  return addDays(reviewedOn, reviewInterval(status, difficulty));
 }
 
 function storedFor(status: StudyStatus): StoredStatus {
@@ -94,6 +107,7 @@ function mapTopic(row: Record<string, unknown>): TopicRecord {
     parentId: row.parent_id ? String(row.parent_id) : null,
     inScope: Boolean(row.in_scope),
     status: displayStatus(row.status as StoredStatus, Boolean(row.covered)),
+    difficulty: difficultyOf(row.difficulty),
     confidence: row.confidence == null ? null : Number(row.confidence),
     reviewedOn: row.reviewed_on ? String(row.reviewed_on) : null,
     reviewedAt: row.reviewed_at ? String(row.reviewed_at) : null,
@@ -300,6 +314,7 @@ export async function seedSubjectTopicsFromTemplate(workspaceId: string, subject
 export async function updateStudyTracking(workspaceId: string, input: {
   id: string;
   status?: StudyStatus;
+  difficulty?: TopicDifficulty;
   reviewedNow?: boolean;
   wholeChapter?: boolean;
   timeZone?: string;
@@ -307,23 +322,33 @@ export async function updateStudyTracking(workspaceId: string, input: {
   const sql = getSql();
 
   return sql.begin(async (tx) => {
-    const currentRows = await tx<{ status: StoredStatus; covered: boolean; kind: "chapter" | "point" }[]>`
-      SELECT status, covered, kind FROM topics
+    const currentRows = await tx<{
+      status: StoredStatus; covered: boolean; kind: "chapter" | "point";
+      difficulty: string | null; reviewed_on: string | null; reviewed_at: string | null;
+    }[]>`
+      SELECT status, covered, kind, difficulty, reviewed_on, reviewed_at FROM topics
       WHERE workspace_id = ${workspaceId} AND id = ${input.id}
     `;
     if (!currentRows.length) throw new Error("Topic not found.");
     const current = currentRows[0];
 
     const currentStatus = displayStatus(current.status, current.covered);
-    const status = input.status ?? (currentStatus === "Not Started" ? "Learning" : currentStatus);
+    const difficulty = input.difficulty ?? difficultyOf(current.difficulty);
+    // Rating a point is not studying it. On its own it re-dates the schedule the
+    // point already has and leaves everything else alone — the status it
+    // reached, the day it was last looked at, and any goal date still owing.
+    const rateOnly = input.difficulty !== undefined && input.status === undefined && !input.reviewedNow;
+    const status = rateOnly
+      ? currentStatus
+      : input.status ?? (currentStatus === "Not Started" ? "Learning" : currentStatus);
     if (!STATUSES.includes(status)) throw new Error("Invalid study status.");
 
     const spreadToChapter = Boolean(input.wholeChapter) && current.kind === "chapter";
     const today = localDate(input.timeZone);
     const now = nowIso();
-    const reviewedOn = status === "Not Started" ? null : today;
-    const reviewedAt = status === "Not Started" ? null : now;
-    const reviewDue = status === "Not Started" ? null : addDays(today, intervalFor(status));
+    const reviewedOn = rateOnly ? current.reviewed_on : status === "Not Started" ? null : today;
+    const reviewedAt = rateOnly ? current.reviewed_at : status === "Not Started" ? null : now;
+    const reviewDue = nextReviewDue(reviewedOn, status, difficulty);
 
     const previous = spreadToChapter
       ? await tx<{ id: string; status: StoredStatus; covered: boolean }[]>`
@@ -336,19 +361,21 @@ export async function updateStudyTracking(workspaceId: string, input: {
         `;
 
     // Clearing the goal date marks a scheduled point as handled; reverting to
-    // "Not Started" leaves it on the plan.
-    const keepGoalDue = status === "Not Started";
+    // "Not Started" leaves it on the plan, and so does a rating, which has not
+    // handled anything.
+    const keepGoalDue = rateOnly || status === "Not Started";
 
     if (spreadToChapter) {
       await tx`
         UPDATE topics SET
           status = ${storedFor(status)},
           covered = ${status === "Covered"},
+          difficulty = ${difficulty},
           reviewed_on = ${reviewedOn},
           reviewed_at = ${reviewedAt},
           review_due = ${reviewDue},
           goal_due = CASE WHEN ${keepGoalDue} THEN goal_due ELSE NULL END,
-          in_scope = true,
+          in_scope = CASE WHEN ${rateOnly} THEN in_scope ELSE true END,
           updated_at = ${now}
         WHERE workspace_id = ${workspaceId} AND (id = ${input.id} OR parent_id = ${input.id})
       `;
@@ -357,11 +384,12 @@ export async function updateStudyTracking(workspaceId: string, input: {
         UPDATE topics SET
           status = ${storedFor(status)},
           covered = ${status === "Covered"},
+          difficulty = ${difficulty},
           reviewed_on = ${reviewedOn},
           reviewed_at = ${reviewedAt},
           review_due = ${reviewDue},
           goal_due = CASE WHEN ${keepGoalDue} THEN goal_due ELSE NULL END,
-          in_scope = true,
+          in_scope = CASE WHEN ${rateOnly} THEN in_scope ELSE true END,
           updated_at = ${now}
         WHERE workspace_id = ${workspaceId} AND id = ${input.id}
       `;
@@ -402,6 +430,7 @@ export async function updateStudyTracking(workspaceId: string, input: {
 export async function updateSelectedStudyTracking(workspaceId: string, input: {
   ids: string[];
   status?: StudyStatus;
+  difficulty?: TopicDifficulty;
   reviewedNow?: boolean;
   timeZone?: string;
 }) {
@@ -411,10 +440,17 @@ export async function updateSelectedStudyTracking(workspaceId: string, input: {
   if (input.status && !STATUSES.includes(input.status)) throw new Error("Invalid study status.");
 
   return sql.begin(async (tx) => {
-    const current = await tx<{ id: string; status: StoredStatus; covered: boolean }[]>`
-      SELECT id, status, covered FROM topics
+    const current = await tx<{
+      id: string; status: StoredStatus; covered: boolean;
+      difficulty: string | null; reviewed_on: string | null; reviewed_at: string | null;
+    }[]>`
+      SELECT id, status, covered, difficulty, reviewed_on, reviewed_at FROM topics
       WHERE workspace_id = ${workspaceId} AND kind = 'point' AND id = ANY(${ids}::text[])
     `;
+
+    // As above: a rating on its own re-dates what is already scheduled rather
+    // than counting as a review of every point selected.
+    const rateOnly = input.difficulty !== undefined && input.status === undefined && !input.reviewedNow;
 
     const today = localDate(input.timeZone);
     const now = nowIso();
@@ -428,10 +464,13 @@ export async function updateSelectedStudyTracking(workspaceId: string, input: {
 
     for (const topic of current) {
       const currentStatus = displayStatus(topic.status, topic.covered);
-      const status = input.status ?? (currentStatus === "Not Started" ? "Learning" : currentStatus);
-      const reviewedOn = status === "Not Started" ? null : today;
-      const reviewedAt = status === "Not Started" ? null : now;
-      const reviewDue = status === "Not Started" ? null : addDays(today, intervalFor(status));
+      const difficulty = input.difficulty ?? difficultyOf(topic.difficulty);
+      const status = rateOnly
+        ? currentStatus
+        : input.status ?? (currentStatus === "Not Started" ? "Learning" : currentStatus);
+      const reviewedOn = rateOnly ? topic.reviewed_on : status === "Not Started" ? null : today;
+      const reviewedAt = rateOnly ? topic.reviewed_at : status === "Not Started" ? null : now;
+      const reviewDue = nextReviewDue(reviewedOn, status, difficulty);
 
       if (input.reviewedNow || currentStatus !== status) {
         activityEntries.push({
@@ -447,11 +486,12 @@ export async function updateSelectedStudyTracking(workspaceId: string, input: {
         UPDATE topics SET
           status = ${storedFor(status)},
           covered = ${status === "Covered"},
+          difficulty = ${difficulty},
           reviewed_on = ${reviewedOn},
           reviewed_at = ${reviewedAt},
           review_due = ${reviewDue},
-          goal_due = CASE WHEN ${status === "Not Started"} THEN goal_due ELSE NULL END,
-          in_scope = true,
+          goal_due = CASE WHEN ${rateOnly || status === "Not Started"} THEN goal_due ELSE NULL END,
+          in_scope = CASE WHEN ${rateOnly} THEN in_scope ELSE true END,
           updated_at = ${now}
         WHERE workspace_id = ${workspaceId} AND id = ${topic.id} AND kind = 'point'
       `;
@@ -506,8 +546,8 @@ export async function reviewStudyTopics(
     }
 
     const reviewIdList = [...reviewIds];
-    const current = await tx<{ id: string; status: StoredStatus; covered: boolean }[]>`
-      SELECT id, status, covered FROM topics
+    const current = await tx<{ id: string; status: StoredStatus; covered: boolean; difficulty: string | null }[]>`
+      SELECT id, status, covered, difficulty FROM topics
       WHERE workspace_id = ${workspaceId} AND id = ANY(${reviewIdList}::text[])
     `;
 
@@ -532,7 +572,7 @@ export async function reviewStudyTopics(
           covered = ${status === "Covered"},
           reviewed_on = ${input.reviewedOn},
           reviewed_at = ${occurredAt},
-          review_due = ${addDays(input.reviewedOn, intervalFor(status))},
+          review_due = ${addDays(input.reviewedOn, reviewInterval(status, difficultyOf(topic.difficulty)))},
           goal_due = NULL,
           in_scope = true,
           updated_at = ${now}

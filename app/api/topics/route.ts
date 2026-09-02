@@ -1,4 +1,5 @@
 import { getTopics, importSubjectTopics, STATUSES, updateSelectedStudyTracking, updateStudyTracking, type ImportTopicRow, type StudyStatus } from "../../../lib/topics-db";
+import { DIFFICULTIES, type TopicDifficulty } from "../../../app/topics";
 import { isKnownSubject } from "../../../lib/subjects-db";
 import { withWorkspace } from "../../../lib/auth";
 
@@ -74,11 +75,15 @@ export async function PATCH(request: Request) {
         id?: string;
         ids?: string[];
         status?: StudyStatus;
+        difficulty?: TopicDifficulty;
         reviewedNow?: boolean;
         wholeChapter?: boolean;
       };
       if (body.status && !STATUSES.includes(body.status)) {
         return Response.json({ error: "That status is not supported." }, { status: 400 });
+      }
+      if (body.difficulty !== undefined && !DIFFICULTIES.includes(body.difficulty)) {
+        return Response.json({ error: "Rate a point easy, normal or hard." }, { status: 400 });
       }
       if (body.ids) {
         const ids = [...new Set(body.ids.filter((id): id is string => typeof id === "string" && Boolean(id)))];
@@ -88,6 +93,7 @@ export async function PATCH(request: Request) {
         const topics = await updateSelectedStudyTracking(workspaceId, {
           ids,
           status: body.status,
+          difficulty: body.difficulty,
           reviewedNow: body.reviewedNow,
         });
         return Response.json({ topics });
@@ -96,6 +102,7 @@ export async function PATCH(request: Request) {
       const topics = await updateStudyTracking(workspaceId, {
         id: body.id,
         status: body.status,
+        difficulty: body.difficulty,
         reviewedNow: body.reviewedNow,
         wholeChapter: body.wholeChapter,
       });

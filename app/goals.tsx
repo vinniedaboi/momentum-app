@@ -326,8 +326,8 @@ export default function GoalPlanner({ goals, loading, topics, subjects, sessions
               </div>
               <div className="time-budget-split">
                 <div><b>{formatStudyTime(roundMinutes(plan.budget.minutesPerStudyDay))}</b><small>each study day</small></div>
-                <div><b>{formatStudyTime(pointMinutes("Practising", plan.budget))}</b><small>for one you are practising</small></div>
-                <div><b>{formatStudyTime(pointMinutes("Exam Ready", plan.budget))}</b><small>to read back one you know</small></div>
+                <div><b>{formatStudyTime(pointMinutes({ status: "Practising" }, plan.budget))}</b><small>for one you are practising</small></div>
+                <div><b>{formatStudyTime(pointMinutes({ status: "Exam Ready" }, plan.budget))}</b><small>to read back one you know</small></div>
               </div>
               <p className="time-budget-note">{plan.daysLeft ? verdictNote(plan.budget) : "Your finish date has passed. Move it to plan the rest."}</p>
             </section>

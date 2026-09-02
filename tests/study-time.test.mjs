@@ -50,7 +50,7 @@ test("partial credit buys back time for the points that still need it", () => {
                               { daysLeft: 14, weeklyHours: 10, studyDays: 5 });
   assert.ok(halfDone.minutesPerPoint > untouched.minutesPerPoint);
   // The point that is under way asks for less than the one that is not.
-  assert.ok(pointMinutes("Practising", halfDone) < pointMinutes("Not Started", halfDone));
+  assert.ok(pointMinutes({ status: "Practising" }, halfDone) < pointMinutes({ status: "Not Started" }, halfDone));
 });
 
 test("a deadline that has passed leaves no time rather than negative time", () => {
@@ -72,15 +72,15 @@ test("minutes are rounded to a five minute step, never below it", () => {
 });
 
 test("a point no plan owns falls back to a typical pass", () => {
-  assert.equal(pointMinutes("Not Started", null), TYPICAL_POINT_MINUTES);
+  assert.equal(pointMinutes({ status: "Not Started" }, null), TYPICAL_POINT_MINUTES);
   // A point nearly ready takes the floor, which is about right to read it back.
-  assert.equal(pointMinutes("Exam Ready", null), 5);
+  assert.equal(pointMinutes({ status: "Exam Ready" }, null), 5);
 });
 
 test("a chapter totals what its own rows show", () => {
   // Summed from the rounded figures, so the heading and the rows agree.
   const chapter = points("Not Started", "Practising", "Exam Ready");
-  const expected = chapter.reduce((sum, point) => sum + pointMinutes(point.status, null), 0);
+  const expected = chapter.reduce((sum, point) => sum + pointMinutes(point, null), 0);
   assert.equal(totalMinutes(chapter, () => null), expected);
 });
 
@@ -103,4 +103,64 @@ test("study days left follow the plan's own weekly rhythm", () => {
   const budget = timeBudget(points("Not Started"), { daysLeft: 28, weeklyHours: 10, studyDays: 5 });
   assert.equal(budget.studyDaysLeft, 20);
   assert.equal(budget.minutesPerStudyDay, budget.availableMinutes / 20);
+});
+
+const rated = (...pairs) => pairs.map(([status, difficulty]) => ({ status, difficulty }));
+
+test("a rating moves a point's share of the work without inventing any", () => {
+  assert.equal(remainingEffort("Practising", "normal"), remainingEffort("Practising"));
+  assert.ok(remainingEffort("Practising", "hard") > remainingEffort("Practising"));
+  assert.ok(remainingEffort("Practising", "easy") < remainingEffort("Practising"));
+  // An unrated point is a normal one, which is what every point was before
+  // ratings existed — so the arithmetic is unchanged for anyone who ignores it.
+  assert.equal(remainingEffort("Learning", null), remainingEffort("Learning"));
+  assert.equal(remainingEffort("Learning", "brutal"), remainingEffort("Learning"));
+});
+
+test("rating one point hard and another easy spends the same hours differently", () => {
+  const plan = { daysLeft: 14, weeklyHours: 10, studyDays: 5 };
+  const flat = timeBudget(points("Practising", "Practising"), plan);
+  const split = timeBudget(rated(["Practising", "hard"], ["Practising", "easy"]), plan);
+
+  // One up, one down, and the pot itself untouched.
+  assert.equal(split.availableMinutes, flat.availableMinutes);
+  assert.equal(split.remainingWork, flat.remainingWork);
+  assert.equal(split.minutesPerPoint, flat.minutesPerPoint);
+
+  const hard = pointMinutes({ status: "Practising", difficulty: "hard" }, split);
+  const easy = pointMinutes({ status: "Practising", difficulty: "easy" }, split);
+  const flatEach = pointMinutes({ status: "Practising" }, flat);
+  assert.ok(hard > flatEach, `hard ${hard} should beat ${flatEach}`);
+  assert.ok(easy < flatEach, `easy ${easy} should fall short of ${flatEach}`);
+  // These hours divide evenly, so the two rows come to exactly what the two
+  // unrated ones did. The test below says what holds when they do not.
+  assert.equal(hard + easy, flatEach * 2);
+});
+
+test("what is conserved is the budget, not the rounded rows", () => {
+  // Minutes are advice rounded to a five minute step, and three figures each
+  // rounded on their own can land a step apart from each other. The pot they
+  // are shares of is what has to be exact, so that is what is asserted exactly
+  // — the rows are allowed the rounding the whole module is built on.
+  const plan = { daysLeft: 30, weeklyHours: 10, studyDays: 5 };
+  const flat = timeBudget(points("Practising", "Practising"), plan);
+  const split = timeBudget(rated(["Practising", "hard"], ["Practising", "easy"]), plan);
+
+  assert.equal(split.availableMinutes, flat.availableMinutes);
+  assert.equal(split.remainingWork, flat.remainingWork);
+
+  const rows = pointMinutes({ status: "Practising", difficulty: "hard" }, split)
+    + pointMinutes({ status: "Practising", difficulty: "easy" }, split);
+  const flatRows = pointMinutes({ status: "Practising" }, flat) * 2;
+  assert.ok(Math.abs(rows - flatRows) <= roundMinutes(1), `${rows} vs ${flatRows} is more than one step apart`);
+});
+
+test("the struggling topic outranks the easy one however far ahead it is", () => {
+  // The complaint this answers: a topic you are drowning in, further along than
+  // one you find trivial, was still handed the smaller share.
+  const plan = { daysLeft: 30, weeklyHours: 10, studyDays: 5 };
+  const budget = timeBudget(rated(["Practising", "hard"], ["Learning", "easy"]), plan);
+  const struggling = pointMinutes({ status: "Practising", difficulty: "hard" }, budget);
+  const obvious = pointMinutes({ status: "Learning", difficulty: "easy" }, budget);
+  assert.ok(struggling > obvious, `${struggling} should beat ${obvious}`);
 });

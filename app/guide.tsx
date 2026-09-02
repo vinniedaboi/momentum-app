@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Icon from "./icons";
-import { CORE_LOOP, GUIDE_SECTIONS, STATUS_GUIDE } from "./guide-content";
+import { CORE_LOOP, DIFFICULTY_GUIDE, GUIDE_SECTIONS, STATUS_GUIDE } from "./guide-content";
 
 /**
  * The knowledge section: what every part of the app does, and the handful of
@@ -64,6 +64,34 @@ export default function GuideView({ onOpenView }: { onOpenView: (view: string) =
                 <th scope="row"><span className={`guide-status ${row.status.toLowerCase().replaceAll(" ", "-")}`}>{row.status}</span></th>
                 <td>{row.meaning}</td>
                 <td>{row.days ? `${row.days} days` : "Not scheduled"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div>
+          <p className="eyebrow">DIFFICULTY</p>
+          <h3>And what you make of it</h3>
+          <p className="muted">
+            A status is how far through a point you are. A rating is how it treats you, and it bends
+            both numbers below. The share is of the hours your plan already has — rating a point hard
+            takes minutes from the ones you called easy rather than adding any to your week.
+          </p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Rating</th><th scope="col">Means</th>
+              <th scope="col">A Practising point</th><th scope="col">Share of the hours</th>
+            </tr>
+          </thead>
+          <tbody>
+            {DIFFICULTY_GUIDE.map((row) => (
+              <tr key={row.difficulty}>
+                <th scope="row"><span className={`guide-status difficulty-${row.difficulty}`}>{row.label}</span></th>
+                <td>{row.meaning}</td>
+                <td>{row.days} days</td>
+                <td>{`${row.share}×`}</td>
               </tr>
             ))}
           </tbody>

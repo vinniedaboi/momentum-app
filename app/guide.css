@@ -129,6 +129,11 @@
 .guide-status.covered { background: var(--c-mint); color: var(--c-teal-ink); }
 .guide-status.exam-ready { background: var(--teal); color: var(--c-on-accent); }
 
+/* And the same for a rating, so the pill in the guide is the pill on the row. */
+.guide-status.difficulty-easy { background: var(--c-teal-soft); color: var(--c-teal-ink); }
+.guide-status.difficulty-normal { background: var(--c-surface-muted); color: var(--c-muted); }
+.guide-status.difficulty-hard { background: var(--c-rose-soft); color: var(--c-red-ink); }
+
 /* ---------- Sections ---------- */
 
 .guide-sections { display: grid; gap: var(--space-2); }

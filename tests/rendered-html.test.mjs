@@ -387,7 +387,7 @@ test("includes durable tracking, goals, grouped reviews, subject tasks, study ho
   assert.match(client, /Review board/);
   assert.match(client, /Select all reviews in/);
   assert.match(client, /Reviewed selected/);
-  assert.match(database, /intervalFor/);
+  assert.match(database, /reviewInterval/);
   assert.match(database, /review_due/);
   assert.match(database, /goal_due/);
   assert.match(database, /Covered/);
@@ -761,10 +761,18 @@ test("teaches the loop at sign-up, and keeps a guide to come back to", async () 
   // The intervals it quotes are the scheduler's own table, not prose that can
   // drift from it: the guide cannot promise a review in three days that the
   // scheduler gives in five.
-  assert.match(topics, /REVIEW_INTERVALS/);
+  assert.match(topics, /REVIEW_INTERVALS\[status\]/);
   assert.match(content, /REVIEW_INTERVALS/);
-  assert.match(scheduler, /return REVIEW_INTERVALS\[status\]/);
+  assert.match(scheduler, /reviewInterval\(status/);
   assert.ok(!scheduler.includes('=== "Learning" ? 3'), "the scheduler should read the shared table");
+
+  // A rating bends that interval and a point's share of the plan's hours, so
+  // the guide quotes both factors from the tables that apply them rather than
+  // describing them in prose that can drift.
+  assert.match(topics, /DIFFICULTY_PACE/);
+  assert.match(content, /reviewInterval\("Practising", difficulty\)/);
+  assert.match(content, /share: DIFFICULTY_EFFORT\[difficulty\]/);
+  assert.match(await read("app/guide.tsx"), /DIFFICULTY_GUIDE\.map/);
 
   // And it is a place in the app, not one screen at sign-up.
   assert.match(shell, /activeView === "Guide"/);

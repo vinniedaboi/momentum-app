@@ -559,14 +559,14 @@ function ExamPlan({ exam, topics, today, budget }: {
               <strong>{shortDate(date)}</strong>
               <small>
                 {items.length} topic{items.length === 1 ? "" : "s"} ·{" "}
-                {formatStudyTime(items.reduce((sum, topic) => sum + pointMinutes(topic.status, budget), 0))}
+                {formatStudyTime(items.reduce((sum, topic) => sum + pointMinutes(topic, budget), 0))}
               </small>
             </div>
             <ul>
               {items.map((topic) => (
                 <li key={topic.id} className={isComplete(topic) ? "done" : ""}>
                   <b>{topic.code}</b> {topic.title}
-                  <em>{formatStudyTime(pointMinutes(topic.status, budget))}</em>
+                  <em>{formatStudyTime(pointMinutes(topic, budget))}</em>
                 </li>
               ))}
             </ul>
