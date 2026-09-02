@@ -415,7 +415,8 @@ test("includes durable tracking, goals, grouped reviews, subject tasks, study ho
   assert.match(goalsDatabase, /UPDATE topics SET goal_due/);
   assert.match(goalsDatabase, /clearStudyGoalSchedule/);
   assert.match(goalsDatabase, /schedule_applied_at/);
-  assert.match(goalsDatabase, /if \(goal\.scheduleAppliedAt\) continue/);
+  // A goal whose plan is already written is left alone on read.
+  assert.match(goalsDatabase, /filter\(\(goal\) => !goal\.scheduleAppliedAt\)/);
   assert.match(goalsApi, /export async function POST/);
   assert.match(goalsApi, /export async function DELETE/);
   assert.match(goalsApi, /studyDays/);
@@ -832,7 +833,7 @@ test("offers the IB Diploma, split by level rather than by year", async () => {
   // catalogue knows rather than one the learner tracks.
   for (const route of ["goals", "exams", "flashcards", "notes"]) {
     const source = await read(`app/api/${route}/route.ts`);
-    assert.match(source, /subjectStages\(workspaceId/, `/api/${route} should read the subject's own stages`);
+    assert.match(source, /(?:subjectStages|getSubject)\(workspaceId/, `/api/${route} should read the subject's own stages`);
     assert.ok(!source.includes('["AS", "A2"]'), `/api/${route} still checks one board's stages`);
   }
   assert.match(migration, /drop constraint/);

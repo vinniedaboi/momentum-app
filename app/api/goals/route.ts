@@ -1,5 +1,5 @@
 import { deleteStudyGoal, getStudyGoals, saveStudyGoal } from "../../../lib/goals-db";
-import { subjectStages } from "../../../lib/subjects-db";
+import { getSubject } from "../../../lib/subjects-db";
 import { withWorkspace } from "../../../lib/auth";
 
 export const runtime = "nodejs";
@@ -31,7 +31,10 @@ export async function POST(request: Request) {
       };
       const weeklyHours = Number(body.weeklyHours);
       const studyDays = Number(body.studyDays);
-      const stages = await subjectStages(workspaceId, body.subjectId);
+      // Read once and carry it into the save: validating the stage and pacing
+      // the syllabus both need the same subject row.
+      const subject = body.subjectId ? await getSubject(workspaceId, body.subjectId) : null;
+      const stages = subject?.stages;
       if (!body.subjectId || !stages) {
         return Response.json({ error: "Choose a valid syllabus." }, { status: 400 });
       }
@@ -58,7 +61,7 @@ export async function POST(request: Request) {
         weeklyHours,
         studyDays,
         paceMode: body.paceMode,
-      });
+      }, subject);
       return Response.json({ goal });
     } catch (error) {
       console.error(error);
@@ -73,11 +76,11 @@ export async function DELETE(request: Request) {
       const params = new URL(request.url).searchParams;
       const subjectId = params.get("subjectId") ?? "";
       const stage = params.get("stage") ?? "";
-      const stages = await subjectStages(workspaceId, subjectId);
-      if (!stages?.includes(stage)) {
+      const subject = subjectId ? await getSubject(workspaceId, subjectId) : null;
+      if (!subject?.stages.includes(stage)) {
         return Response.json({ error: "Choose a valid syllabus." }, { status: 400 });
       }
-      await deleteStudyGoal(workspaceId, subjectId, stage);
+      await deleteStudyGoal(workspaceId, subjectId, stage, subject);
       return new Response(null, { status: 204 });
     } catch (error) {
       console.error(error);

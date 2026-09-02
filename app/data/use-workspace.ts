@@ -41,8 +41,10 @@ export function useStudyWorkspace(onError: (message: string) => void) {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [topicsFailed, setTopicsFailed] = useState(false);
   // Kept from the call below rather than fetched again: the board divides each
-  // goal's weekly hours across the points it still has to cover.
+  // goal's weekly hours across the points it still has to cover, and the goal
+  // planner reads the same list rather than requesting its own copy.
   const [goals, setGoals] = useState<StudyGoal[]>([]);
+  const [goalsLoading, setGoalsLoading] = useState(true);
 
   const reloadTopics = useCallback(async () => {
     try {
@@ -61,6 +63,9 @@ export function useStudyWorkspace(onError: (message: string) => void) {
       .get<{ goals: StudyGoal[] }>(studyApi.goals.path)
       .catch(() => null);
     if (data) setGoals(data.goals);
+    // Only ever the first load: a refresh after a save keeps the planner on
+    // screen rather than replacing it with its skeleton.
+    setGoalsLoading(false);
     await reloadTopics();
   }, [reloadTopics]);
 
@@ -77,6 +82,6 @@ export function useStudyWorkspace(onError: (message: string) => void) {
     papers,
     paperMeta,
     topics: { value: topics, setValue: setTopics, failed: topicsFailed, reload: reloadTopics },
-    goals: { value: goals, reload: reloadGoals },
+    goals: { value: goals, loading: goalsLoading, reload: reloadGoals },
   };
 }

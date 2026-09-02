@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { formatStudyTime, type StudySession } from "./study-hours";
 import { pointMinutes, roundMinutes, timeBudget, totalMinutes, verdictNote } from "./study-time";
 import type { Topic } from "./study-tracker-app";
@@ -8,7 +8,7 @@ import { progressWeight, syllabusProgress } from "./syllabus-progress";
 import { subjectName, type Subject } from "./subjects";
 import { currentStage, getTopicStage, type SyllabusStage } from "./syllabus-stage";
 import Icon from "./icons";
-import { api, apiMessage } from "./data/api";
+import { apiMessage } from "./data/api";
 import { studyApi } from "./data/endpoints";
 
 
@@ -73,7 +73,12 @@ function paceFraction(fraction: number, mode: PaceMode) {
   return fraction;
 }
 
-export default function GoalPlanner({ topics, subjects, sessions, today, onMessage, onScheduleChanged }: {
+export default function GoalPlanner({ goals, loading, topics, subjects, sessions, today, onMessage, onScheduleChanged }: {
+  /** Held by the shell, which loads them before first paint and refreshes them
+   * through `onScheduleChanged`. Fetching a second copy here cost the tab a
+   * round trip and a skeleton every time it was opened. */
+  goals: StudyGoal[];
+  loading: boolean;
   topics: Topic[];
   subjects: Subject[];
   sessions: StudySession[];
@@ -81,13 +86,11 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
   onMessage: (message: string) => void;
   onScheduleChanged: () => void | Promise<void>;
 }) {
-  const [goals, setGoals] = useState<StudyGoal[]>([]);
   const lookup = useMemo(() => new Map(subjects.map((item) => [item.id, item])), [subjects]);
   const tracked = useMemo(() => subjects.filter((item) => !item.archived && item.stages.length > 0), [subjects]);
   const [chosenSubject, setActiveSubject] = useState("");
   const [chosenStage, setActiveStage] = useState<SyllabusStage>("");
   const [editing, setEditing] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [startDate, setStartDate] = useState(today);
   const [targetDate, setTargetDate] = useState(addDays(today, 90));
@@ -95,23 +98,27 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
   const [studyDays, setStudyDays] = useState(5);
   const [paceMode, setPaceMode] = useState<PaceMode>("steady");
 
-  useEffect(() => {
-    api.get<{ goals: StudyGoal[] }>(studyApi.goals.path)
-      .then((data) => {
-        setGoals(data.goals);
-        if (data.goals[0]) {
-          setActiveSubject(data.goals[0].subjectId);
-          setActiveStage(data.goals[0].stage);
-          setStartDate(data.goals[0].startDate);
-          setTargetDate(data.goals[0].targetDate);
-          setWeeklyHours(data.goals[0].weeklyHours);
-          setStudyDays(data.goals[0].studyDays);
-          setPaceMode(data.goals[0].paceMode);
-        } else setEditing(true);
-      })
-      .catch(() => onMessage("Your syllabus goals could not load."))
-      .finally(() => setLoading(false));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // The planner opens on the first goal, or straight into setup when there are
+  // none. Adjusting state during the render rather than from an effect is
+  // React's own answer to a form whose defaults arrive after first paint: the
+  // extra pass runs before the browser paints, so no empty dates flash by.
+  // Seeded once, so refreshing the goals after a save does not pull the form
+  // off whatever the learner has since selected.
+  const [seeded, setSeeded] = useState(false);
+  if (!seeded && !loading) {
+    setSeeded(true);
+    const first = goals[0];
+    if (!first) setEditing(true);
+    else {
+      setActiveSubject(first.subjectId);
+      setActiveStage(first.stage);
+      setStartDate(first.startDate);
+      setTargetDate(first.targetDate);
+      setWeeklyHours(first.weeklyHours);
+      setStudyDays(first.studyDays);
+      setPaceMode(first.paceMode);
+    }
+  }
 
   const currentSubject = chosenSubject || tracked[0]?.id || "";
   const activeStage = currentStage(lookup.get(currentSubject), chosenStage);
@@ -200,7 +207,7 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
     event.preventDefault();
     setSaving(true);
     try {
-      const { goal: saved } = await studyApi.goals.save<{ goal: StudyGoal }>({
+      await studyApi.goals.save<{ goal: StudyGoal }>({
         subjectId: currentSubject,
         stage: activeStage,
         startDate,
@@ -209,7 +216,6 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
         studyDays,
         paceMode,
       });
-      setGoals((current) => [...current.filter((goal) => goal.subjectId !== saved.subjectId || goal.stage !== saved.stage), saved]);
       await onScheduleChanged();
       setEditing(false);
       onMessage(`${subjectName(lookup, currentSubject)} ${activeStage} plan added to your review board`);
@@ -226,7 +232,6 @@ export default function GoalPlanner({ topics, subjects, sessions, today, onMessa
       await studyApi.goals.remove(currentSubject, activeStage);
       await onScheduleChanged();
       const remaining = goals.filter((goal) => goal.subjectId !== currentSubject || goal.stage !== activeStage);
-      setGoals(remaining);
       if (remaining[0]) {
         selectGoal(remaining[0]);
       } else {

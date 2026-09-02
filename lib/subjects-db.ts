@@ -1,4 +1,4 @@
-import { getSql, nowIso } from "./db";
+import { getSql, nowIso, type SqlClient } from "./db";
 
 /**
  * Subjects are the tenant-configurable spine of the tracker. Every other table
@@ -124,9 +124,8 @@ function mapSubject(row: Record<string, unknown>): Subject {
   };
 }
 
-export async function getSubjects(workspaceId: string) {
-  const sql = getSql();
-  const rows = await sql<Record<string, unknown>[]>`
+export async function getSubjects(workspaceId: string, executor: SqlClient = getSql()) {
+  const rows = await executor<Record<string, unknown>[]>`
     SELECT * FROM subjects
     WHERE workspace_id = ${workspaceId}
     ORDER BY position, name
@@ -134,9 +133,15 @@ export async function getSubjects(workspaceId: string) {
   return rows.map(mapSubject);
 }
 
-export async function getSubject(workspaceId: string, id: string) {
-  const sql = getSql();
-  const rows = await sql<Record<string, unknown>[]>`
+/**
+ * `executor` defaults to the pool, but a caller already inside `sql.begin()`
+ * must pass its transaction handle. Reaching for the pool from within a
+ * transaction deadlocks on Vercel, where the pool is one connection wide: the
+ * transaction holds it, the second query queues behind the transaction that is
+ * waiting on it, and the request never returns.
+ */
+export async function getSubject(workspaceId: string, id: string, executor: SqlClient = getSql()) {
+  const rows = await executor<Record<string, unknown>[]>`
     SELECT * FROM subjects WHERE workspace_id = ${workspaceId} AND id = ${id}
   `;
   return rows.length ? mapSubject(rows[0]) : null;

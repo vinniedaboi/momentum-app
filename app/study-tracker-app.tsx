@@ -130,7 +130,7 @@ export default function StudyTrackerApp() {
   const { value: pastPapers, setValue: setPastPapers, failed: papersError } = workspace.papers;
   const { value: paperMeta, setValue: setPaperMeta } = workspace.paperMeta;
   const { value: exams } = workspace.exams;
-  const { value: goals, reload: refreshGoals } = workspace.goals;
+  const { value: goals, loading: goalsLoading, reload: refreshGoals } = workspace.goals;
   const [activeView, setActiveView] = useState<ActiveView>("Today");
   const [queueFilter, setQueueFilter] = useState<QueueFilter>("all");
   const [query, setQuery] = useState("");
@@ -632,7 +632,7 @@ export default function StudyTrackerApp() {
         ) : activeView === "Calendar" ? (
           <CalendarView topics={topics} subjects={subjectLookup} sessions={studySessions} tasks={tasks} today={today} onMessage={setMessage} />
         ) : activeView === "Goals" ? (
-          <GoalPlanner topics={topics} subjects={subjects} sessions={studySessions} today={today} onMessage={setMessage} onScheduleChanged={refreshGoals} />
+          <GoalPlanner goals={goals} loading={goalsLoading} topics={topics} subjects={subjects} sessions={studySessions} today={today} onMessage={setMessage} onScheduleChanged={refreshGoals} />
         ) : activeView === "Exams" ? (
           <ExamPlanner topics={topics} subjects={subjects} today={today} onMessage={setMessage} />
         ) : activeView === "Papers" ? (
