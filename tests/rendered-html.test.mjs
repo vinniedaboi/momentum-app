@@ -1151,7 +1151,15 @@ test("the landing page leads with the six features the product is for", async ()
   const shots = [...landing.matchAll(/shot: "([\w-]+)" as const/g)].map((match) => match[1]);
   assert.equal(shots.length, pillars.length, "every pillar needs its own screenshot");
   assert.equal(shots[0], "review-board");
-  assert.match(landing, /className={index === 0 \? "landing-pillar lead"/);
+  // The review board leads, and any pillar may claim the full width — the paper
+  // catalogue is a table, and a table in half a column is unreadable.
+  assert.match(landing, /index === 0 \|\| "wide" in pillar \? "landing-pillar lead"/);
+  assert.match(landing, /shot: "past-papers" as const,\s*\n\s*wide: true,/);
+
+  // Difficulty is a claim about the exam boards' own numbers, so the copy says
+  // where it comes from rather than presenting it as an opinion of ours.
+  assert.match(landing, /grade boundaries actually landed/);
+  assert.match(landing, /Difficulty read from the paper's own grade thresholds/);
 
   // Everything else is listed as what comes with them, not sold beside them.
   assert.match(landing, /Everything else comes with them/);

@@ -147,6 +147,10 @@
 /* ---------- The six, alternating ---------- */
 
 .landing-pillar { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(var(--space-6), 4vw, var(--space-9)); align-items: center; padding: clamp(var(--space-8), 6vw, var(--space-11)) 0; }
+/* Reversed swaps the columns as well as the order, or the screenshot would
+   land in the narrower of the two and every other one would be smaller than
+   the one above it. */
+.landing-pillar.reversed { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
 .landing-pillar.reversed .landing-feature-copy { order: 2; }
 .landing-pillar .landing-shot { margin: 0; }
 

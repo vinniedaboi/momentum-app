@@ -50,8 +50,8 @@ const SHOTS = [
   {
     file: "past-papers",
     width: 1440,
-    height: 900,
-    alt: "The Momentum past papers screen, showing five logged attempts with a 78.8% average and a 90.7% best, above a searchable catalogue of Cambridge papers with grade thresholds and mark schemes.",
+    height: 1240,
+    alt: "The Momentum past papers screen: five logged attempts averaging 78.8%, above a searchable catalogue of Cambridge papers filtered by year, season, paper, variant and difficulty, each row showing its difficulty and its A, B and C grade thresholds alongside links to the question paper, mark scheme and examiner report.",
   },
   {
     file: "study-log",
@@ -116,73 +116,74 @@ const PILLARS = [
   {
     shot: "review-board" as const,
     eyebrow: "REVIEW BOARD",
-    title: "Open it, and the day is already decided",
-    body: "Overdue, due today and the week ahead, above a queue grouped by chapter. Every row says which plan put it there, how long your plan can afford it, and how hard you told it you find the topic.",
+    title: "Stop deciding what to study",
+    body: "Every spec point across every subject already has a date, so the day's list is worked out before you open it. You stop picking the chapter that happens to be nearest, and nothing quietly falls off the syllabus because you forgot it was there.",
     ticks: [
-      "One queue for reviews, goal work and exam revision",
-      "Filter to a single subject, or to what is overdue",
-      "Update one point, a whole chapter, or a selection at once",
-      "Due homework and coursework surface alongside",
+      "Reviews, goal work and exam revision in one queue",
+      "Overdue, due today and the week ahead, counted",
+      "Narrow it to one subject when you only have an hour",
+      "Due homework and coursework sit alongside",
     ],
   },
   {
     shot: "syllabus-import" as const,
     eyebrow: "SYLLABUS IMPORT",
-    title: "Your syllabus, already loaded",
-    body: "Pick your subjects at sign-up and most arrive with their full official structure — every chapter and spec point, in order, parsed from the exam board's own documents. Nothing to type in.",
+    title: "A percentage that actually means something",
+    body: "Your subjects arrive with the exam board's own chapters and spec points, in order. So 58% covered means 58% of the syllabus — not 58% of a list you wrote yourself, which is the number that leaves half a paper untouched and still reads as nearly done.",
     ticks: [
       "Cambridge, IB, Edexcel, AQA and OCR",
-      "AS and A2 — or SL and HL — tracked separately",
-      "Bring your own: paste an outline or import a CSV",
-      "Replace a syllabus later without losing the account",
+      "AS and A2 — or SL and HL — measured separately",
+      "Nothing to type in: pick the subject, get the syllabus",
+      "Or bring your own by pasting an outline",
     ],
   },
   {
     shot: "syllabus-goals" as const,
     eyebrow: "SYLLABUS GOALS",
-    title: "Turn &ldquo;finish by March&rdquo; into what to do on Tuesday",
-    body: "Set the finish date, the hours you have each week and the days you study. Every outstanding spec point gets its own date, and points you have already finished are left out — so the plan only ever shows work that is still real.",
+    title: "Finish the syllabus before the exam, not after it",
+    body: "Give it the date you want to be done and it spreads everything you have not covered across the days you actually study. You get a date on each spec point and a pace to hold — and when you slip, it tells you the new pace rather than letting the deadline arrive quietly.",
     ticks: [
-      "Steady, front-loaded or finish-line pacing",
-      "Dates land only on days you said you study",
-      "The required pace recalculates as you fall behind or get ahead",
-      "Every point carries the minutes your plan can afford it",
+      "How much is left, and how far ahead or behind you are",
+      "Chapter-by-chapter milestones between now and the date",
+      "The minutes each remaining point can realistically get",
+      "Says outright when a date leaves too little time",
     ],
   },
   {
     shot: "exam-planner" as const,
     eyebrow: "EXAM PLANNING",
-    title: "A mock rarely covers the whole syllabus",
-    body: "So the exam planner asks which topics it actually includes. Tick whole chapters or individual points, and the selection is spread across the run-up with the same pacing choices as a goal.",
+    title: "Walk into each paper knowing you covered it",
+    body: "A mock in three weeks covers chapters 1 to 6, not the course. Tick what it actually includes and the run-up is built around that — so the fortnight before a paper goes on what the paper asks, and readiness is a number rather than a feeling.",
     ticks: [
-      "Countdown, readiness and required pace per paper",
-      "Study hours counted from the exam's own topics",
-      "Tick a topic off the revision plan as you go",
-      "One topic can sit in several exams, each with its own dates",
+      "A countdown, and how ready you are against it",
+      "Hours counted only from that exam's own topics",
+      "Tick topics off the revision plan as you cover them",
+      "Mocks and the real paper planned side by side",
     ],
   },
   {
     shot: "past-papers" as const,
+    wide: true,
     eyebrow: "PAST PAPERS",
-    title: "The same three topics usually cost the marks",
-    body: "Log every attempt with its score, grade, timing and conditions, and tag the spec points behind each lost mark. The pattern stops being a feeling and becomes a list.",
+    title: "Find the three topics costing you the marks",
+    body: "It is usually the same three. Record each attempt against the spec points that lost the marks and the pattern stops being a suspicion — then those points go back onto the review board, instead of being the thing you keep meaning to look at. Every Cambridge paper is there to work from, and each one is rated by where its grade boundaries actually landed, so a hard paper is one the examiners had to drop the A threshold for.",
     ticks: [
-      "Score, percentage, grade and time taken per attempt",
+      "Score, grade, timing and conditions on every attempt",
       "Weak topics tagged to the syllabus point that lost them",
-      "A searchable catalogue of Cambridge papers built in",
-      "Question papers, mark schemes, examiner reports and thresholds",
+      "Difficulty read from the paper's own grade thresholds",
+      "Question papers, mark schemes and examiner reports, linked",
     ],
   },
   {
     shot: "study-log" as const,
     eyebrow: "STUDY LOG",
-    title: "Log the session once",
-    body: "Minutes against a date and a subject, with the topics you covered attached. Logging the session also marks those topics reviewed and reschedules them — one action instead of two.",
+    title: "Log it once, and everything else stays current",
+    body: "Put in the hours and tick what you covered. That one act marks those topics reviewed, books their next date, moves your syllabus percentage, and counts towards whichever goal or exam owns them. There is nothing to keep in step by hand.",
     ticks: [
-      "Daily and weekly totals, and your study rhythm",
-      "Copy a YPT total straight in, or add sessions one at a time",
-      "Hours checked against the target your plan set",
-      "Counts towards the goal or exam that owns the topic",
+      "Daily and weekly totals, and your real study rhythm",
+      "Paste a YPT total in, or add sessions one at a time",
+      "Hours checked against the target your own plan set",
+      "No second place to update after you have studied",
     ],
   },
 ];
@@ -289,8 +290,8 @@ export default function Landing({ stats }: { stats: LandingStats }) {
           <p className="eyebrow">FOR A LEVEL, IGCSE AND IB STUDENTS</p>
           <h1>Know exactly what to review next.</h1>
           <p className="landing-lede">
-            Momentum turns your official syllabus into a day-by-day revision schedule,
-            then keeps it honest as the exam gets closer. No planning session required.
+            Momentum loads your real syllabus, tracks how much of it you have actually
+            covered, and paces the rest so you finish before the exam — not the week after.
           </p>
           <div className="landing-hero-actions">
             <Link href="/signup" className="landing-cta large">Create a free account</Link>
@@ -344,7 +345,7 @@ export default function Landing({ stats }: { stats: LandingStats }) {
         {PILLARS.map((pillar, index) => (
           <section
             key={pillar.eyebrow}
-            className={index === 0 ? "landing-pillar lead" : `landing-pillar ${index % 2 === 0 ? "" : "reversed"}`}
+            className={index === 0 || "wide" in pillar ? "landing-pillar lead" : `landing-pillar ${index % 2 === 0 ? "" : "reversed"}`}
             id={index === 0 ? "features" : undefined}
           >
             <div className="landing-feature-copy">
@@ -355,7 +356,7 @@ export default function Landing({ stats }: { stats: LandingStats }) {
                 {pillar.ticks.map((tick) => <li key={tick}>{tick}</li>)}
               </ul>
             </div>
-            <Shot name={pillar.shot} priority={index === 0} wide={index === 0} />
+            <Shot name={pillar.shot} priority={index === 0} wide={index === 0 || "wide" in pillar} />
           </section>
         ))}
 
