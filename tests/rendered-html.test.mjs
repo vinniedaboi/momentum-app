@@ -1132,6 +1132,7 @@ test("every landing screenshot is real, described, and follows the reader's them
 
 test("the landing page leads with the six features the product is for", async () => {
   const landing = await read("app/landing.tsx");
+  const names = [...landing.matchAll(/file: "([\w-]+)"/g)].map((match) => match[1]);
 
   // Named because they are the pitch. A page that gives twelve features equal
   // weight tells a reader nothing about which one to come for, which is what
@@ -1153,8 +1154,22 @@ test("the landing page leads with the six features the product is for", async ()
   assert.equal(shots[0], "review-board");
   // The review board leads, and any pillar may claim the full width — the paper
   // catalogue is a table, and a table in half a column is unreadable.
-  assert.match(landing, /index === 0 \|\| "wide" in pillar \? "landing-pillar lead"/);
+  assert.match(landing, /index === 0 \|\| "wide" in pillar \? "lead"/);
   assert.match(landing, /shot: "past-papers" as const,\s*\n\s*wide: true,/);
+
+  // The two screens a single frame cannot make the case for: the board's
+  // counters mean nothing without the queue they are counting, and a goal's
+  // summary is a summary of a chapter timeline the first shot stops above.
+  // Both get a second frame, and both therefore have to run full width.
+  const paired = [...landing.matchAll(/shot2: "([\w-]+)" as const/g)].map((match) => match[1]);
+  assert.deepEqual(paired, ["review-queue", "goal-detail"]);
+  for (const name of paired) {
+    assert.ok(names.includes(name), `${name} needs an entry in SHOTS`);
+  }
+  assert.match(landing, /shot2: "goal-detail" as const,\s*\n\s*wide: true,/);
+  // A second frame with no caption is just a bigger picture: each one says what
+  // it adds that the frame above it did not.
+  assert.equal((landing.match(/caption2: "/g) ?? []).length, paired.length);
 
   // Difficulty is a claim about the exam boards' own numbers, so the copy says
   // where it comes from rather than presenting it as an opinion of ours.

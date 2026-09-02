@@ -154,6 +154,18 @@
 .landing-pillar.reversed .landing-feature-copy { order: 2; }
 .landing-pillar .landing-shot { margin: 0; }
 
+/* Two frames where one cannot hold the point: a screen's summary and the detail
+   underneath it are different claims, and the second only lands full width —
+   half a column cannot render a table of dates legibly. */
+.landing-shot-stack { display: grid; gap: clamp(var(--space-5), 3vw, var(--space-7)); }
+.landing-shot figcaption {
+  margin-top: var(--space-3);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  text-align: center;
+}
+
 /* The first one stacks: it is the screen the whole product is for, and it
    carries the picture the hero would otherwise have. */
 .landing-pillar.lead { grid-template-columns: minmax(0, 1fr); gap: var(--space-7); padding-top: var(--space-6); }

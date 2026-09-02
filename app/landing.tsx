@@ -30,6 +30,12 @@ const SHOTS = [
     alt: "The Momentum review board, showing five overdue topics, nine due today and sixteen in the next seven days, above a queue of syllabus points grouped by chapter, each row naming the plan that scheduled it and how long it is worth.",
   },
   {
+    file: "review-queue",
+    width: 1440,
+    height: 1078,
+    alt: "The Momentum review queue expanded to individual syllabus points: stress and strain two days overdue and marked hard, elastic and plastic behaviour due today for a Physics P2 mock, the Young modulus, strain energy and Hooke's law each carrying the plan that scheduled it, how long it is worth, and a status of learning, practising, covered or exam ready.",
+  },
+  {
     file: "syllabus-import",
     width: 1000,
     height: 820,
@@ -40,6 +46,12 @@ const SHOTS = [
     width: 1440,
     height: 900,
     alt: "A Physics AS syllabus goal in Momentum, showing 57% progress, days remaining, the required weekly pace, whether the plan is on track, and how many minutes each syllabus point is worth.",
+  },
+  {
+    file: "goal-detail",
+    width: 1440,
+    height: 490,
+    alt: "The chapter timeline of a Momentum syllabus goal: Deformation of solids 59% covered with nineteen hours left and flagged as needing attention, then Ideal gases due 17 September, Temperature due 4 October and Thermal properties due 24 October, each with its own percentage, points covered and hours remaining.",
   },
   {
     file: "exam-planner",
@@ -64,10 +76,11 @@ const SHOTS = [
 type ShotName = (typeof SHOTS)[number]["file"];
 
 /** A screenshot that follows the reader's theme, as the app itself does. */
-function Shot({ name, priority = false, wide = false }: {
+function Shot({ name, priority = false, wide = false, caption }: {
   name: ShotName;
   priority?: boolean;
   wide?: boolean;
+  caption?: string;
 }) {
   const shot = SHOTS.find((item) => item.file === name)!;
   return (
@@ -84,6 +97,7 @@ function Shot({ name, priority = false, wide = false }: {
           sizes={wide ? "(max-width: 900px) 100vw, 1100px" : "(max-width: 900px) 100vw, 640px"}
         />
       </picture>
+      {caption ? <figcaption>{caption}</figcaption> : null}
     </figure>
   );
 }
@@ -115,6 +129,9 @@ const LOOP = [
 const PILLARS = [
   {
     shot: "review-board" as const,
+    shot2: "review-queue" as const,
+    caption: "The top of the board: what is overdue, what is due today, and how much of the syllabus you have actually covered.",
+    caption2: "The queue underneath, opened out. Every syllabus point carries the plan that scheduled it, how long it is worth, when it is due, and how hard you find it.",
     eyebrow: "REVIEW BOARD",
     title: "Stop deciding what to study",
     body: "Every spec point across every subject already has a date, so the day's list is worked out before you open it. You stop picking the chapter that happens to be nearest, and nothing quietly falls off the syllabus because you forgot it was there.",
@@ -139,6 +156,10 @@ const PILLARS = [
   },
   {
     shot: "syllabus-goals" as const,
+    shot2: "goal-detail" as const,
+    wide: true,
+    caption: "Where the plan stands today: how long is left, the pace it needs, and whether you are ahead of it or behind.",
+    caption2: "And the route it works out to: every chapter with a date of its own, how much of it is covered, and how many hours are still in it.",
     eyebrow: "SYLLABUS GOALS",
     title: "Finish the syllabus before the exam, not after it",
     body: "Give it the date you want to be done and it spreads everything you have not covered across the days you actually study. You get a date on each spec point and a pace to hold — and when you slip, it tells you the new pace rather than letting the deadline arrive quietly.",
@@ -187,6 +208,21 @@ const PILLARS = [
     ],
   },
 ];
+
+/**
+ * Where each of the six sits. A section runs full width when one column is too
+ * narrow to read what is in the picture — the review board's queue, the goal's
+ * chapter timeline, the paper catalogue — and the rest sit beside their
+ * screenshot, alternating sides.
+ *
+ * The alternation counts only those: counting raw positions would put every
+ * side-by-side section on the same side once the full-width ones are taken out
+ * of the sequence.
+ */
+let sides = 0;
+const LAYOUTS = PILLARS.map((pillar, index) =>
+  index === 0 || "wide" in pillar ? "lead" : sides++ % 2 === 0 ? "" : "reversed",
+);
 
 /** What comes with them. Named, not sold. */
 const ALSO = [
@@ -345,7 +381,7 @@ export default function Landing({ stats }: { stats: LandingStats }) {
         {PILLARS.map((pillar, index) => (
           <section
             key={pillar.eyebrow}
-            className={index === 0 || "wide" in pillar ? "landing-pillar lead" : `landing-pillar ${index % 2 === 0 ? "" : "reversed"}`}
+            className={`landing-pillar ${LAYOUTS[index]}`.trimEnd()}
             id={index === 0 ? "features" : undefined}
           >
             <div className="landing-feature-copy">
@@ -356,7 +392,17 @@ export default function Landing({ stats }: { stats: LandingStats }) {
                 {pillar.ticks.map((tick) => <li key={tick}>{tick}</li>)}
               </ul>
             </div>
-            <Shot name={pillar.shot} priority={index === 0} wide={index === 0 || "wide" in pillar} />
+            <div className="landing-shot-stack">
+              <Shot
+                name={pillar.shot}
+                priority={index === 0}
+                wide={LAYOUTS[index] === "lead"}
+                caption={pillar.caption}
+              />
+              {pillar.shot2 ? (
+                <Shot name={pillar.shot2} wide={LAYOUTS[index] === "lead"} caption={pillar.caption2} />
+              ) : null}
+            </div>
           </section>
         ))}
 
