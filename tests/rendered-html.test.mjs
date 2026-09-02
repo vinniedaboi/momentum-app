@@ -1030,3 +1030,24 @@ test("rating a point never takes it off the review board", async () => {
   const guide = await read("app/guide-content.ts");
   assert.match(guide, /never defers a review you already owe/);
 });
+
+test("the review board shows every point that is due, not the first thirty", async () => {
+  const shell = await read("app/study-tracker-app.tsx");
+  const route = await read("app/api/topics/route.ts");
+
+  // The queue was sliced to thirty while the counters above it reported the
+  // real total, so a learner with a backlog was told about work the board would
+  // not show — and anything past the cut could not be reached at all.
+  assert.ok(!/queue\.slice\(0, *\d+\)/.test(shell), "the queue must not be truncated");
+  assert.match(shell, /queue\.forEach\(\(topic\) => \{/);
+
+  // Folding is what keeps a long board readable, not hiding rows: a closed
+  // chapter renders none of them, so grouping the lot stays cheap.
+  assert.match(shell, /\{isOpen && \(/);
+
+  // A full board can now hand more ids to "Select all" than the route accepts
+  // in one go, so the selection is sent in parts rather than rejected whole.
+  assert.match(shell, /const SELECTION_LIMIT = 200;/);
+  assert.match(shell, /start \+= SELECTION_LIMIT/);
+  assert.match(route, /ids\.length > 200/, "the client's limit should be the route's own");
+});

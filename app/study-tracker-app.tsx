@@ -123,6 +123,9 @@ function examSchedule(exams: PlannedExam[]) {
   return due;
 }
 
+/** What /api/topics accepts in one selection, so a bigger one is sent in parts. */
+const SELECTION_LIMIT = 200;
+
 function daysUntil(today: string, date: string) {
   return Math.round((Date.parse(date) - Date.parse(today)) / 86400000);
 }
@@ -244,7 +247,12 @@ export default function StudyTrackerApp() {
   const queueGroups = useMemo(() => {
     const chapterById = new Map(topics.filter((topic) => topic.kind === "chapter").map((topic) => [topic.id, topic]));
     const groups = new Map<string, QueueGroup>();
-    queue.slice(0, 30).forEach((topic) => {
+    // Every due point, not the first thirty of them. The queue was silently
+    // truncated while the counters above it went on reporting the true total,
+    // so a learner with a real backlog was told about work the board would not
+    // show them — and anything past the cut simply did not exist. Grouping the
+    // lot is cheap because a folded chapter renders no rows at all.
+    queue.forEach((topic) => {
       const key = topic.parentId ?? `${topic.subjectId}:${topic.section ?? "Other"}`;
       const group = groups.get(key) ?? { key, chapter: topic.parentId ? chapterById.get(topic.parentId) ?? null : null, items: [] };
       group.items.push(topic);
@@ -363,8 +371,16 @@ export default function StudyTrackerApp() {
     if (!ids.length) return;
     setUpdating((current) => new Set([...current, ...ids]));
     try {
-      const data = await studyApi.topics.update<{ topics: Topic[] }>({ ids, ...options });
-      const changed = new Map(data.topics.map((item) => [item.id, item]));
+      // The route takes 200 ids at a time, and a full board can now hand over
+      // more than that in one "Select all".
+      const changed = new Map<string, Topic>();
+      for (let start = 0; start < ids.length; start += SELECTION_LIMIT) {
+        const data = await studyApi.topics.update<{ topics: Topic[] }>({
+          ids: ids.slice(start, start + SELECTION_LIMIT),
+          ...options,
+        });
+        for (const item of data.topics) changed.set(item.id, item);
+      }
       setTopics((current) => current.map((item) => changed.get(item.id) ?? item));
       setSelectedReviews(new Set());
       setMessage(options.reviewedNow ? `${ids.length} reviews logged and rescheduled`
