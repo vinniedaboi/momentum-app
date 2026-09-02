@@ -161,6 +161,8 @@ export default function StudyTrackerApp() {
   const { value: goals, loading: goalsLoading, reload: refreshGoals } = workspace.goals;
   const [activeView, setActiveView] = useState<ActiveView>("Today");
   const [queueFilter, setQueueFilter] = useState<QueueFilter>("all");
+  /** A subject id, or "" for the whole board. */
+  const [subjectFilter, setSubjectFilter] = useState("");
   const [query, setQuery] = useState("");
   const [openChapters, setOpenChapters] = useState<Set<string>>(new Set());
   // Null until the learner opens or closes a chapter on the board, which is
@@ -216,16 +218,65 @@ export default function StudyTrackerApp() {
   const points = useMemo(() => topics.filter((topic) => topic.kind === "point"), [topics]);
   const examDue = useMemo(() => examSchedule(exams), [exams]);
   const dueOn = useCallback((topic: Topic) => scheduledDate(topic, examDue.get(topic.id)?.date), [examDue]);
-  const tracked = useMemo(() => points.filter((topic) => dueOn(topic)), [points, dueOn]);
+  /**
+   * Everything due inside the board's week, before the subject filter, so the
+   * picker can say how much work each subject is holding. Reading that before
+   * choosing is most of the point: it is what turns "narrow this down" into
+   * "start where the backlog is".
+   */
+  const dueSoon = useMemo(() => points.filter((topic) => {
+    const due = dueOn(topic);
+    return due && due <= addDays(today, 7);
+  }), [points, today, dueOn]);
+
+  const subjectQueueCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const topic of dueSoon) counts.set(topic.subjectId, (counts.get(topic.subjectId) ?? 0) + 1);
+    return counts;
+  }, [dueSoon]);
+
+  // Subjects with work waiting, plus whichever is chosen — a subject worked
+  // down to nothing has to stay in the list, or choosing it would be a way of
+  // leaving the board with no way back.
+  const filterableSubjects = useMemo(
+    () => trackedSubjects.filter((subject) => subjectQueueCounts.has(subject.id) || subject.id === subjectFilter),
+    [trackedSubjects, subjectQueueCounts, subjectFilter],
+  );
+
+  // The subject filter is applied here rather than to the queue, so the three
+  // counters above the queue and the queue itself are answering the same
+  // question. Counters that disagree with the list under them are how a board
+  // ends up promising work it will not show.
+  const tracked = useMemo(
+    () => points.filter((topic) => dueOn(topic) && (!subjectFilter || topic.subjectId === subjectFilter)),
+    [points, dueOn, subjectFilter],
+  );
   const overdue = useMemo(() => tracked.filter((topic) => dueOn(topic)! < today), [tracked, today, dueOn]);
   const dueToday = useMemo(() => tracked.filter((topic) => dueOn(topic) === today), [tracked, today, dueOn]);
   const upcoming = useMemo(
     () => tracked.filter((topic) => dueOn(topic)! > today && dueOn(topic)! <= addDays(today, 7)),
     [tracked, today, dueOn],
   );
-  const progress = syllabusProgress(points);
-  const progressBands = progressSegments(points);
+  // The progress card sits in a row with three counters that follow the subject
+  // filter, so it follows it too rather than reporting the whole account beside
+  // one subject's numbers.
+  const boardPoints = useMemo(
+    () => (subjectFilter ? points.filter((topic) => topic.subjectId === subjectFilter) : points),
+    [points, subjectFilter],
+  );
+  const progress = syllabusProgress(boardPoints);
+  const progressBands = progressSegments(boardPoints);
+
   const dueTaskCount = tasks.filter((task) => !task.completed && task.dueDate <= today).length;
+  /**
+   * What the nav badge counts. Deliberately the whole board rather than the
+   * filtered view: the badge is on every screen, and a workload that shrank
+   * because of a filter set on another screen would be a lie told everywhere.
+   */
+  const boardDueCount = useMemo(
+    () => dueSoon.filter((topic) => dueOn(topic)! <= today).length + dueTaskCount,
+    [dueSoon, today, dueOn, dueTaskCount],
+  );
   const donePaperCount = pastPapers.filter((paper) => paper.status === "done").length;
   const timelineTopic = timelineTopicId ? topics.find((topic) => topic.id === timelineTopicId) ?? null : null;
   const todayStudyMinutes = studySessions
@@ -581,7 +632,7 @@ export default function StudyTrackerApp() {
         <nav aria-label="Main navigation">
           <button className={`nav-item ${activeView === "Today" ? "active" : ""}`} onClick={() => selectView("Today")}>
             <span className="nav-label"><Icon name="review" className="nav-symbol" />Review board</span>
-            {(overdue.length + dueToday.length + dueTaskCount) > 0 && <b>{overdue.length + dueToday.length + dueTaskCount}</b>}
+            {boardDueCount > 0 && <b>{boardDueCount}</b>}
           </button>
           <button className={`nav-item ${activeView === "Tasks" ? "active" : ""}`} onClick={() => selectView("Tasks")}>
             <span className="nav-label"><Icon name="tasks" className="nav-symbol task-symbol" />Tasks</span>
@@ -666,6 +717,24 @@ export default function StudyTrackerApp() {
             <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search topics" placeholder="Search topic, chapter or code" />
             {query && <button onClick={() => setQuery("")} aria-label="Clear search"><Icon name="close" /></button>}
           </label>}
+          {/* Sits above the counters because it changes them: pick a subject and
+              the whole board — overdue, due today, the week ahead and the queue
+              under them — is that subject's. */}
+          {activeView === "Today" && !query && filterableSubjects.length > 1 && (
+            <select
+              className="subject-filter"
+              value={subjectFilter}
+              aria-label="Filter the review board by subject"
+              onChange={(event) => { setSubjectFilter(event.target.value); setSelectedReviews(new Set()); setOpenGroups(null); }}
+            >
+              <option value="">All subjects ({dueSoon.length})</option>
+              {filterableSubjects.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name} ({subjectQueueCounts.get(subject.id) ?? 0})
+                </option>
+              ))}
+            </select>
+          )}
           <ThemeToggle />
           </div>
         </header>
@@ -730,13 +799,16 @@ export default function StudyTrackerApp() {
               <div className="section-heading">
                 <div>
                   <p className="eyebrow">YOUR QUEUE</p>
-                  <h3>{queueFilter === "all" ? "Review next" : queueFilter === "today" ? "Due today" : queueFilter === "overdue" ? "Overdue reviews" : "Coming up"}</h3>
+                  <h3>
+                    {queueFilter === "all" ? "Review next" : queueFilter === "today" ? "Due today" : queueFilter === "overdue" ? "Overdue reviews" : "Coming up"}
+                    {subjectFilter ? <span className="queue-subject">{subjectName(subjectLookup, subjectFilter)}</span> : null}
+                  </h3>
                   {queue.length > 0 && <span className="queue-total">About {formatStudyTime(queueMinutes)} of work, at the pace your plans set</span>}
                 </div>
                 <div className="queue-heading-actions">
                   {queueGroups.length > 1 && <button className="ghost-button" onClick={() => setOpenGroups(openQueueGroups.size === queueGroups.length ? new Set() : new Set(queueGroups.map((group) => group.key)))}>{openQueueGroups.size === queueGroups.length ? "Collapse all" : "Expand all"}</button>}
                   {queue.length > 0 && <button className="ghost-button" onClick={() => toggleReviewSelection(visibleQueueIds)}>{visibleQueueIds.every((id) => selectedReviews.has(id)) ? "Clear selection" : "Select all"}</button>}
-                  {queueFilter !== "all" && <button className="ghost-button" onClick={() => { setQueueFilter("all"); setSelectedReviews(new Set()); setOpenGroups(null); }}>Show all</button>}
+                  {(queueFilter !== "all" || subjectFilter) && <button className="ghost-button" onClick={() => { setQueueFilter("all"); setSubjectFilter(""); setSelectedReviews(new Set()); setOpenGroups(null); }}>Show all</button>}
                 </div>
               </div>
               {queue.length ? (
@@ -823,7 +895,7 @@ export default function StudyTrackerApp() {
         >
           <Icon name="review" />
           <span>Today</span>
-          {overdue.length + dueToday.length + dueTaskCount > 0 && <b>{overdue.length + dueToday.length + dueTaskCount}</b>}
+          {boardDueCount > 0 && <b>{boardDueCount}</b>}
         </button>
         <button
           className={`bottom-nav-item ${activeView === "Tasks" ? "active" : ""}`}
