@@ -103,21 +103,9 @@ function Shot({ name, priority = false, wide = false, caption }: {
 }
 
 const LOOP = [
-  {
-    icon: "hours" as const,
-    title: "Log what you studied",
-    body: "Minutes against a subject, and the syllabus points you covered. That single action also marks those points reviewed.",
-  },
-  {
-    icon: "review" as const,
-    title: "Topics reschedule themselves",
-    body: "Every point you touch is given its next date automatically, from how far through it you are and how hard you find it.",
-  },
-  {
-    icon: "spark" as const,
-    title: "The board tells you what is next",
-    body: "Open it and work the list. No planning session, no deciding where to start.",
-  },
+  { icon: "hours" as const, title: "Log what you studied", body: "Minutes, and the spec points you covered." },
+  { icon: "review" as const, title: "Topics reschedule themselves", body: "Every point you touched gets its next date." },
+  { icon: "spark" as const, title: "The board says what is next", body: "Open it and work the list. No planning session." },
 ];
 
 /**
@@ -130,26 +118,24 @@ const PILLARS = [
   {
     shot: "review-board" as const,
     shot2: "review-queue" as const,
-    caption: "The top of the board: what is overdue, what is due today, and how much of the syllabus you have actually covered.",
-    caption2: "The queue underneath, opened out. Every syllabus point carries the plan that scheduled it, how long it is worth, when it is due, and how hard you find it.",
+    caption: "What is overdue, what is due today, how much you have covered.",
+    caption2: "And the queue itself — every point with its date, what it is worth, and how hard you find it.",
     eyebrow: "REVIEW BOARD",
     title: "Stop deciding what to study",
-    body: "Every spec point across every subject already has a date, so the day's list is worked out before you open it. You stop picking the chapter that happens to be nearest, and nothing quietly falls off the syllabus because you forgot it was there.",
+    body: "Every spec point already has a date, so the day's list is worked out before you open it. Nothing falls off the syllabus because you forgot it was there.",
     ticks: [
       "Reviews, goal work and exam revision in one queue",
       "Overdue, due today and the week ahead, counted",
       "Narrow it to one subject when you only have an hour",
-      "Due homework and coursework sit alongside",
     ],
   },
   {
     shot: "syllabus-import" as const,
     eyebrow: "SYLLABUS IMPORT",
     title: "A percentage that actually means something",
-    body: "Your subjects arrive with the exam board's own chapters and spec points, in order. So 58% covered means 58% of the syllabus — not 58% of a list you wrote yourself, which is the number that leaves half a paper untouched and still reads as nearly done.",
+    body: "Your subjects arrive with the exam board's own chapters and spec points, in order. So 58% covered means 58% of the syllabus — not 58% of a list you wrote yourself.",
     ticks: [
       "Cambridge, IB, Edexcel, AQA and OCR",
-      "AS and A2 — or SL and HL — measured separately",
       "Nothing to type in: pick the subject, get the syllabus",
       "Or bring your own by pasting an outline",
     ],
@@ -158,15 +144,14 @@ const PILLARS = [
     shot: "syllabus-goals" as const,
     shot2: "goal-detail" as const,
     wide: true,
-    caption: "Where the plan stands today: how long is left, the pace it needs, and whether you are ahead of it or behind.",
-    caption2: "And the route it works out to: every chapter with a date of its own, how much of it is covered, and how many hours are still in it.",
+    caption: "How long is left, the pace it needs, whether you are ahead or behind.",
+    caption2: "And the route to it — every chapter with a date of its own.",
     eyebrow: "SYLLABUS GOALS",
     title: "Finish the syllabus before the exam, not after it",
-    body: "Give it the date you want to be done and it spreads everything you have not covered across the days you actually study. You get a date on each spec point and a pace to hold — and when you slip, it tells you the new pace rather than letting the deadline arrive quietly.",
+    body: "Give it your finish date. It spreads what is left across the days you actually study, puts a date on every point, and tells you the new pace when you slip.",
     ticks: [
       "How much is left, and how far ahead or behind you are",
       "Chapter-by-chapter milestones between now and the date",
-      "The minutes each remaining point can realistically get",
       "Says outright when a date leaves too little time",
     ],
   },
@@ -174,12 +159,11 @@ const PILLARS = [
     shot: "exam-planner" as const,
     eyebrow: "EXAM PLANNING",
     title: "Walk into each paper knowing you covered it",
-    body: "A mock in three weeks covers chapters 1 to 6, not the course. Tick what it actually includes and the run-up is built around that — so the fortnight before a paper goes on what the paper asks, and readiness is a number rather than a feeling.",
+    body: "A mock in three weeks covers chapters 1 to 6, not the course. Tick what it includes, and the run-up is built around that — readiness as a number, not a feeling.",
     ticks: [
       "A countdown, and how ready you are against it",
       "Hours counted only from that exam's own topics",
       "Tick topics off the revision plan as you cover them",
-      "Mocks and the real paper planned side by side",
     ],
   },
   {
@@ -187,9 +171,8 @@ const PILLARS = [
     wide: true,
     eyebrow: "PAST PAPERS",
     title: "Find the three topics costing you the marks",
-    body: "It is usually the same three. Record each attempt against the spec points that lost the marks and the pattern stops being a suspicion — then those points go back onto the review board, instead of being the thing you keep meaning to look at. Every Cambridge paper is there to work from, and each one is rated by where its grade boundaries actually landed, so a hard paper is one the examiners had to drop the A threshold for.",
+    body: "It is usually the same three. Log an attempt against the points that lost the marks and they go straight back on the review board. Every Cambridge paper is here, each rated by where its grade boundaries actually landed — a hard paper is one the examiners had to drop the A threshold for.",
     ticks: [
-      "Score, grade, timing and conditions on every attempt",
       "Weak topics tagged to the syllabus point that lost them",
       "Difficulty read from the paper's own grade thresholds",
       "Question papers, mark schemes and examiner reports, linked",
@@ -199,12 +182,11 @@ const PILLARS = [
     shot: "study-log" as const,
     eyebrow: "STUDY LOG",
     title: "Log it once, and everything else stays current",
-    body: "Put in the hours and tick what you covered. That one act marks those topics reviewed, books their next date, moves your syllabus percentage, and counts towards whichever goal or exam owns them. There is nothing to keep in step by hand.",
+    body: "Put in the hours, tick what you covered. That one act marks those topics reviewed, books their next date, and moves your syllabus percentage. Nothing to keep in step by hand.",
     ticks: [
       "Daily and weekly totals, and your real study rhythm",
       "Paste a YPT total in, or add sessions one at a time",
       "Hours checked against the target your own plan set",
-      "No second place to update after you have studied",
     ],
   },
 ];
@@ -226,12 +208,12 @@ const LAYOUTS = PILLARS.map((pillar, index) =>
 
 /** What comes with them. Named, not sold. */
 const ALSO = [
-  { icon: "calendar" as const, title: "Calendar", body: "Reviews, deadlines, sessions, milestones and exam days in one month view, filterable by source." },
-  { icon: "flashcards" as const, title: "Flashcards", body: "Decks scoped to a subject, stage or chapter, with a five-level mastery rating and CSV import." },
-  { icon: "tasks" as const, title: "Tasks", body: "Homework and coursework with a due date, priority and your own labels." },
-  { icon: "notes" as const, title: "Notes library", body: "PDFs, documents, slides and images filed by subject, stage and chapter." },
-  { icon: "trending" as const, title: "History", body: "Every review, status change, session and paper, newest first." },
-  { icon: "subjects" as const, title: "Subject setup", body: "Add, reorder, recolour or archive subjects, and set which papers belong to which stage." },
+  { icon: "calendar" as const, title: "Calendar", body: "Reviews, deadlines, sessions and exam days in one month." },
+  { icon: "flashcards" as const, title: "Flashcards", body: "Decks scoped to a subject or chapter, with CSV import." },
+  { icon: "tasks" as const, title: "Tasks", body: "Homework and coursework, with a due date and a priority." },
+  { icon: "notes" as const, title: "Notes library", body: "PDFs, slides and images, filed by subject and chapter." },
+  { icon: "trending" as const, title: "History", body: "Every review, session and paper, newest first." },
+  { icon: "subjects" as const, title: "Subject setup", body: "Add, reorder, recolour or archive your subjects." },
 ];
 
 const FAQ = [
@@ -324,18 +306,17 @@ export default function Landing({ stats }: { stats: LandingStats }) {
       <main>
         <section className="landing-hero">
           <p className="eyebrow">FOR A LEVEL, IGCSE AND IB STUDENTS</p>
-          <h1>Know exactly what to review next.</h1>
+          {/* The motto. It was buried two screens down as the setup for a
+              paragraph nobody needed: it is the whole argument, so it leads. */}
+          <h1>Revision planning eats the time you meant to spend revising.</h1>
           <p className="landing-lede">
-            Momentum loads your real syllabus, tracks how much of it you have actually
-            covered, and paces the rest so you finish before the exam — not the week after.
+            Momentum does the planning. Open it, and you know what to review next.
           </p>
           <div className="landing-hero-actions">
             <Link href="/signup" className="landing-cta large">Create a free account</Link>
             <Link href="/login" className="landing-ghost large">I already have one</Link>
           </div>
-          <p className="landing-hero-note">
-            Free, with no limits. Your syllabus is loaded for you at sign-up.
-          </p>
+          <p className="landing-hero-note">Free, no limits, syllabus loaded at sign-up.</p>
           <ul className="landing-pillar-strip" aria-label="What Momentum does">
             {PILLARS.map((pillar) => (
               <li key={pillar.eyebrow}>{pillar.eyebrow.toLowerCase().replace(/^./, (c) => c.toUpperCase())}</li>
@@ -344,21 +325,10 @@ export default function Landing({ stats }: { stats: LandingStats }) {
         </section>
 
         <section className="landing-stats" aria-label="What is loaded in">
-          <div><strong>{number(stats.subjects)}</strong><span>subjects to choose from</span></div>
-          <div><strong>{number(stats.syllabuses)}</strong><span>with the full syllabus loaded</span></div>
-          <div><strong>{number(stats.specPoints)}</strong><span>spec points parsed from the official documents</span></div>
-          <div><strong>{number(stats.papers)}</strong><span>past papers in the catalogue</span></div>
-        </section>
-
-        <section className="landing-problem">
-          <h2>Revision planning eats the time you meant to spend revising.</h2>
-          <p>
-            A spreadsheet for the syllabus, a notes app for the notes, a folder of past
-            papers, a calendar for the deadlines. Nothing talks to anything else, so the
-            honest answer to <em>what should I revise right now</em> takes twenty minutes
-            to work out — and usually gets skipped.
-          </p>
-          <p><strong>Momentum answers that question in one screen.</strong></p>
+          <div><strong>{number(stats.subjects)}</strong><span>subjects</span></div>
+          <div><strong>{number(stats.syllabuses)}</strong><span>syllabuses loaded in full</span></div>
+          <div><strong>{number(stats.specPoints)}</strong><span>spec points parsed</span></div>
+          <div><strong>{number(stats.papers)}</strong><span>past papers</span></div>
         </section>
 
         <section id="how-it-works" className="landing-loop">
@@ -411,9 +381,8 @@ export default function Landing({ stats }: { stats: LandingStats }) {
             <p className="eyebrow">NOTHING TO CONFIGURE</p>
             <h2>Set a status. The next review is scheduled from it.</h2>
             <p>
-              These are the actual intervals the scheduler uses, not an illustration of
-              them. Marking a topic hard brings its review forward and gives it a bigger
-              share of your planned hours; marking one easy does the reverse.
+              These are the real intervals, not an illustration of them. Mark a topic
+              hard and its review comes forward; mark one easy and it goes back.
             </p>
           </div>
           <table>
@@ -468,10 +437,7 @@ export default function Landing({ stats }: { stats: LandingStats }) {
 
         <section className="landing-close">
           <h2>Open the app. Work the list.</h2>
-          <p>
-            Setup takes about a minute: your details, the subjects you study, and your
-            syllabus is loaded for you.
-          </p>
+          <p>About a minute to set up. Pick your subjects, and the syllabus loads itself.</p>
           <div className="landing-hero-actions">
             <Link href="/signup" className="landing-cta large">Create a free account</Link>
             <Link href="/login" className="landing-ghost large">Sign in</Link>

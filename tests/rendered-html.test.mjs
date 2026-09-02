@@ -1178,7 +1178,10 @@ test("the landing page leads with the six features the product is for", async ()
 
   // Everything else is listed as what comes with them, not sold beside them.
   assert.match(landing, /Everything else comes with them/);
-  const also = [...landing.matchAll(/icon: "\w+" as const, title: "([^"]+)"/g)].map((m) => m[1]);
+  // Scoped to the array itself: the three-step loop above it is written the
+  // same way, and counting both made the secondary list look twice its size.
+  const alsoBlock = landing.match(/const ALSO = \[[\s\S]*?\n\];/)?.[0] ?? "";
+  const also = [...alsoBlock.matchAll(/title: "([^"]+)"/g)].map((m) => m[1]);
   assert.ok(also.length > 0 && also.length <= 8, `the secondary list should stay short, found ${also.length}`);
   for (const secondary of also) {
     assert.ok(!pillars.includes(secondary.toUpperCase()), `${secondary} is both a pillar and a footnote`);
