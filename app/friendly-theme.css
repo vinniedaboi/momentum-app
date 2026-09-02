@@ -904,15 +904,16 @@ input, select, textarea { color: var(--ink); }
   .topbar-tools .search-box { flex: 1 1 200px; }
   .subject-filter { flex: 1 1 100%; width: auto; max-width: none; height: 48px; }
 
-  /* The goal chips scroll sideways, but `calc(100vw - 32px)` ignored the card's
-     own padding, so the rail ran past the card edge and the last chip was cut
-     mid-word with nothing to show it continued. */
+  /* The goal chips scrolled sideways, and `calc(100vw - 32px)` ignored the
+     card's own padding, so the rail ran past the card edge and the last chip
+     was cut mid-word with nothing to show it continued. A phone has room for
+     two chips a row and a student has a handful of subjects, so they wrap:
+     nothing is hidden, and nothing has to be discovered by dragging. */
   .goal-switcher > div {
     max-width: 100%; min-width: 0;
-    overflow-x: auto; padding-bottom: var(--space-1);
-    scrollbar-width: none;
+    flex-wrap: wrap; overflow-x: visible;
+    row-gap: var(--space-2);
   }
-  .goal-switcher > div::-webkit-scrollbar { display: none; }
 
   /* Label beside value leaves the label about 110px at this width, so
      "Papers attempted" and "papers with mark schemes" wrapped to three lines
