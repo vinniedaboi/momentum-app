@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Topic } from "./study-tracker-app";
-import { formatStudyTime } from "./study-hours";
+import { formatStudyTime, type StudySession } from "./study-hours";
 import { pointMinutes, roundMinutes, timeBudget, type TimeBudget } from "./study-time";
 import { subjectName, type Subject } from "./subjects";
+import type { StudyStatus } from "./topics";
 import { getTopicStage, subjectHasStages, type SyllabusStage } from "./syllabus-stage";
 import { api, apiMessage } from "./data/api";
 import { studyApi } from "./data/endpoints";
@@ -56,6 +57,56 @@ function shortDate(date: string) {
     .format(new Date(`${date}T00:00:00Z`));
 }
 
+function formatHours(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
+}
+
+/**
+ * Whether the run-up is being kept to, on the same reading the goal planner
+ * uses: how much of the exam should be behind you by today if the work were
+ * spread evenly across the window you gave it, against how much actually is.
+ *
+ * An exam differs from a goal in what it means to arrive. A syllabus goal can
+ * run past its date and still be worth finishing; an exam cannot, so a plan
+ * with nothing left says so outright rather than reporting a pace of zero.
+ */
+function examReadiness(exam: Exam, done: number, today: string) {
+  const total = exam.topics.length;
+  const totalDays = Math.max(1, daysBetween(exam.startDate, exam.examDate));
+  const elapsed = Math.max(0, Math.min(totalDays, daysBetween(exam.startDate, today)));
+  const daysLeft = Math.max(0, daysBetween(today, exam.examDate));
+  const expected = Math.min(total, Math.ceil(total * elapsed / totalDays));
+  const left = Math.max(0, total - done);
+  const weeklyPace = daysLeft > 0 ? Math.ceil(left / daysLeft * 7) : left;
+  return {
+    total,
+    done,
+    left,
+    daysLeft,
+    expected,
+    weeklyPace,
+    perStudyDay: exam.studyDays ? weeklyPace / exam.studyDays : weeklyPace,
+    ready: total > 0 && left === 0,
+    onTrack: done >= expected,
+  };
+}
+
+/**
+ * Hours logged against the exam's subject in the last seven days, read the same
+ * way the goal planner reads them. Subject rather than topic: a session records
+ * the topics it covered only when a learner ticks them, and an hour of revision
+ * is no less real for having gone unticked.
+ */
+function weekMinutes(sessions: StudySession[], subjectId: string, today: string) {
+  const weekStart = addDays(today, -6);
+  return sessions
+    .filter((session) => session.subjectId === subjectId
+      && session.studyDate >= weekStart && session.studyDate <= today)
+    .reduce((sum, session) => sum + session.minutes, 0);
+}
+
 function isComplete(topic: Topic) {
   return topic.status === "Covered" || topic.status === "Exam Ready";
 }
@@ -97,10 +148,16 @@ function blankForm(subjectId: string, today: string): FormState {
   };
 }
 
-export default function ExamPlanner({ topics, subjects, today, onMessage }: {
+export default function ExamPlanner({ topics, subjects, sessions, today, updating, updateTopic, onMessage }: {
   topics: Topic[];
   subjects: Subject[];
+  /** For the hours actually put in, against the hours the plan asked for. */
+  sessions: StudySession[];
   today: string;
+  /** Topic ids the shell has a write in flight for, so a box cannot be double-ticked. */
+  updating: Set<string>;
+  /** The shell's own writer, so ticking a topic here is the same act as ticking it on the board. */
+  updateTopic: (topic: Topic, options: { status?: StudyStatus }) => void;
   onMessage: (message: string) => void;
 }) {
   const [exams, setExams] = useState<Exam[]>([]);
@@ -296,6 +353,9 @@ export default function ExamPlanner({ topics, subjects, today, onMessage }: {
                 weeklyHours: exam.weeklyHours,
                 studyDays: exam.studyDays,
               });
+              const readiness = examReadiness(exam, covered, today);
+              const loggedMinutes = weekMinutes(sessions, exam.subjectId, today);
+              const targetMinutes = exam.weeklyHours * 60;
 
               return (
                 <li key={exam.id} className={`exam-card ${days < 0 ? "past" : ""}`}>
@@ -331,6 +391,48 @@ export default function ExamPlanner({ topics, subjects, today, onMessage }: {
                       </span>
                     ) : null}
                   </p>
+                  {/*
+                    * The same four questions the goal planner answers, asked of
+                    * one paper: how long is left, how fast that means going,
+                    * whether the run-up is being kept to, and whether the hours
+                    * promised are actually being put in.
+                    */}
+                  <section className="exam-metrics" aria-label={`Progress towards ${exam.title}`}>
+                    <article>
+                      <span>Time remaining</span>
+                      <strong>{Math.max(0, days)}</strong>
+                      <small>{days < 0 ? "the exam has passed" : `day${days === 1 ? "" : "s"} until the paper`}</small>
+                    </article>
+                    <article>
+                      <span>Required pace</span>
+                      <strong>{readiness.ready ? "Done" : readiness.weeklyPace}</strong>
+                      <small>
+                        {readiness.ready
+                          ? "every topic on this paper is covered"
+                          : `topic${readiness.weeklyPace === 1 ? "" : "s"}/week · about ${readiness.perStudyDay.toFixed(1)} per study day`}
+                      </small>
+                    </article>
+                    <article className={readiness.onTrack ? "on-track" : "behind"}>
+                      <span>Exam readiness</span>
+                      <strong>
+                        {readiness.ready ? "Ready" : readiness.onTrack ? "On track" : `${readiness.expected - readiness.done} behind`}
+                      </strong>
+                      <small>
+                        {readiness.ready
+                          ? "nothing left to revise"
+                          : `${readiness.expected} of ${readiness.total} should be done by today`}
+                      </small>
+                    </article>
+                    <article>
+                      <span>Study hours</span>
+                      <strong>{formatHours(loggedMinutes)}</strong>
+                      <small>of {exam.weeklyHours}h in the last 7 days</small>
+                      <div className="mini-progress">
+                        <i style={{ width: `${Math.min(100, targetMinutes ? loggedMinutes / targetMinutes * 100 : 0)}%` }} />
+                      </div>
+                    </article>
+                  </section>
+
                   {exam.notes ? <p className="exam-notes">{exam.notes}</p> : null}
 
                   <div className="exam-actions">
@@ -343,7 +445,9 @@ export default function ExamPlanner({ topics, subjects, today, onMessage }: {
                     </button>
                   </div>
 
-                  {openPlanId === exam.id ? <ExamPlan exam={exam} topics={topicLookup} today={today} budget={budget} /> : null}
+                  {openPlanId === exam.id
+                    ? <ExamPlan exam={exam} topics={topicLookup} today={today} budget={budget} updating={updating} updateTopic={updateTopic} />
+                    : null}
                 </li>
               );
             })}
@@ -516,13 +620,15 @@ export default function ExamPlanner({ topics, subjects, today, onMessage }: {
   );
 }
 
-/** The generated revision schedule, grouped by day. */
-function ExamPlan({ exam, topics, today, budget }: {
+/** The generated revision schedule, grouped by day, and tickable in place. */
+function ExamPlan({ exam, topics, today, budget, updating, updateTopic }: {
   exam: Exam;
   topics: Map<string, Topic>;
   today: string;
   /** The exam's own time budget, so a day says how long it will take. */
   budget: TimeBudget | null;
+  updating: Set<string>;
+  updateTopic: (topic: Topic, options: { status?: StudyStatus }) => void;
 }) {
   const days = useMemo(() => {
     const byDate = new Map<string, Topic[]>();
@@ -563,12 +669,30 @@ function ExamPlan({ exam, topics, today, budget }: {
               </small>
             </div>
             <ul>
-              {items.map((topic) => (
-                <li key={topic.id} className={isComplete(topic) ? "done" : ""}>
-                  <b>{topic.code}</b> {topic.title}
-                  <em>{formatStudyTime(pointMinutes(topic, budget))}</em>
-                </li>
-              ))}
+              {items.map((topic) => {
+                const complete = isComplete(topic);
+                const busy = updating.has(topic.id);
+                return (
+                  <li key={topic.id} className={complete ? "done" : ""}>
+                    {/*
+                      * The same write the review board makes, from the screen a
+                      * learner is already on. Revising for a paper and saying so
+                      * should not be two trips.
+                      */}
+                    <label className="plan-tick">
+                      <input
+                        type="checkbox"
+                        checked={complete}
+                        disabled={busy}
+                        aria-label={`Mark ${topic.code} ${topic.title} as covered`}
+                        onChange={(event) => updateTopic(topic, { status: event.target.checked ? "Covered" : "Practising" })}
+                      />
+                      <span><b>{topic.code}</b> {topic.title}</span>
+                    </label>
+                    <em>{formatStudyTime(pointMinutes(topic, budget))}</em>
+                  </li>
+                );
+              })}
             </ul>
           </li>
         ))}

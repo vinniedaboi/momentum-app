@@ -917,3 +917,52 @@ test("every shell carries the copyright line, from one source", async () => {
     assert.match(block, /grid-template-rows: 1fr auto/, `${rule} would push its card off centre`);
   }
 });
+
+test("an exam answers the same four questions a syllabus goal does", async () => {
+  const exams = await read("app/exams.tsx");
+
+  // A goal says how long is left, how fast that means going, whether the plan
+  // is being kept to, and whether the promised hours are going in. An exam is
+  // the same plan with a date that cannot move, so it says all four too.
+  for (const metric of ["Time remaining", "Required pace", "Exam readiness", "Study hours"]) {
+    assert.match(exams, new RegExp(`<span>${metric}</span>`), `the exam card does not report ${metric}`);
+  }
+  assert.match(exams, /examReadiness/);
+  assert.match(exams, /weekMinutes\(sessions/, "study hours should come from logged sessions");
+  assert.match(exams, /onTrack \? "on-track" : "behind"/);
+
+  // Ticking a topic off the revision plan is the review board's own write, not
+  // a second way to record the same thing.
+  assert.match(exams, /type="checkbox"/, "the revision plan should be tickable");
+  assert.match(exams, /updateTopic\(topic, \{ status: event\.target\.checked/);
+  const shell = await read("app/study-tracker-app.tsx");
+  assert.match(shell, /<ExamPlanner[^>]*updateTopic=\{updateTopic\}/, "the shell should lend the exam planner its writer");
+  assert.match(shell, /<ExamPlanner[^>]*sessions=\{studySessions\}/);
+});
+
+test("both planners' metric cards are styled by the same rules", async () => {
+  // The cards were built for goals and lent to exams. Every rule that dresses
+  // one has to name the other, or an exam card silently loses an accent — which
+  // is how the readiness card shipped blue while reporting that you were behind.
+  const css = await read("app/globals.css");
+  const missing = [...css.matchAll(/\.goal-metrics(?![-\w])[^,{]*/g)]
+    .map((match) => match[0].trim())
+    .filter((selector) => !css.includes(`.exam-metrics${selector.slice(".goal-metrics".length)}`));
+  assert.deepEqual(missing, [], `these goal-metric rules do not cover .exam-metrics: ${missing.join(", ")}`);
+});
+
+test("the type scale climbs, and starts above a footnote", async () => {
+  const tokens = await read("app/tokens.css");
+  const steps = ["3xs", "2xs", "xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl", "5xl"]
+    .map((step) => {
+      const found = tokens.match(new RegExp(`--text-${step}: (\\d+)px`));
+      assert.ok(found, `--text-${step} is missing`);
+      return Number(found[1]);
+    });
+  // The smallest step carries real information — a status, a due date, the
+  // minutes on a row — so it is not allowed back down to a footnote.
+  assert.ok(steps[0] >= 11, `the smallest step is ${steps[0]}px`);
+  for (let i = 1; i < steps.length; i += 1) {
+    assert.ok(steps[i] > steps[i - 1], `step ${i} (${steps[i]}px) does not exceed ${steps[i - 1]}px`);
+  }
+});

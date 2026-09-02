@@ -643,7 +643,7 @@ export default function StudyTrackerApp() {
         ) : activeView === "Goals" ? (
           <GoalPlanner goals={goals} loading={goalsLoading} topics={topics} subjects={subjects} sessions={studySessions} today={today} onMessage={setMessage} onScheduleChanged={refreshGoals} />
         ) : activeView === "Exams" ? (
-          <ExamPlanner topics={topics} subjects={subjects} today={today} onMessage={setMessage} />
+          <ExamPlanner topics={topics} subjects={subjects} sessions={studySessions} today={today} updating={updating} updateTopic={updateTopic} onMessage={setMessage} />
         ) : activeView === "Papers" ? (
           papersError ? <section className="empty-state"><strong>Your past papers could not load.</strong><p>Refresh the page to try again.</p></section> :
           <PastPapersView papers={pastPapers} meta={paperMeta} today={today} saving={paperSaving} busyIds={paperBusyIds} onAdd={addPastPaper} onUpdate={updatePastPaper} onDelete={deletePastPaper} onSaveMeta={savePaperMeta} />

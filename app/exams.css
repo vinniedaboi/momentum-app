@@ -80,6 +80,14 @@
 .exam-plan-days ul li b { color: var(--ink); font-weight: 900; margin-right: var(--space-1); }
 .exam-plan-days ul li.done { color: var(--c-slate); text-decoration: line-through; }
 
+/* The whole line is the label, so the hit target is the topic rather than a
+   15px box. The strike-through above sits on the li, and a struck-through
+   checkbox reads as broken, so the input opts out of it. */
+.exam-plan-days ul li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); align-items: start; }
+.plan-tick { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2); align-items: start; cursor: pointer; }
+.plan-tick input { margin: 0; width: 15px; height: 15px; accent-color: var(--teal); cursor: pointer; text-decoration: none; }
+.plan-tick input:disabled { cursor: progress; opacity: .5; }
+
 /* ---------- form ---------- */
 
 .exam-form { padding-bottom: var(--space-5); }
