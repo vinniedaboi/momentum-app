@@ -65,6 +65,9 @@ spec points, in syllabus order.
 
 - Each stage tracked separately — AS and A2 on an A Level, SL and HL in the
   IB — with per-paper stage rules
+- **Mark a stage as already sat** and its points leave the review board, the
+  counters and the calendar, so the queue only asks for work still ahead of you.
+  Nothing is deleted, and putting the stage back restores it unchanged
 - Live progress percentages per stage, shown in the sidebar
 - Per-topic timeline: every status change and review, plus your own written
   progress notes
@@ -133,7 +136,32 @@ A searchable directory of Cambridge past papers, built in.
 
 **Why it matters:** no more hunting across three websites for a mark scheme.
 
-### 7. Flashcards
+### 7. Grade targets
+
+For anyone who has already sat AS and is now working out what A2 has to do
+about it.
+
+- Enter the grade and the mark you were awarded — a percentage uniform mark, or
+  a raw score out of its total
+- Momentum prices **every** overall grade, not just the one you picked: what A*,
+  A, B, C, D and E would each now cost you across the second year, and which are
+  already beyond a perfect paper
+- Pick a grade from that ladder and its required percentage becomes the target
+  every A2 past paper is measured against — on this screen and on Past papers
+- Your recent A2 papers become a form figure, projected forward to the overall
+  grade that form would land
+- Override the paper target by hand to aim above the boundary
+
+The arithmetic is the boards' own: the two years are weighted shares of one
+percentage, against the standard 90 / 80 / 70 / 60 / 50 / 40 boundaries. The
+screens say plainly that real boundaries move each session, so the figures are
+close rather than exact.
+
+**Why it matters:** "am I still in it for an A?" is the question behind every
+A2 revision session, and until now it was answered by guesswork on the back of
+a past paper.
+
+### 8. Flashcards
 
 Recall practice tied to the syllabus.
 
@@ -145,7 +173,7 @@ Recall practice tied to the syllabus.
 
 **Why it matters:** recall practice that knows which chapter it belongs to.
 
-### 8. Study hours
+### 9. Study hours
 
 Time logging that feeds the schedule.
 
@@ -157,7 +185,7 @@ Time logging that feeds the schedule.
 **Why it matters:** one action instead of two. Log the session; the schedule
 updates itself.
 
-### 9. Tasks
+### 10. Tasks
 
 Everything that is not a review.
 
@@ -166,27 +194,28 @@ Everything that is not a review.
 - Filter by subject or label
 - Due tasks surface on the review board alongside topic reviews
 
-### 10. Notes library
+### 11. Notes library
 
 - Upload PDFs, Word and PowerPoint files, text and images, up to 20 MB each
 - Filed by subject, stage and chapter
 - Stored privately per account
 
-### 11. Calendar
+### 12. Calendar
 
 One month view combining reviews due, task deadlines, logged study sessions,
 goal milestones, scheduled syllabus points, exam revision and exam days.
 
-### 12. Subject management
+### 13. Subject management
 
 - Add any subject, with its exam board, qualification and syllabus code
 - Import a syllabus from the built-in directory, or bring your own
 - Choose the split — AS + A2, SL + HL, or none at all for IGCSE and similar —
   and say which papers belong to which stage
+- Mark a stage as already sat, from the subject itself or from this list
 - Reorder, recolour and archive subjects
 - Deleting a subject shows exactly how much data goes with it, first
 
-### 13. Accounts and onboarding
+### 14. Accounts and onboarding
 
 - Email and password sign-up, with confirmation
 - Four-step setup: your details → pick your subjects → how the tracker works

@@ -5,6 +5,7 @@ import CalendarView from "./calendar";
 import FlashcardsView from "./flashcards";
 import ExamPlanner, { type PlannedExam } from "./exams";
 import GoalPlanner from "./goals";
+import GradesView from "./grades";
 import GuideView from "./guide";
 import HistoryView from "./history";
 import MomentumMark from "./momentum-mark";
@@ -14,7 +15,7 @@ import StudyHoursView, { formatStudyTime, type StudySession } from "./study-hour
 import { pointMinutes, timeBudget, type TimeBudget } from "./study-time";
 import { progressSegments, segmentSlug, syllabusProgress } from "./syllabus-progress";
 import SubjectSettings from "./subject-settings";
-import { activeSubjects, subjectById, subjectName, type Subject } from "./subjects";
+import { activeSubjects, stageIsDone, subjectById, subjectName, type Subject } from "./subjects";
 import { currentStage, getTopicStage, stageCaption, subjectHasStages, type SyllabusStage } from "./syllabus-stage";
 import TasksView, { DueTasksPanel, type StudyTask, type TaskInput } from "./tasks";
 import ThemeToggle from "./theme-toggle";
@@ -29,7 +30,7 @@ import { useStudyWorkspace } from "./data/use-workspace";
 // Re-exported so the eight views that import `Topic` from here keep working.
 export type { Topic };
 
-type ActiveView = "Today" | "Tasks" | "Calendar" | "Flashcards" | "Notes" | "Goals" | "Exams" | "Hours" | "Papers" | "Subjects" | "History" | "Guide" | { subjectId: string };
+type ActiveView = "Today" | "Tasks" | "Calendar" | "Flashcards" | "Notes" | "Goals" | "Grades" | "Exams" | "Hours" | "Papers" | "Subjects" | "History" | "Guide" | { subjectId: string };
 
 function viewSubjectId(view: ActiveView) {
   return typeof view === "object" ? view.subjectId : null;
@@ -157,6 +158,7 @@ export default function StudyTrackerApp() {
   const { value: tasks, setValue: setTasks } = workspace.tasks;
   const { value: pastPapers, setValue: setPastPapers, failed: papersError } = workspace.papers;
   const { value: paperMeta, setValue: setPaperMeta } = workspace.paperMeta;
+  const { value: gradeTargets, reload: refreshGradeTargets } = workspace.gradeTargets;
   const { value: exams } = workspace.exams;
   const { value: goals, loading: goalsLoading, reload: refreshGoals } = workspace.goals;
   const [activeView, setActiveView] = useState<ActiveView>("Today");
@@ -174,6 +176,8 @@ export default function StudyTrackerApp() {
   const [bulkDifficulty, setBulkDifficulty] = useState<TopicDifficulty>("hard");
   const [hoursSaving, setHoursSaving] = useState(false);
   const [taskAdding, setTaskAdding] = useState(false);
+  /** The `subjectId|stage` being marked, so only that one control goes busy. */
+  const [stageBusy, setStageBusy] = useState<string | null>(null);
   const [taskBusyIds, setTaskBusyIds] = useState<Set<number>>(new Set());
   const [paperSaving, setPaperSaving] = useState(false);
   const [paperBusyIds, setPaperBusyIds] = useState<Set<number>>(new Set());
@@ -215,7 +219,44 @@ export default function StudyTrackerApp() {
 
   const subjectLookup = useMemo(() => subjectById(subjects), [subjects]);
   const trackedSubjects = useMemo(() => activeSubjects(subjects), [subjects]);
-  const points = useMemo(() => topics.filter((topic) => topic.kind === "point"), [topics]);
+
+  /**
+   * Everything belonging to a stage the learner has already sat.
+   *
+   * A stage they have sat is work that cannot be redone, so asking for it back
+   * every three days is asking for the impossible. The rows are not deleted —
+   * statuses, notes and history all stay, and unmarking the stage brings them
+   * straight back — they are simply left out of anything that says "do this".
+   *
+   * Resolved in one pass over the topics rather than per row: `getTopicStage`
+   * scans the list to find a point's chapter, so asking it about every point
+   * of a full syllabus is quadratic. Chapters carry the stage, so only they
+   * are asked, and their points follow their parent.
+   */
+  const retiredIds = useMemo(() => {
+    const sat = subjects.filter((subject) => subject.completedStages.length > 0);
+    if (!sat.length) return new Set<string>();
+    const bySubject = new Map(sat.map((subject) => [subject.id, subject]));
+    const chapters = new Set<string>();
+    for (const topic of topics) {
+      const subject = topic.kind === "chapter" ? bySubject.get(topic.subjectId) : undefined;
+      if (subject && stageIsDone(subject, getTopicStage(topic, topics, subject))) chapters.add(topic.id);
+    }
+    const ids = new Set(chapters);
+    for (const topic of topics) {
+      if (topic.kind === "point" && topic.parentId && chapters.has(topic.parentId)) ids.add(topic.id);
+    }
+    return ids;
+  }, [subjects, topics]);
+
+  /** The syllabus still ahead of the learner: what the board and calendar plan. */
+  const liveTopics = useMemo(
+    () => (retiredIds.size ? topics.filter((topic) => !retiredIds.has(topic.id)) : topics),
+    [topics, retiredIds],
+  );
+  const points = useMemo(() => liveTopics.filter((topic) => topic.kind === "point"), [liveTopics]);
+  /** Including the stages already sat, for the places that report rather than plan. */
+  const allPoints = useMemo(() => topics.filter((topic) => topic.kind === "point"), [topics]);
   const examDue = useMemo(() => examSchedule(exams), [exams]);
   const dueOn = useCallback((topic: Topic) => scheduledDate(topic, examDue.get(topic.id)?.date), [examDue]);
   /**
@@ -388,6 +429,31 @@ export default function StudyTrackerApp() {
     ).slice(0, 80);
   }, [query, subjectLookup, topics]);
 
+  /**
+   * Marks a stage as already sat, or puts it back on the board.
+   *
+   * The write is the whole list rather than one stage, because that is the
+   * column: sending the result of the toggle keeps the server from having to
+   * know which direction the button was pressed in.
+   */
+  async function setStageDone(subject: Subject, stage: SyllabusStage, done: boolean) {
+    const completedStages = done
+      ? [...new Set([...subject.completedStages, stage])]
+      : subject.completedStages.filter((item) => item !== stage);
+    setStageBusy(`${subject.id}|${stage}`);
+    try {
+      const data = await studyApi.subjects.update<{ subject: Subject }>({ id: subject.id, completedStages });
+      setSubjects((current) => current.map((item) => (item.id === data.subject.id ? data.subject : item)));
+      setMessage(done
+        ? `${subject.name} ${stage} marked as sat — its points have left your board`
+        : `${subject.name} ${stage} is back on your board`);
+    } catch (error) {
+      setMessage(apiMessage(error, "That stage could not be updated."));
+    } finally {
+      setStageBusy(null);
+    }
+  }
+
   async function updateTopic(topic: Topic, options: { status?: StudyStatus; difficulty?: TopicDifficulty; reviewedNow?: boolean; wholeChapter?: boolean }) {
     const ids = options.wholeChapter
       ? topics.filter((item) => item.id === topic.id || item.parentId === topic.id).map((item) => item.id)
@@ -542,7 +608,7 @@ export default function StudyTrackerApp() {
     try {
       const data = await studyApi.pastPapers.create<{ paper: PastPaper }>(input);
       setPastPapers((current) => [data.paper, ...current].sort((a, b) => b.attemptDate.localeCompare(a.attemptDate) || b.id - a.id));
-      setMessage(input.status === "planned" ? "Past paper added to your plan" : `${subjectName(subjectLookup, input.subject)} ${input.paper} logged`);
+      setMessage(input.status === "planned" ? "Past paper added to your plan" : `${subjectName(subjectLookup, input.subjectId)} ${input.paper} logged`);
       return true;
     } catch (error) {
       setMessage(apiMessage(error, "That past paper could not be saved."));
@@ -646,6 +712,10 @@ export default function StudyTrackerApp() {
             <span className="nav-label"><Icon name="papers" className="nav-symbol paper-symbol" />Past papers</span>
             <small>{donePaperCount ? `${donePaperCount} done` : "Scores"}</small>
           </button>
+          <button className={`nav-item ${activeView === "Grades" ? "active" : ""}`} onClick={() => selectView("Grades")}>
+            <span className="nav-label"><Icon name="grades" className="nav-symbol paper-symbol" />Grade targets</span>
+            <small>{gradeTargets.length ? `${gradeTargets.length} set` : "AS → A2"}</small>
+          </button>
           <button className={`nav-item ${activeView === "Goals" ? "active" : ""}`} onClick={() => selectView("Goals")}>
             <span className="nav-label"><Icon name="goals" className="nav-symbol goal-symbol" />Syllabus goals</span>
             <small>Timeline</small>
@@ -680,14 +750,16 @@ export default function StudyTrackerApp() {
           </button>
           <p className="nav-section">SUBJECTS</p>
           {trackedSubjects.map((subject) => {
-            const subjectPoints = points.filter((topic) => topic.subjectId === subject.id);
+            // Reported from the whole syllabus rather than from what is left,
+            // so a stage that has been sat still shows what it came to.
+            const subjectPoints = allPoints.filter((topic) => topic.subjectId === subject.id);
             const stagePercent = (stage: SyllabusStage) => syllabusProgress(
               subjectPoints.filter((topic) => getTopicStage(topic, topics, subject) === stage)).percent;
             return (
               <button key={subject.id} className={`nav-item subject-nav-item ${viewSubjectId(activeView) === subject.id ? "active" : ""}`} onClick={() => selectView({ subjectId: subject.id })}>
                 <span className="nav-label"><i className={`subject-pin ${subject.tone}`} />{subject.name}</span>
                 <small className="stage-progress">{subjectHasStages(subject)
-                  ? subject.stages.map((stage) => `${stage} ${stagePercent(stage)}%`).join(" · ")
+                  ? subject.stages.map((stage) => (stageIsDone(subject, stage) ? `${stage} sat` : `${stage} ${stagePercent(stage)}%`)).join(" · ")
                   : `${syllabusProgress(subjectPoints).percent}% covered`}</small>
               </button>
             );
@@ -708,11 +780,11 @@ export default function StudyTrackerApp() {
         <header className="topbar">
           <div>
             <p className="eyebrow">{dayHeading.toUpperCase()}</p>
-            <h2>{query ? "Search results" : activeView === "Today" ? "Your review board" : activeView === "Tasks" ? "Your tasks" : activeView === "Hours" ? "Study hours" : activeView === "Papers" ? "Past papers" : activeView === "Goals" ? "Syllabus goals" : activeView === "Exams" ? "Exam planner" : activeView === "Calendar" ? "Study calendar" : activeView === "Flashcards" ? "Flashcard maker" : activeView === "Notes" ? "Notes library" : activeView === "Subjects" ? "Subjects" : activeView === "History" ? "Your history" : activeView === "Guide" ? "How Momentum works" : subjectName(subjectLookup, viewSubjectId(activeView))}</h2>
-            <p className="muted">{query ? `Matching “${query}” across your syllabus.` : activeView === "Today" ? "Know exactly what to review, without hunting through rows." : activeView === "Tasks" ? "Keep subject work and everything else on one list." : activeView === "Hours" ? "Log your study time and see your daily rhythm." : activeView === "Papers" ? "Log every attempt, watch the scores move, and see where marks keep going." : activeView === "Goals" ? "Turn a finish date into a chapter-by-chapter plan." : activeView === "Exams" ? "Pick the topics an assessment actually covers, and get a revision run-up." : activeView === "Calendar" ? "See reviews, tasks, study sessions, milestones and deadlines in one place." : activeView === "Flashcards" ? "Create focused decks and test your recall." : activeView === "Notes" ? "Keep your study files organised by subject and stage." : activeView === "Subjects" ? "Add the subjects you study, and set how each one is structured." : activeView === "History" ? "Every review, status change, session and paper, newest first." : activeView === "Guide" ? "Every feature, what it is for, and the rules the screens do not spell out." : "Work chapter by chapter, or update one syllabus point at a time."}</p>
+            <h2>{query ? "Search results" : activeView === "Today" ? "Your review board" : activeView === "Tasks" ? "Your tasks" : activeView === "Hours" ? "Study hours" : activeView === "Papers" ? "Past papers" : activeView === "Grades" ? "Grade targets" : activeView === "Goals" ? "Syllabus goals" : activeView === "Exams" ? "Exam planner" : activeView === "Calendar" ? "Study calendar" : activeView === "Flashcards" ? "Flashcard maker" : activeView === "Notes" ? "Notes library" : activeView === "Subjects" ? "Subjects" : activeView === "History" ? "Your history" : activeView === "Guide" ? "How Momentum works" : subjectName(subjectLookup, viewSubjectId(activeView))}</h2>
+            <p className="muted">{query ? `Matching “${query}” across your syllabus.` : activeView === "Today" ? "Know exactly what to review, without hunting through rows." : activeView === "Tasks" ? "Keep subject work and everything else on one list." : activeView === "Hours" ? "Log your study time and see your daily rhythm." : activeView === "Papers" ? "Log every attempt, watch the scores move, and see where marks keep going." : activeView === "Grades" ? "Already sat AS? See what A2 has to score for the grade you want." : activeView === "Goals" ? "Turn a finish date into a chapter-by-chapter plan." : activeView === "Exams" ? "Pick the topics an assessment actually covers, and get a revision run-up." : activeView === "Calendar" ? "See reviews, tasks, study sessions, milestones and deadlines in one place." : activeView === "Flashcards" ? "Create focused decks and test your recall." : activeView === "Notes" ? "Keep your study files organised by subject and stage." : activeView === "Subjects" ? "Add the subjects you study, and set how each one is structured." : activeView === "History" ? "Every review, status change, session and paper, newest first." : activeView === "Guide" ? "Every feature, what it is for, and the rules the screens do not spell out." : "Work chapter by chapter, or update one syllabus point at a time."}</p>
           </div>
           <div className="topbar-tools">
-          {!(["Tasks", "Hours", "Papers", "Goals", "Exams", "Calendar", "Flashcards", "Notes", "Subjects", "History", "Guide"] as ActiveView[]).includes(activeView) && <label className="search-box">
+          {!(["Tasks", "Hours", "Papers", "Grades", "Goals", "Exams", "Calendar", "Flashcards", "Notes", "Subjects", "History", "Guide"] as ActiveView[]).includes(activeView) && <label className="search-box">
             <Icon name="search" className="search-icon" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search topics" placeholder="Search topic, chapter or code" />
             {query && <button onClick={() => setQuery("")} aria-label="Clear search"><Icon name="close" /></button>}
@@ -750,14 +822,16 @@ export default function StudyTrackerApp() {
         ) : activeView === "Notes" ? (
           <NotesView topics={topics} subjects={subjects} onMessage={setMessage} />
         ) : activeView === "Calendar" ? (
-          <CalendarView topics={topics} subjects={subjectLookup} sessions={studySessions} tasks={tasks} today={today} onMessage={setMessage} />
+          <CalendarView topics={liveTopics} subjects={subjectLookup} sessions={studySessions} tasks={tasks} today={today} onMessage={setMessage} />
+        ) : activeView === "Grades" ? (
+          <GradesView targets={gradeTargets} subjects={subjects} papers={pastPapers} onMessage={setMessage} onChanged={refreshGradeTargets} />
         ) : activeView === "Goals" ? (
           <GoalPlanner goals={goals} loading={goalsLoading} topics={topics} subjects={subjects} sessions={studySessions} today={today} onMessage={setMessage} onScheduleChanged={refreshGoals} />
         ) : activeView === "Exams" ? (
           <ExamPlanner topics={topics} subjects={subjects} sessions={studySessions} today={today} updating={updating} updateTopic={updateTopic} onMessage={setMessage} />
         ) : activeView === "Papers" ? (
           papersError ? <section className="empty-state"><strong>Your past papers could not load.</strong><p>Refresh the page to try again.</p></section> :
-          <PastPapersView papers={pastPapers} meta={paperMeta} today={today} saving={paperSaving} busyIds={paperBusyIds} onAdd={addPastPaper} onUpdate={updatePastPaper} onDelete={deletePastPaper} onSaveMeta={savePaperMeta} />
+          <PastPapersView papers={pastPapers} meta={paperMeta} subjects={subjects} targets={gradeTargets} today={today} saving={paperSaving} busyIds={paperBusyIds} onAdd={addPastPaper} onUpdate={updatePastPaper} onDelete={deletePastPaper} onSaveMeta={savePaperMeta} />
         ) : activeView === "Hours" ? (
           hoursError ? <section className="empty-state"><strong>Your study hours could not load.</strong><p>Refresh the page to try again.</p></section> :
           <StudyHoursView sessions={studySessions} subjects={subjects} topics={topics} today={today} saving={hoursSaving} onAdd={addStudySession} onDelete={deleteStudySession} />
@@ -865,7 +939,7 @@ export default function StudyTrackerApp() {
             </section>
           </>
         ) : activeView === "Subjects" ? (
-          <SubjectSettings subjects={subjects} topics={topics} onMessage={setMessage} onChanged={(next) => { setSubjects(next); refreshTopics(); }} />
+          <SubjectSettings subjects={subjects} topics={topics} stageBusy={stageBusy} onStageDone={setStageDone} onMessage={setMessage} onChanged={(next) => { setSubjects(next); refreshTopics(); }} />
         ) : (
           <SubjectView
             subject={subjectLookup.get(viewSubjectId(activeView) ?? "") ?? null}
@@ -878,6 +952,8 @@ export default function StudyTrackerApp() {
             updateTopic={updateTopic}
             onOpenTimeline={setTimelineTopicId}
             examDue={examDue}
+            stageBusy={stageBusy}
+            onStageDone={setStageDone}
           />
         )}
         <SiteFooter />
@@ -1045,7 +1121,7 @@ function SearchView({ results, subjects, today, updating, updateTopic, onOpenTim
   );
 }
 
-function SubjectView({ subject, subjects, topics, today, openChapters, updating, toggleChapter, updateTopic, onOpenTimeline, examDue }: {
+function SubjectView({ subject, subjects, topics, today, openChapters, updating, toggleChapter, updateTopic, onOpenTimeline, examDue, stageBusy, onStageDone }: {
   subject: Subject | null;
   subjects: Map<string, Subject>;
   topics: Topic[];
@@ -1056,10 +1132,14 @@ function SubjectView({ subject, subjects, topics, today, openChapters, updating,
   updateTopic: (topic: Topic, options: { status?: StudyStatus; difficulty?: TopicDifficulty; reviewedNow?: boolean; wholeChapter?: boolean }) => void;
   onOpenTimeline: (id: string) => void;
   examDue: Map<string, { date: string; title: string }>;
+  stageBusy: string | null;
+  onStageDone: (subject: Subject, stage: SyllabusStage, done: boolean) => void;
 }) {
   const [chosenStage, setStage] = useState<SyllabusStage>("");
   if (!subject) return <section className="empty-state"><strong>That subject is no longer available.</strong><p>Pick another subject from the sidebar.</p></section>;
   const stage = currentStage(subject, chosenStage);
+  const sat = stageIsDone(subject, stage);
+  const busy = stageBusy === `${subject.id}|${stage}`;
   const chapters = topics.filter((topic) => topic.subjectId === subject.id && topic.kind === "chapter" && getTopicStage(topic, topics, subject) === stage);
   const chapterIds = new Set(chapters.map((chapter) => chapter.id));
   const subjectPoints = topics.filter((topic) => topic.subjectId === subject.id && topic.kind === "point" && topic.parentId && chapterIds.has(topic.parentId));
@@ -1076,11 +1156,20 @@ function SubjectView({ subject, subjects, topics, today, openChapters, updating,
       {subjectHasStages(subject) && <section className="stage-toolbar" aria-label={`${subject.name} syllabus stage`}>
         <div><span>SYLLABUS STAGE</span><strong>Track {subject.stages.join(" and ")} separately</strong></div>
         <div className="stage-switch">
-          {subject.stages.map((item) => <button key={item} className={stage === item ? "active" : ""} onClick={() => setStage(item)}>
-            <b>{item}</b><span>{stageCaption(subject, item)}</span>
+          {subject.stages.map((item) => <button key={item} className={`${stage === item ? "active" : ""} ${stageIsDone(subject, item) ? "sat" : ""}`} onClick={() => setStage(item)}>
+            <b>{item}{stageIsDone(subject, item) && <Icon name="check" />}</b><span>{stageIsDone(subject, item) ? "Already sat" : stageCaption(subject, item)}</span>
           </button>)}
         </div>
+        {/* The one fact about a stage the syllabus itself cannot carry: whether
+            the exam for it has already been sat. */}
+        <button className={`stage-sat-toggle ${sat ? "undo" : ""}`} disabled={busy} onClick={() => onStageDone(subject, stage, !sat)}>
+          {busy ? "Saving…" : sat ? `Put ${stage} back on my board` : `I have already sat ${stage}`}
+        </button>
       </section>}
+      {sat && <p className="stage-sat-note">
+        <Icon name="check" />
+        <span><strong>{stage} is done.</strong> Its points have left your review board, counters and calendar — nothing is deleted, and everything below still works. Put it back any time.</span>
+      </p>}
       <section className="subject-overview">
         <div><span className={`large-subject-pin ${subject.tone}`} /> <strong>{chapters.length}</strong><small>chapters</small></div>
         <div><strong>{subjectPoints.length}</strong><small>syllabus points</small></div>

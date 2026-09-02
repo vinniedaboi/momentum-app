@@ -19,6 +19,7 @@ const WORKSPACE_DB_MODULES = [
   "lib/study-hours-db.ts",
   "lib/tasks-db.ts",
   "lib/goals-db.ts",
+  "lib/grade-targets-db.ts",
   "lib/flashcards-db.ts",
   "lib/past-papers-db.ts",
   "lib/notes-db.ts",
@@ -980,6 +981,45 @@ test("the type scale climbs, and starts above a footnote", async () => {
   for (let i = 1; i < steps.length; i += 1) {
     assert.ok(steps[i] > steps[i - 1], `step ${i} (${steps[i]}px) does not exceed ${steps[i - 1]}px`);
   }
+});
+
+test("a stage already sat leaves the board without leaving the account", async () => {
+  const [shell, subjects, settings, route, db] = await Promise.all([
+    read("app/study-tracker-app.tsx"),
+    read("app/subjects.ts"),
+    read("app/subject-settings.tsx"),
+    read("app/api/subjects/route.ts"),
+    read("lib/subjects-db.ts"),
+  ]);
+
+  // The flag is on the stage, not the subject: archiving a subject takes the
+  // half still to be sat with it, which is the half that matters.
+  assert.match(subjects, /export function stageIsDone/);
+  assert.match(db, /completed_stages_json/);
+  // Only a stage the subject actually has can be marked, or re-splitting the
+  // course would retire points nothing could bring back.
+  assert.match(route, /function cleanCompletedStages/);
+  assert.match(db, /\.filter\(\(stage\) => stages\.includes\(stage\)\)/);
+
+  // What it changes: the queue, the counters and the calendar all read the
+  // syllabus that is still ahead.
+  assert.match(shell, /const retiredIds = useMemo/);
+  assert.match(shell, /const liveTopics = useMemo/);
+  assert.match(shell, /liveTopics\.filter\(\(topic\) => topic\.kind === "point"\)/);
+  assert.match(shell, /<CalendarView topics={liveTopics}/);
+
+  // And what it must not change: nothing is deleted, so the search still finds
+  // it and the syllabus view still shows it.
+  const opens = shell.indexOf("const searchResults = useMemo");
+  assert.ok(opens > -1, "the search memo should still be findable");
+  const search = shell.slice(opens, shell.indexOf("}, [", opens));
+  assert.match(search, /return topics\.filter/, "search should read the whole syllabus");
+  assert.doesNotMatch(search, /liveTopics/, "a stage already sat must still be searchable");
+
+  // Both places a learner would look for the control.
+  assert.match(shell, /stage-sat-toggle/);
+  assert.match(settings, /subject-row-stages/);
+  for (const source of [shell, settings]) assert.match(source, /onStageDone/);
 });
 
 test("every row on the board says which plan put it there", async () => {

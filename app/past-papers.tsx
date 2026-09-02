@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { KNOWN_STAGES, type SyllabusStage } from "./syllabus-stage";
+import { defaultStage, type SyllabusStage } from "./syllabus-stage";
+import { activeSubjects, subjectName, subjectTone, type Subject } from "./subjects";
+import { gradeArticle, paperTarget, type GradeTarget } from "./grade-targets";
 import Icon from "./icons";
 import { studyApi } from "./data/endpoints";
 
@@ -22,7 +24,12 @@ const DEFAULT_QUALIFICATION = "Cambridge International AS & A Level";
 /** Subject names in the catalogue that differ from the tracker's own. */
 const SUBJECT_ALIASES: Record<string, string> = { "Further Maths": "Further Math" };
 
-const SUBJECT_TONES: Record<string, string> = {
+/**
+ * Tones for catalogue rows, which name thousands of subjects nobody is
+ * necessarily tracking. A logged attempt belongs to one of the learner's own
+ * subjects and takes that subject's colour instead.
+ */
+const CATALOGUE_TONES: Record<string, string> = {
   Mathematics: "blue",
   "Further Math": "violet",
   "Further Maths": "violet",
@@ -67,7 +74,12 @@ type Facets = {
 export type PastPaper = {
   id: number;
   paperId: string | null;
-  subject: string;
+  /**
+   * One of the learner's own subjects, by id. The catalogue names far more
+   * subjects than anyone tracks, so logging an attempt picks the subject it
+   * belongs to rather than copying a name the rest of the app cannot resolve.
+   */
+  subjectId: string;
   stage: SyllabusStage;
   board: string | null;
   paper: string;
@@ -143,6 +155,26 @@ function trackerSubject(subject: string) {
   return SUBJECT_ALIASES[subject] ?? subject;
 }
 
+/**
+ * The learner's own subject a catalogue row belongs to.
+ *
+ * The syllabus code is the strong match — two boards both teach "Mathematics"
+ * and only one of them is 9709 — with the name behind it for a subject added
+ * by hand. Null when they do not track it at all, which is the common case:
+ * the catalogue is every Cambridge paper, not their timetable.
+ */
+function matchSubject(subjects: Subject[], row: { subject: string; syllabusCode: string }) {
+  const name = trackerSubject(row.subject).toLowerCase();
+  return subjects.find((subject) => subject.syllabusCode && subject.syllabusCode === row.syllabusCode)
+    ?? subjects.find((subject) => subject.name.toLowerCase() === name)
+    ?? null;
+}
+
+/** The stage a catalogue row belongs to, kept inside the subject's own split. */
+function paperStage(subject: Subject, stage: string | null): SyllabusStage {
+  return stage && subject.stages.includes(stage) ? stage : defaultStage(subject);
+}
+
 function formatPercent(value: number | null) {
   if (value == null) return "—";
   return `${Math.round(value * 10) / 10}%`;
@@ -159,9 +191,12 @@ function average(values: number[]) {
 
 type SortMode = "year-desc" | "year-asc" | "subject" | "difficulty";
 
-export default function PastPapersView({ papers, meta, today, saving, busyIds, onAdd, onUpdate, onDelete, onSaveMeta }: {
+export default function PastPapersView({ papers, meta, subjects, targets, today, saving, busyIds, onAdd, onUpdate, onDelete, onSaveMeta }: {
   papers: PastPaper[];
   meta: PaperMeta[];
+  subjects: Subject[];
+  /** Grade targets, so an attempt can be read against the score it was aiming at. */
+  targets: GradeTarget[];
   today: string;
   saving: boolean;
   busyIds: Set<number>;
@@ -170,6 +205,8 @@ export default function PastPapersView({ papers, meta, today, saving, busyIds, o
   onDelete: (id: number) => Promise<void>;
   onSaveMeta: (paperId: string, difficulty: PaperDifficulty | null, resourceUrl: string | null) => Promise<boolean>;
 }) {
+  const tracked = useMemo(() => activeSubjects(subjects), [subjects]);
+  const targetBySubject = useMemo(() => new Map(targets.map((target) => [target.subjectId, target])), [targets]);
   const [qualification, setQualification] = useState(DEFAULT_QUALIFICATION);
   const [subject, setSubject] = useState("");
   const [stage, setStage] = useState("");
@@ -272,9 +309,30 @@ export default function PastPapersView({ papers, meta, today, saving, busyIds, o
   const averagePercent = average(scoredAttempts.map((attempt) => attempt.percentage!));
   const bestAttempt = scoredAttempts.reduce<PastPaper | null>((best, attempt) => (!best || attempt.percentage! > best.percentage! ? attempt : best), null);
   const attemptSubjects = useMemo(
-    () => [...new Set(scoredAttempts.map((attempt) => attempt.subject))].sort((a, b) => a.localeCompare(b)),
-    [scoredAttempts],
+    () => [...new Set(scoredAttempts.map((attempt) => attempt.subjectId))]
+      .sort((a, b) => subjectName(subjects, a).localeCompare(subjectName(subjects, b))),
+    [scoredAttempts, subjects],
   );
+
+  /**
+   * One line per grade target: what the remaining stage has to average, and
+   * what it is actually averaging. Papers from the stage already sat are left
+   * out — they are a record of a result that is now fixed.
+   */
+  const targetProgress = useMemo(() => targets.map((target) => {
+    const scored = papers.filter((attempt) => attempt.subjectId === target.subjectId
+      && attempt.stage === target.remainingStage
+      && attempt.status === "done"
+      && attempt.percentage != null);
+    const wanted = paperTarget(target);
+    return {
+      target,
+      wanted,
+      count: scored.length,
+      mean: average(scored.map((attempt) => attempt.percentage!)),
+      hits: scored.filter((attempt) => attempt.percentage! >= wanted).length,
+    };
+  }), [papers, targets]);
   const weakTopicRanking = useMemo(() => {
     const counts = new Map<string, number>();
     papers.forEach((attempt) => attempt.weakTopics.forEach((topic) => counts.set(topic, (counts.get(topic) ?? 0) + 1)));
@@ -305,7 +363,7 @@ export default function PastPapersView({ papers, meta, today, saving, busyIds, o
     const header = ["Paper", "Subject", "Year", "Season", "Date", "Score", "Total", "Percent", "Grade", "Conditions", "Weak topics", "Notes"];
     const lines = papers.map((attempt) => [
       `${attempt.paper}${attempt.variant ? ` v${attempt.variant}` : ""}`,
-      attempt.subject,
+      subjectName(subjects, attempt.subjectId),
       attempt.year,
       attempt.session,
       attempt.attemptDate,
@@ -343,7 +401,7 @@ export default function PastPapersView({ papers, meta, today, saving, busyIds, o
       <article>
         <span>Best paper</span>
         <strong>{formatPercent(bestAttempt?.percentage ?? null)}</strong>
-        <small>{bestAttempt ? `${bestAttempt.subject} ${bestAttempt.paper}` : "waiting on your first"}</small>
+        <small>{bestAttempt ? `${subjectName(subjects, bestAttempt.subjectId)} ${bestAttempt.paper}` : "waiting on your first"}</small>
       </article>
       <article>
         <span>Catalogue</span>
@@ -351,6 +409,25 @@ export default function PastPapersView({ papers, meta, today, saving, busyIds, o
         <small>papers with mark schemes</small>
       </article>
     </section>
+
+    {targetProgress.length > 0 && <section className="paper-target-strip" aria-label="Your paper targets">
+      {targetProgress.map(({ target, wanted, mean, count, hits }) => (
+        <article key={target.subjectId} className={mean == null ? "" : mean >= wanted ? "on-target" : "under"}>
+          <div>
+            <strong>{subjectName(subjects, target.subjectId)} <b>{target.remainingStage}</b></strong>
+            <span>aiming at {target.targetGrade} overall</span>
+          </div>
+          <div className="paper-target-bar">
+            <i style={{ width: `${Math.min(100, mean ?? 0)}%` }} />
+            <em style={{ left: `${Math.min(100, wanted)}%` }} aria-hidden="true" />
+          </div>
+          <div className="paper-target-figures">
+            <b>{formatPercent(mean)}</b>
+            <small>{count ? `${hits}/${count} on target · needs ${Math.round(wanted)}%` : `needs ${Math.round(wanted)}%`}</small>
+          </div>
+        </article>
+      ))}
+    </section>}
 
     <section className="paper-database panel-card">
       <div className="section-heading paper-db-heading">
@@ -432,6 +509,8 @@ export default function PastPapersView({ papers, meta, today, saving, busyIds, o
               row={row}
               attempts={attemptsByPaper.get(row.id) ?? []}
               override={metaById.get(row.id) ?? null}
+              subjects={tracked}
+              targets={targetBySubject}
               today={today}
               open={openPaperId === row.id}
               saving={saving}
@@ -465,18 +544,18 @@ export default function PastPapersView({ papers, meta, today, saving, busyIds, o
     {scoredAttempts.length > 1 && <section className="paper-analytics">
       <article className="paper-chart panel-card">
         <div className="panel-heading"><p className="eyebrow">PROGRESSION</p><h3>Score over time</h3></div>
-        <ScoreChart attempts={[...scoredAttempts].sort((a, b) => a.attemptDate.localeCompare(b.attemptDate))} />
+        <ScoreChart subjects={subjects} attempts={[...scoredAttempts].sort((a, b) => a.attemptDate.localeCompare(b.attemptDate))} />
       </article>
       <article className="paper-splits panel-card">
         <div className="panel-heading"><p className="eyebrow">BREAKDOWN</p><h3>How it splits</h3></div>
         <div className="paper-split-group">
           <h4>Average by subject</h4>
           {attemptSubjects.map((item) => {
-            const scored = scoredAttempts.filter((attempt) => attempt.subject === item);
+            const scored = scoredAttempts.filter((attempt) => attempt.subjectId === item);
             const mean = average(scored.map((attempt) => attempt.percentage!));
             return <div className="paper-split-row" key={item}>
-              <i className={`subject-pin ${SUBJECT_TONES[item] ?? "neutral"}`} />
-              <span>{item}</span>
+              <i className={`subject-pin ${subjectTone(subjects, item)}`} />
+              <span>{subjectName(subjects, item)}</span>
               <div><i style={{ width: `${Math.min(100, mean ?? 0)}%` }} /></div>
               <b>{formatPercent(mean)}</b>
               <small>{scored.length}</small>
@@ -506,11 +585,12 @@ export default function PastPapersView({ papers, meta, today, saving, busyIds, o
         <div><p className="eyebrow">NOT IN THE CATALOGUE</p><h3>{unlisted.length} other {unlisted.length === 1 ? "attempt" : "attempts"}</h3></div>
       </div>
       <div className="paper-list">
-        {unlisted.map((attempt) => <AttemptRow key={attempt.id} attempt={attempt} busy={busyIds.has(attempt.id)} onDelete={onDelete} />)}
+        {unlisted.map((attempt) => <AttemptRow key={attempt.id} attempt={attempt} subjects={subjects} busy={busyIds.has(attempt.id)} onDelete={onDelete} />)}
       </div>
     </section>}
 
     {manualOpen && <ManualAttemptForm
+      subjects={tracked}
       today={today}
       saving={saving}
       onClose={() => setManualOpen(false)}
@@ -565,10 +645,12 @@ function ChipRow<T extends string | number>({ label, items, selected, render, on
   </div>;
 }
 
-function PaperTableRow({ row, attempts, override, today, open, saving, busyIds, onToggle, onAdd, onUpdate, onDelete, onSaveMeta }: {
+function PaperTableRow({ row, attempts, override, subjects, targets, today, open, saving, busyIds, onToggle, onAdd, onUpdate, onDelete, onSaveMeta }: {
   row: CatalogueRow;
   attempts: PastPaper[];
   override: PaperMeta | null;
+  subjects: Subject[];
+  targets: Map<string, GradeTarget>;
   today: string;
   open: boolean;
   saving: boolean;
@@ -589,7 +671,7 @@ function PaperTableRow({ row, attempts, override, today, open, saving, busyIds, 
     <tr className={`paper-table-row ${attempts.length ? "attempted" : ""} ${open ? "open" : ""}`}>
       <th scope="row">
         <button className="paper-name-button" onClick={onToggle} aria-expanded={open}>
-          <i className={`subject-pin ${SUBJECT_TONES[row.subject] ?? "neutral"}`} />
+          <i className={`subject-pin ${CATALOGUE_TONES[row.subject] ?? "neutral"}`} />
           <span>
             <strong>{row.label}</strong>
             <small>{row.syllabusCode}{row.paperUnitCode ? `/${row.paperUnitCode}` : ""} · {row.subject}</small>
@@ -619,6 +701,8 @@ function PaperTableRow({ row, attempts, override, today, open, saving, busyIds, 
           row={row}
           attempts={attempts}
           override={override}
+          subjects={subjects}
+          targets={targets}
           today={today}
           saving={saving}
           busyIds={busyIds}
@@ -632,10 +716,12 @@ function PaperTableRow({ row, attempts, override, today, open, saving, busyIds, 
   </>;
 }
 
-function PaperDetail({ row, attempts, override, today, saving, busyIds, onAdd, onUpdate, onDelete, onSaveMeta }: {
+function PaperDetail({ row, attempts, override, subjects, targets, today, saving, busyIds, onAdd, onUpdate, onDelete, onSaveMeta }: {
   row: CatalogueRow;
   attempts: PastPaper[];
   override: PaperMeta | null;
+  subjects: Subject[];
+  targets: Map<string, GradeTarget>;
   today: string;
   saving: boolean;
   busyIds: Set<number>;
@@ -656,15 +742,29 @@ function PaperDetail({ row, attempts, override, today, saving, busyIds, onAdd, o
     grade: "" as "" | PaperGrade,
     weakTopics: [] as string[],
     notes: "",
+    /** Empty means "whichever subject and stage the catalogue row points at". */
+    subjectId: "",
+    stage: "",
   };
   const [draft, setDraft] = useState(blank);
 
+  // Resolved rather than seeded into the draft, so the row still lands on the
+  // right subject when it is opened before the subject list has arrived.
+  const matched = useMemo(() => matchSubject(subjects, row), [subjects, row]);
+  const subject = subjects.find((item) => item.id === draft.subjectId) ?? matched ?? subjects[0] ?? null;
+  const stage = subject
+    ? (draft.stage && subject.stages.includes(draft.stage) ? draft.stage : paperStage(subject, row.stage))
+    : "A2";
+  const target = subject ? targets.get(subject.id) ?? null : null;
+  const wanted = target && target.remainingStage === stage ? paperTarget(target) : null;
+
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (!subject) return;
     const input: PastPaperInput = {
       paperId: row.id,
-      subject: trackerSubject(row.subject),
-      stage: row.stage === "AS" ? "AS" : "A2",
+      subjectId: subject.id,
+      stage,
       board: row.board,
       paper: row.component ? `Paper ${row.component}` : row.paperUnitCode,
       variant: row.variant,
@@ -697,6 +797,8 @@ function PaperDetail({ row, attempts, override, today, saving, busyIds, onAdd, o
       grade: attempt.grade ?? "",
       weakTopics: attempt.weakTopics,
       notes: attempt.notes ?? "",
+      subjectId: attempt.subjectId,
+      stage: attempt.stage,
     });
   }
 
@@ -738,8 +840,19 @@ function PaperDetail({ row, attempts, override, today, saving, busyIds, onAdd, o
       </label>
     </div>
 
+    {!subject ? <p className="paper-no-subject">Add a subject with a syllabus in <b>Subjects</b> before logging a paper — an attempt is filed against one of your own subjects.</p> : <>
     <form className="paper-attempt-form" onSubmit={submit}>
       <p className="eyebrow">{editingId ? "EDIT ATTEMPT" : "LOG AN ATTEMPT"}</p>
+      <label><span>Subject</span>
+        <select value={subject.id} onChange={(event) => setDraft({ ...draft, subjectId: event.target.value, stage: "" })}>
+          {subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>
+      </label>
+      {subject.stages.length > 1 && <label><span>Stage</span>
+        <select value={stage} onChange={(event) => setDraft({ ...draft, stage: event.target.value })}>
+          {subject.stages.map((item) => <option key={item}>{item}</option>)}
+        </select>
+      </label>}
       <label><span>Date</span><input type="date" value={draft.attemptDate} required onChange={(event) => setDraft({ ...draft, attemptDate: event.target.value })} /></label>
       <label><span>Score</span><input type="number" min="0" max="1000" step="0.5" required placeholder="—" value={draft.score} onChange={(event) => setDraft({ ...draft, score: event.target.value })} /></label>
       <label><span>Total marks</span><input type="number" min="1" max="1000" step="0.5" required placeholder="75" value={draft.maxScore} onChange={(event) => setDraft({ ...draft, maxScore: event.target.value })} /></label>
@@ -748,6 +861,13 @@ function PaperDetail({ row, attempts, override, today, saving, busyIds, onAdd, o
         <strong>{formatPercent(livePercent)}{liveGrade && <b className={`grade-badge ${gradeTone(liveGrade)}`}>{liveGrade}</b>}</strong>
         <small>{marksOffA == null ? (livePercent == null ? "add both marks" : `about a ${estimatedGrade(livePercent)}`)
           : marksOffA > 0 ? `${marksOffA} marks off an A` : `${Math.abs(marksOffA)} marks above the A boundary`}</small>
+        {wanted != null && <small className={`paper-live-target ${livePercent == null ? "" : livePercent >= wanted ? "hit" : "miss"}`}>
+          {livePercent == null
+            ? `your ${target!.targetGrade} target is ${Math.round(wanted)}%`
+            : livePercent >= wanted
+              ? `on target for ${gradeArticle(target!.targetGrade)} ${target!.targetGrade}`
+              : `${Math.ceil(wanted - livePercent)} under your ${Math.round(wanted)}% target`}
+        </small>}
       </div>
       <label><span>Time taken <small>min</small></span><input type="number" min="1" max="600" placeholder="105" value={draft.durationMinutes} onChange={(event) => setDraft({ ...draft, durationMinutes: event.target.value })} /></label>
       <label><span>Conditions</span><select value={draft.conditions} onChange={(event) => setDraft({ ...draft, conditions: event.target.value as PaperConditions })}>{PAPER_CONDITIONS.map((item) => <option key={item}>{item}</option>)}</select></label>
@@ -788,19 +908,21 @@ function PaperDetail({ row, attempts, override, today, saving, busyIds, onAdd, o
         </article>;
       })}
     </div>}
+    </>}
   </div>;
 }
 
-function AttemptRow({ attempt, busy, onDelete }: {
+function AttemptRow({ attempt, subjects, busy, onDelete }: {
   attempt: PastPaper;
+  subjects: Subject[];
   busy: boolean;
   onDelete: (id: number) => Promise<void>;
 }) {
   const grade = attempt.grade ?? estimatedGrade(attempt.percentage);
   return <article className={`paper-row ${busy ? "is-updating" : ""}`}>
-    <i className={`subject-pin ${SUBJECT_TONES[attempt.subject] ?? "neutral"}`} />
+    <i className={`subject-pin ${subjectTone(subjects, attempt.subjectId)}`} />
     <div className="paper-copy">
-      <span>{attempt.subject} · {attempt.stage}{attempt.board ? ` · ${attempt.board}` : ""}</span>
+      <span>{subjectName(subjects, attempt.subjectId)} · {attempt.stage}{attempt.board ? ` · ${attempt.board}` : ""}</span>
       <strong>{attempt.paper}{attempt.variant ? ` v${attempt.variant}` : ""} · {attempt.session} {attempt.year}</strong>
       <small className="paper-meta"><b>{attempt.conditions}</b><i />{shortDate(attempt.attemptDate)}</small>
       {attempt.notes && <p className="paper-note">{attempt.notes}</p>}
@@ -816,17 +938,19 @@ function AttemptRow({ attempt, busy, onDelete }: {
   </article>;
 }
 
-function ManualAttemptForm({ today, saving, onClose, onAdd }: {
+function ManualAttemptForm({ subjects, today, saving, onClose, onAdd }: {
+  subjects: Subject[];
   today: string;
   saving: boolean;
   onClose: () => void;
   onAdd: (input: PastPaperInput) => Promise<boolean>;
 }) {
+  const first = subjects[0] ?? null;
   const [draft, setDraft] = useState<PastPaperInput>({
     paperId: null,
-    subject: "Mathematics",
-    stage: "A2",
-    board: "CAIE",
+    subjectId: first?.id ?? "",
+    stage: first ? defaultStage(first) : "A2",
+    board: first?.board ?? "CAIE",
     paper: "Paper 1",
     variant: null,
     session: "Other",
@@ -850,9 +974,21 @@ function ManualAttemptForm({ today, saving, onClose, onAdd }: {
         <h3 id="manual-paper-title">Log any other paper</h3>
         <span>School mocks, specimen papers, or anything the catalogue is missing.</span>
       </header>
-      <form className="paper-form manual-paper-form" onSubmit={async (event) => { event.preventDefault(); await onAdd(draft); }}>
-        <label><span>Subject</span><input value={draft.subject} maxLength={60} required onChange={(event) => setDraft({ ...draft, subject: event.target.value })} /></label>
-        <label><span>Stage</span><select value={draft.stage} onChange={(event) => setDraft({ ...draft, stage: event.target.value as SyllabusStage })}>{KNOWN_STAGES.map((item) => <option key={item}>{item}</option>)}</select></label>
+      {!first ? <p className="paper-no-subject">Add a subject in <b>Subjects</b> first — every attempt is filed against one of your own.</p>
+      : <form className="paper-form manual-paper-form" onSubmit={async (event) => { event.preventDefault(); await onAdd(draft); }}>
+        <label><span>Subject</span>
+          <select value={draft.subjectId} onChange={(event) => {
+            const chosen = subjects.find((item) => item.id === event.target.value);
+            setDraft({ ...draft, subjectId: event.target.value, stage: chosen ? defaultStage(chosen) : draft.stage });
+          }}>
+            {subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </label>
+        <label><span>Stage</span>
+          <select value={draft.stage} onChange={(event) => setDraft({ ...draft, stage: event.target.value as SyllabusStage })}>
+            {(subjects.find((item) => item.id === draft.subjectId)?.stages ?? [draft.stage]).map((item) => <option key={item}>{item}</option>)}
+          </select>
+        </label>
         <label><span>Board</span><input value={draft.board ?? ""} maxLength={40} onChange={(event) => setDraft({ ...draft, board: event.target.value || null })} /></label>
         <label><span>Paper</span><input value={draft.paper} maxLength={40} required onChange={(event) => setDraft({ ...draft, paper: event.target.value })} /></label>
         <label><span>Session</span><select value={draft.session} onChange={(event) => setDraft({ ...draft, session: event.target.value as PaperSession })}>{PAPER_SESSIONS.map((item) => <option key={item}>{item}</option>)}</select></label>
@@ -865,12 +1001,12 @@ function ManualAttemptForm({ today, saving, onClose, onAdd }: {
         <div className="paper-form-actions">
           <button className="primary-button" disabled={saving}>{saving ? "Saving…" : "+ Log paper"}</button>
         </div>
-      </form>
+      </form>}
     </aside>
   </div>;
 }
 
-function ScoreChart({ attempts }: { attempts: PastPaper[] }) {
+function ScoreChart({ attempts, subjects }: { attempts: PastPaper[]; subjects: Subject[] }) {
   const width = 640;
   const height = 210;
   const padding = { top: 16, right: 14, bottom: 26, left: 32 };
@@ -894,7 +1030,7 @@ function ScoreChart({ attempts }: { attempts: PastPaper[] }) {
       })}
       <polyline points={line} fill="none" stroke="#516f9f" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
       {points.map((point) => <circle key={point.attempt.id} cx={point.x} cy={point.y} r="4" fill="#fff" stroke="#516f9f" strokeWidth="2">
-        <title>{`${point.attempt.subject} ${point.attempt.paper} · ${formatPercent(point.attempt.percentage)} · ${shortDate(point.attempt.attemptDate)}`}</title>
+        <title>{`${subjectName(subjects, point.attempt.subjectId)} ${point.attempt.paper} · ${formatPercent(point.attempt.percentage)} · ${shortDate(point.attempt.attemptDate)}`}</title>
       </circle>)}
     </svg>
     <div className="paper-chart-axis">

@@ -267,17 +267,28 @@
 .subject-form-actions .primary-button{min-height:40px;padding:0 var(--space-5)}
 .subject-list{overflow:hidden}
 .subject-rows{padding:0 var(--space-6) var(--space-2)}
-.subject-row{display:grid;grid-template-columns:8px minmax(0,1fr) auto auto;gap:var(--space-4);align-items:center;padding:var(--space-4) 0;border-bottom:1px solid var(--c-line-soft)}
+.subject-row{display:grid;grid-template-columns:8px minmax(0,1fr) auto auto auto;gap:var(--space-4);align-items:center;padding:var(--space-4) 0;border-bottom:1px solid var(--c-line-soft)}
+/* Which stages of this subject have already been sat. A toggle rather than a
+   label: the row is where a learner sees all their subjects at once, which is
+   when they notice one is out of date. */
+/* Pinned to their own columns so a single-stage subject, which has no chips,
+   still lines its buttons up with the rows above it. */
+.subject-row-stages{grid-column:3;display:flex;gap:var(--space-2)}
+.subject-row-stages button{border:1px dashed var(--line);border-radius:var(--radius-pill);background:transparent;color:var(--c-muted);padding:var(--space-1) var(--space-3);font-size:var(--text-3xs);font-weight:900;white-space:nowrap;display:inline-flex;align-items:center;gap:var(--space-1)}
+.subject-row-stages button:hover:not(:disabled){border-color:var(--c-line-strong);color:var(--c-ink)}
+.subject-row-stages button.sat{border-style:solid;border-color:var(--c-line-strong);background:var(--c-mint);color:var(--c-teal-ink)}
+.subject-row-stages button svg{width:.9em;height:.9em}
+.subject-row-stages button:disabled{opacity:.6}
 .subject-row:last-child{border-bottom:0}
 .subject-row.archived{opacity:.6}
 .subject-row-copy{display:grid;gap:var(--space-1);min-width:0}
 .subject-row-copy strong{font-size:var(--text-sm);display:flex;align-items:center;gap:var(--space-2)}
 .subject-row-copy strong em{font-style:normal;font-size:var(--text-3xs);font-weight:900;text-transform:uppercase;letter-spacing:.06em;background:var(--c-violet-soft);color:var(--c-violet);border-radius:var(--radius-xl);padding:var(--space-1) var(--space-2)}
 .subject-row-copy small{font-size:var(--text-3xs);color:var(--muted)}
-.subject-row-order{display:flex;flex-direction:column;gap:var(--space-1)}
+.subject-row-order{grid-column:4;display:flex;flex-direction:column;gap:var(--space-1)}
 .subject-row-order button{width:24px;height:20px;border:1px solid var(--line);background:var(--c-surface-raised);color:var(--c-muted);border-radius:var(--radius-sm);font-size:var(--text-3xs);line-height:1}
 .subject-row-order button:disabled{opacity:.35}
-.subject-row-actions{display:flex;gap:var(--space-2)}
+.subject-row-actions{grid-column:5;display:flex;gap:var(--space-2)}
 .subject-row-actions button{border:1px solid var(--line);background:var(--c-surface-raised);color:var(--c-muted);border-radius:var(--radius-sm);padding:var(--space-2) var(--space-3);font-size:var(--text-3xs);font-weight:800}
 .subject-row-actions button:hover{background:var(--c-surface-sunken)}
 .subject-row-actions .delete{border-color:var(--c-red-line);color:var(--c-red);font-size:var(--text-md);line-height:1;padding:var(--space-1) var(--space-2)}
@@ -288,7 +299,7 @@
 .danger-button{border:0;border-radius:var(--radius-md);padding:var(--space-2) var(--space-3);background:var(--c-red);color:var(--c-on-dark);font-size:var(--text-2xs);font-weight:900}
 .danger-button:hover{background:var(--c-red-ink)}
 @media(max-width:1180px){.subject-composer form{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:640px){.subject-settings-intro{display:grid;padding:var(--space-5)}.subject-composer{padding:var(--space-5)}.subject-composer form{grid-template-columns:1fr}.subject-name-field{grid-column:auto}.subject-rows{padding:0 var(--space-4) var(--space-2)}.subject-row{grid-template-columns:8px minmax(0,1fr);row-gap:var(--space-3)}.subject-row-order,.subject-row-actions{grid-column:2}.subject-delete-confirm>div{flex-wrap:wrap}}
+@media(max-width:640px){.subject-settings-intro{display:grid;padding:var(--space-5)}.subject-composer{padding:var(--space-5)}.subject-composer form{grid-template-columns:1fr}.subject-name-field{grid-column:auto}.subject-rows{padding:0 var(--space-4) var(--space-2)}.subject-row{grid-template-columns:8px minmax(0,1fr);row-gap:var(--space-3)}.subject-row-stages{grid-column:2}.subject-row-order,.subject-row-actions{grid-column:2}.subject-delete-confirm>div{flex-wrap:wrap}}
 .subject-import{grid-column:1/-1;margin-top:var(--space-2);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--c-surface-sunken);padding:var(--space-4);display:grid;gap:var(--space-3)}
 .subject-import-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-4)}
 .subject-import-head strong{font-size:var(--text-xs)}

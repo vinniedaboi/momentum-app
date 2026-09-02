@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { Topic } from "./study-tracker-app";
-import { SUBJECT_TONES, type Subject, type SubjectInput, type SubjectTone } from "./subjects";
+import { SUBJECT_TONES, stageIsDone, type Subject, type SubjectInput, type SubjectTone } from "./subjects";
 import Icon from "./icons";
 import { api, apiMessage } from "./data/api";
 import { studyApi } from "./data/endpoints";
@@ -208,9 +208,12 @@ function ImportPreview({ text, mode }: { text: string; mode: "text" | "csv" }) {
   </p>;
 }
 
-export default function SubjectSettings({ subjects, topics, onMessage, onChanged }: {
+export default function SubjectSettings({ subjects, topics, stageBusy, onStageDone, onMessage, onChanged }: {
   subjects: Subject[];
   topics: Topic[];
+  /** The `subjectId|stage` mid-write, so only that chip goes busy. */
+  stageBusy: string | null;
+  onStageDone: (subject: Subject, stage: string, done: boolean) => void;
   onMessage: (message: string) => void;
   onChanged: (subjects: Subject[]) => void;
 }) {
@@ -638,6 +641,19 @@ export default function SubjectSettings({ subjects, topics, onMessage, onChanged
                 {` · ${topicCount} syllabus ${topicCount === 1 ? "row" : "rows"}`}
               </small>
             </div>
+            {subject.stages.length > 1 && <div className="subject-row-stages" role="group" aria-label={`Stages ${subject.name} has already been sat`}>
+              {subject.stages.map((stage) => {
+                const sat = stageIsDone(subject, stage);
+                return <button
+                  key={stage}
+                  className={sat ? "sat" : ""}
+                  aria-pressed={sat}
+                  disabled={stageBusy === `${subject.id}|${stage}`}
+                  title={sat ? `${stage} is marked as already sat — press to put it back on your board` : `Mark ${stage} as already sat`}
+                  onClick={() => onStageDone(subject, stage, !sat)}
+                >{sat && <Icon name="check" />}{stage} sat</button>;
+              })}
+            </div>}
             <div className="subject-row-order">
               <button onClick={() => move(subject, -1)} disabled={index === 0} aria-label={`Move ${subject.name} up`}><Icon name="arrow-up" /></button>
               <button onClick={() => move(subject, 1)} disabled={index === ordered.length - 1} aria-label={`Move ${subject.name} down`}><Icon name="arrow-down" /></button>

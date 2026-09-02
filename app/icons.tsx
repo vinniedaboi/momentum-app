@@ -28,6 +28,8 @@ const PATHS = {
   papers: ["M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z", "M14 3v5h5", "M9 13h6M9 17h4"],
   /** Syllabus goals: a target. */
   goals: ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", "M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10z", "M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"],
+  /** Grade targets: a gauge, because the screen is a reading against a mark. */
+  grades: ["M4 18a8 8 0 1 1 16 0", "M12 18l4.6-4.6"],
   /** Exams: an hourglass, for the countdown. */
   exams: ["M7 3h10M7 21h10", "M17 3v3.5L12 12l5 5.5V21", "M7 3v3.5L12 12l-5 5.5V21"],
   /** Calendar. */

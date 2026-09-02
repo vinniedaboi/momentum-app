@@ -136,7 +136,9 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       { term: "Where content lands", detail: "Content marked for the second stage — A2, or the IB's HL-only topics — sits in that track. Everything else belongs to the stage both years share." },
       { term: "Bring your own syllabus", detail: "A subject with no official tree yet takes a pasted outline: numbered headings become chapters, and the lines under them become points. CSV works too." },
       { term: "Papers per stage", detail: "Say which papers belong to which stage and any imported chapter tagged with that paper follows it." },
+      { term: "Mark a stage as sat", detail: "Once AS is behind you, say so on the subject or in Subjects. Its points leave the review board, the counters and the calendar, so the queue only asks for work you can still do." },
     ],
+    tip: "Marking a stage sat deletes nothing. Statuses, notes, history and dates all stay exactly where they were, the syllabus is still there to look at, and putting the stage back restores it to the board unchanged.",
   },
   {
     id: "goals",
@@ -187,7 +189,21 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       { term: "Plan ahead", detail: "Add a paper as planned, then fill in the result when you sit it." },
       { term: "Tag the weak topics", detail: "Say which topics cost the marks and the pattern across attempts becomes obvious." },
       { term: "The catalogue", detail: "Thousands of past papers are built in, filterable by subject, year, season, component and difficulty, with links to the paper, mark scheme and examiner report." },
+      { term: "A number to beat", detail: "Set a grade target and every paper for that stage is scored against what the grade needs, as you type the marks in." },
     ],
+  },
+  {
+    id: "grades",
+    icon: "grades",
+    title: "Grade targets",
+    lead: "You already have your AS result. This is what A2 has to do about it.",
+    items: [
+      { term: "Enter what you got", detail: "The grade and the mark for the half you have already sat — a percentage uniform mark, or a raw score out of its total." },
+      { term: "Every grade is priced", detail: "Not just the one you picked: the ladder shows what each overall grade would now cost you across the second year, and which are already out of reach." },
+      { term: "Pick a target", detail: "Choose a grade from the ladder and its required percentage becomes the target every past paper for that stage is measured against." },
+      { term: "Watch the projection", detail: "Your recent papers become a form figure, and the screen shows the overall grade that form would land." },
+    ],
+    tip: "The maths assumes the two years are weighted evenly, which is how an A Level that splits into AS and A2 is put together — change the split on the form if your course differs. Boundaries move a mark or two each session, so every figure is close rather than exact.",
   },
   {
     id: "flashcards",

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { PaperMeta, PastPaper } from "../past-papers";
 import type { PlannedExam } from "../exams";
 import type { StudyGoal } from "../goals";
+import type { GradeTarget } from "../grade-targets";
 import type { StudySession } from "../study-hours";
 import type { Subject } from "../subjects";
 import type { StudyTask } from "../tasks";
@@ -34,6 +35,9 @@ export function useStudyWorkspace(onError: (message: string) => void) {
   const exams = useResource(studyApi.exams.path, "exams", [] as PlannedExam[]);
   const papers = useResource(studyApi.pastPapers.path, "papers", [] as PastPaper[]);
   const paperMeta = useResource(studyApi.paperMeta.path, "meta", [] as PaperMeta[]);
+  // Read alongside the papers rather than only by the grade planner: the target
+  // a paper is measured against belongs on the paper, wherever it is shown.
+  const gradeTargets = useResource(studyApi.gradeTargets.path, "targets", [] as GradeTarget[]);
 
   // Topics cannot use useResource: reading the goals route is what applies any
   // pending schedule to the topic rows, so it has to complete first or the
@@ -81,6 +85,7 @@ export function useStudyWorkspace(onError: (message: string) => void) {
     exams,
     papers,
     paperMeta,
+    gradeTargets,
     topics: { value: topics, setValue: setTopics, failed: topicsFailed, reload: reloadTopics },
     goals: { value: goals, loading: goalsLoading, reload: reloadGoals },
   };

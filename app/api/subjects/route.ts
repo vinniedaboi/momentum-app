@@ -3,6 +3,7 @@ import {
   deleteSubject,
   getSubjects,
   reorderSubjects,
+  subjectStages,
   subjectUsage,
   updateSubject,
   SUBJECT_TONES,
@@ -29,6 +30,12 @@ function cleanStages(value: unknown) {
     if (stages.length === 6) break;
   }
   return stages;
+}
+
+/** Only stages the subject actually has can be marked as already sat. */
+function cleanCompletedStages(value: unknown, stages: string[]) {
+  if (!Array.isArray(value)) return [];
+  return stages.filter((stage) => value.some((item) => cleanText(item, 16) === stage));
 }
 
 function cleanPaperStages(value: unknown, stages: string[]) {
@@ -97,6 +104,10 @@ export async function PATCH(request: Request) {
       if (!id) return Response.json({ error: "That subject could not be found." }, { status: 400 });
 
       const stages = body.stages === undefined ? undefined : cleanStages(body.stages);
+      // Validated against the stages the subject will have once this patch
+      // lands, which is the incoming set when the split is being changed in
+      // the same call and the stored one otherwise.
+      const known = stages ?? (await subjectStages(workspaceId, id)) ?? [];
       return Response.json({
         subject: await updateSubject(workspaceId, id, {
           ...(body.name === undefined ? {} : { name: cleanText(body.name, 60) ?? undefined }),
@@ -106,7 +117,8 @@ export async function PATCH(request: Request) {
           ...(body.qualification === undefined ? {} : { qualification: cleanText(body.qualification, 80) }),
           ...(body.syllabusCode === undefined ? {} : { syllabusCode: cleanText(body.syllabusCode, 16) }),
           ...(stages === undefined ? {} : { stages }),
-          ...(body.paperStages === undefined ? {} : { paperStages: cleanPaperStages(body.paperStages, stages ?? []) }),
+          ...(body.paperStages === undefined ? {} : { paperStages: cleanPaperStages(body.paperStages, known) }),
+          ...(body.completedStages === undefined ? {} : { completedStages: cleanCompletedStages(body.completedStages, known) }),
           ...(body.archived === undefined ? {} : { archived: Boolean(body.archived) }),
         }),
       });

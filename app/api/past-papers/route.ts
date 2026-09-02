@@ -13,12 +13,11 @@ import {
   type PaperStatus,
   type PastPaperInput,
 } from "../../../lib/past-papers-db";
+import { subjectStages } from "../../../lib/subjects-db";
 import { withWorkspace } from "../../../lib/auth";
 
 export const runtime = "nodejs";
 
-/** A stage label as subject settings writes them: AS, A2, SL, HL or a learner's own. */
-const STAGE_PATTERN = /^[\w /+-]{1,16}$/;
 const SESSIONS = new Set<string>(PAPER_SESSIONS);
 const CONDITIONS = new Set<string>(PAPER_CONDITIONS);
 const STATUSES = new Set<string>(PAPER_STATUSES);
@@ -27,7 +26,7 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 type PaperBody = Partial<{
   paperId: string | null;
-  subject: string;
+  subjectId: string;
   stage: string;
   board: string | null;
   paper: string;
@@ -68,15 +67,22 @@ function cleanWeakTopics(value: unknown) {
   return topics;
 }
 
-function validate(body: PaperBody, partial: boolean) {
+/**
+ * An attempt is filed against one of the learner's own subjects, and the stage
+ * is checked against that subject's own split rather than against a shape.
+ * The catalogue names thousands of subjects nobody is necessarily tracking, so
+ * a name that is not one of theirs has nowhere to go — and a stage the subject
+ * does not have would file the paper where no plan would ever read it.
+ */
+async function validate(workspaceId: string, body: PaperBody, partial: boolean) {
   const provided = (key: keyof PaperBody) => body[key] !== undefined;
 
-  if (!partial || provided("subject")) {
-    // The catalogue spans far more subjects than the four tracked syllabuses.
-    if (!cleanText(body.subject, 60)) return "Choose a valid subject.";
-  }
-  if (!partial || provided("stage")) {
-    if (!body.stage || !STAGE_PATTERN.test(body.stage)) return "Choose the stage this paper belongs to.";
+  if (!partial || provided("subjectId") || provided("stage")) {
+    const stages = await subjectStages(workspaceId, body.subjectId);
+    if (!stages?.length) return "Choose one of your own subjects.";
+    if (!partial || provided("stage")) {
+      if (!body.stage || !stages.includes(body.stage)) return `Choose ${stages.join(" or ")} for this paper.`;
+    }
   }
   if (!partial || provided("paper")) {
     if (!cleanText(body.paper, 40)) return "Add the paper, for example Paper 4.";
@@ -119,7 +125,7 @@ function validate(body: PaperBody, partial: boolean) {
 function toInput(body: PaperBody): PastPaperInput {
   return {
     paperId: cleanText(body.paperId, 60),
-    subjectId: String(body.subject),
+    subjectId: String(body.subjectId),
     stage: String(body.stage),
     board: cleanText(body.board, 40),
     paper: cleanText(body.paper, 40) as string,
@@ -141,7 +147,7 @@ function toInput(body: PaperBody): PastPaperInput {
 function toPartialInput(body: PaperBody): Partial<PastPaperInput> {
   const input: Partial<PastPaperInput> = {};
   if (body.paperId !== undefined) input.paperId = cleanText(body.paperId, 60);
-  if (body.subject !== undefined) input.subjectId = String(body.subject);
+  if (body.subjectId !== undefined) input.subjectId = String(body.subjectId);
   if (body.stage !== undefined) input.stage = String(body.stage);
   if (body.board !== undefined) input.board = cleanText(body.board, 40);
   if (body.paper !== undefined) input.paper = cleanText(body.paper, 40) as string;
@@ -175,7 +181,7 @@ export async function POST(request: Request) {
   return withWorkspace(async (workspaceId) => {
     try {
       const body = await request.json() as PaperBody;
-      const problem = validate(body, false);
+      const problem = await validate(workspaceId, body, false);
       if (problem) return Response.json({ error: problem }, { status: 400 });
       return Response.json({ paper: await addPastPaper(workspaceId, toInput(body)) });
     } catch (error) {
@@ -193,7 +199,7 @@ export async function PATCH(request: Request) {
       if (!Number.isInteger(id) || id < 1) {
         return Response.json({ error: "That past paper could not be found." }, { status: 400 });
       }
-      const problem = validate(body, true);
+      const problem = await validate(workspaceId, body, true);
       if (problem) return Response.json({ error: problem }, { status: 400 });
       return Response.json({ paper: await updatePastPaper(workspaceId, id, toPartialInput(body)) });
     } catch (error) {

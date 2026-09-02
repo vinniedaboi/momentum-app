@@ -1,0 +1,297 @@
+/* Grade targets.
+   The page borrows the goal planner's shell — switcher, dark setup panel,
+   metric row — because it is the same shape of screen and a second visual
+   language for "here is your plan" would be one too many. Everything below is
+   the part that is genuinely its own: a mark being priced against a grade. */
+
+/* ---------- setup ---------- */
+
+/* Two columns like the goal setup, but the copy carries a standing caveat
+   about estimates rather than a date preview, so it needs the room. */
+.grade-setup { grid-template-columns: minmax(300px, 1fr) minmax(0, 1.15fr); }
+.grade-setup-note {
+  margin-top: var(--space-4);
+  color: var(--c-on-panel-soft);
+  font-size: var(--text-2xs);
+  line-height: 1.55;
+}
+
+.grade-form { grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; }
+.grade-form > label { min-width: 0; }
+.grade-form label > span small { text-transform: none; letter-spacing: 0; color: var(--c-slate); font-weight: 700; }
+
+/* The mark and its total read as one answer, so they sit in one field. */
+.grade-mark-field { grid-column: 1 / -1; display: grid; gap: var(--space-2); }
+.grade-mark-field > span {
+  font-size: var(--text-3xs);
+  font-weight: 900;
+  color: var(--c-muted);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+.grade-mark-field > span small { text-transform: none; letter-spacing: 0; color: var(--c-slate); font-weight: 700; }
+.grade-mark-field > div { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--space-3); align-items: center; }
+.grade-mark-field input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--c-surface-sunken);
+  color: var(--ink);
+  padding: 0 var(--space-3);
+}
+.grade-mark-field b { color: var(--c-brown-soft); font-size: var(--text-2xs); font-weight: 800; }
+
+.grade-target-picker { grid-column: 1 / -1; border: 0; margin: 0; padding: 0; }
+.grade-target-picker legend {
+  padding: 0 0 var(--space-2);
+  font-size: var(--text-3xs);
+  font-weight: 900;
+  color: var(--c-muted);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+.grade-target-picker > div { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-1); }
+.grade-target-picker button {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-sunken);
+  color: var(--c-muted);
+  font-size: var(--text-2xs);
+  font-weight: 900;
+}
+.grade-target-picker button.active { border-color: var(--teal); background: var(--teal); color: var(--c-on-accent); }
+
+/* The answer, live, while the form is still being filled in. */
+.grade-preview {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--c-on-panel);
+  border-radius: var(--radius-md);
+  background: var(--c-surface-sunken);
+}
+.grade-preview strong { font: 700 var(--text-2xl) var(--font-display); }
+.grade-preview small { color: var(--muted); font-size: var(--text-2xs); line-height: 1.45; }
+.grade-preview.reachable { border-left-color: var(--teal); background: var(--c-mint); }
+.grade-preview.secured { border-left-color: var(--c-blue); background: var(--c-blue-white); }
+.grade-preview.out-of-reach { border-left-color: var(--c-red); background: var(--c-red-soft); }
+
+/* ---------- hero ---------- */
+
+.grade-hero { grid-template-columns: minmax(280px, 1fr) minmax(240px, 340px); }
+.grade-hero-actions { display: flex; gap: var(--space-2); margin-top: var(--space-4); }
+.grade-hero-actions button {
+  border: 1px solid rgba(188, 220, 208, .4);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--c-on-panel);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-2xs);
+  font-weight: 800;
+}
+.grade-hero-actions button:hover { border-color: var(--c-on-panel); color: var(--c-on-dark); }
+/* `.delete-goal` is a borderless link inside the goal form. Here it sits beside
+   a bordered button on a dark panel, so it takes the same shape as its neighbour
+   and keeps only its colour. */
+.grade-hero-actions .delete-goal {
+  margin: 0;
+  border: 1px solid rgba(249, 213, 174, .3);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  color: var(--c-peach-strong);
+  font-size: var(--text-2xs);
+  font-weight: 800;
+}
+.grade-hero-actions .delete-goal:hover { border-color: var(--c-peach-strong); }
+
+.grade-headline {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  min-height: 120px;
+  align-content: center;
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid rgba(205, 229, 220, .25);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, .075);
+}
+.grade-headline strong { color: var(--c-on-dark); font: 700 var(--text-4xl) var(--font-display); line-height: 1; }
+.grade-headline small { color: var(--c-on-panel); font-size: var(--text-2xs); line-height: 1.45; }
+.grade-headline.out-of-reach strong { font-size: var(--text-2xl); color: var(--c-peach-strong); }
+.grade-headline.secured strong { font-size: var(--text-2xl); }
+
+/* ---------- the ladder ---------- */
+
+.grade-ladder .section-heading > span { color: var(--muted); font-size: var(--text-3xs); font-weight: 800; }
+.grade-ladder ul { list-style: none; margin: 0; padding: 0 var(--space-6) var(--space-4); display: grid; gap: var(--space-2); }
+
+.grade-ladder li > button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 52px 108px minmax(80px, 1fr) 72px 160px;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--c-surface-raised);
+  text-align: left;
+}
+.grade-ladder li > button:hover:not(:disabled) { border-color: var(--c-on-panel); }
+.grade-ladder li.chosen > button { border-color: var(--teal); background: var(--c-mint); box-shadow: inset 3px 0 0 var(--teal); }
+.grade-ladder li.out-of-reach > button { opacity: .55; cursor: not-allowed; }
+.grade-ladder li.secured > button { background: var(--c-blue-white); }
+
+.grade-ladder li b { font-size: var(--text-3xs); font-weight: 800; color: var(--muted); white-space: nowrap; }
+.grade-ladder li > button > strong { font: 700 var(--text-lg) var(--font-display); text-align: right; }
+.grade-ladder li > button > small { font-size: var(--text-3xs); color: var(--muted); line-height: 1.35; }
+.grade-ladder li.out-of-reach > button > strong { color: var(--c-red); font-size: var(--text-sm); }
+.grade-ladder li.secured > button > strong { color: var(--c-blue-deep); font-size: var(--text-sm); }
+
+/* The bar is what the grade asks for; the tick is what the learner is
+   currently averaging, so the gap between them is the whole story. */
+.grade-need-bar { position: relative; height: 8px; border-radius: var(--radius-pill); background: var(--c-line-soft); overflow: visible; }
+.grade-need-bar i { display: block; height: 100%; border-radius: inherit; background: var(--c-on-panel); }
+.grade-ladder li.chosen .grade-need-bar i { background: var(--teal); }
+.grade-need-bar em {
+  position: absolute;
+  top: -4px;
+  width: 2px;
+  height: 16px;
+  border-radius: var(--radius-pill);
+  background: var(--c-rose);
+  transform: translateX(-1px);
+}
+
+.grade-ladder-note { margin: 0; padding: 0 var(--space-6) var(--space-6); color: var(--muted); font-size: var(--text-3xs); line-height: 1.5; }
+
+/* ---------- paper target ---------- */
+
+.grade-paper-body { padding: 0 var(--space-6) var(--space-6); display: grid; gap: var(--space-4); }
+.grade-paper-body > .muted { margin: 0; font-size: var(--text-2xs); line-height: 1.5; }
+.grade-paper-set { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-3); }
+.grade-paper-set label { display: grid; gap: var(--space-2); }
+.grade-paper-set label > span { font-size: var(--text-3xs); font-weight: 900; color: var(--c-muted); text-transform: uppercase; letter-spacing: .07em; }
+.grade-paper-set .hours-input { width: 148px; }
+.grade-paper-set .hours-input input {
+  width: 100%;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--c-surface-sunken);
+  color: var(--ink);
+  padding: 0 var(--space-3);
+}
+.grade-paper-set .primary-button { min-height: 44px; padding: 0 var(--space-5); }
+.grade-paper-set .ghost-button { min-height: 44px; }
+
+.grade-paper-log { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.grade-paper-log li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 72px 108px;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--c-surface-sunken);
+  box-shadow: inset 3px 0 0 var(--c-on-panel);
+}
+.grade-paper-log li.hit { background: var(--c-mint); box-shadow: inset 3px 0 0 var(--teal); }
+.grade-paper-log li.miss { background: var(--c-red-soft); box-shadow: inset 3px 0 0 var(--c-red); }
+.grade-paper-log strong { font-size: var(--text-2xs); font-weight: 900; }
+.grade-paper-log span { font-size: var(--text-3xs); color: var(--muted); }
+.grade-paper-log b { font: 700 var(--text-md) var(--font-display); text-align: right; }
+.grade-paper-log i {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-style: normal;
+  font-size: var(--text-3xs);
+  font-weight: 800;
+  color: var(--c-ink-soft);
+  justify-content: flex-end;
+}
+
+/* ---------- what the target looks like over on Past papers ---------- */
+
+.paper-target-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-3); }
+.paper-target-strip article {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--c-on-panel);
+  border-radius: var(--radius-lg);
+  background: var(--c-surface-raised);
+}
+.paper-target-strip article.on-target { border-left-color: var(--teal); }
+.paper-target-strip article.under { border-left-color: var(--c-amber); }
+.paper-target-strip strong { font-size: var(--text-2xs); font-weight: 900; }
+.paper-target-strip strong b {
+  margin-left: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-xs);
+  background: var(--c-line-soft);
+  color: var(--c-ink-soft);
+  font-size: var(--text-3xs);
+}
+.paper-target-strip span { font-size: var(--text-3xs); color: var(--muted); }
+.paper-target-strip .paper-target-figures { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.paper-target-strip .paper-target-figures b { font: 700 var(--text-xl) var(--font-display); }
+.paper-target-strip small { font-size: var(--text-3xs); color: var(--muted); text-align: right; }
+
+/* Same reading as the ladder's bar: fill is form, tick is the target. */
+.paper-target-bar { position: relative; height: 8px; border-radius: var(--radius-pill); background: var(--c-line-soft); }
+.paper-target-bar i { display: block; height: 100%; border-radius: inherit; background: var(--c-on-panel); }
+.paper-target-strip article.on-target .paper-target-bar i { background: var(--teal); }
+.paper-target-strip article.under .paper-target-bar i { background: var(--c-amber); }
+.paper-target-bar em {
+  position: absolute;
+  top: -4px;
+  width: 2px;
+  height: 16px;
+  border-radius: var(--radius-pill);
+  background: var(--c-rose);
+  transform: translateX(-1px);
+}
+
+.paper-live-target { font-weight: 800; }
+.paper-live-target.hit { color: var(--c-teal-deep); }
+.paper-live-target.miss { color: var(--c-amber-ink); }
+
+.paper-no-subject {
+  margin: 0;
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--c-amber-soft);
+  color: var(--c-amber-ink);
+  font-size: var(--text-2xs);
+  line-height: 1.5;
+}
+
+@media (max-width: 1180px) {
+  .grade-hero { grid-template-columns: 1fr; }
+  .grade-ladder li > button { grid-template-columns: 52px 96px minmax(60px, 1fr) 64px 128px; gap: var(--space-2); }
+}
+
+@media (max-width: 850px) {
+  .grade-setup { grid-template-columns: 1fr; }
+  .grade-form { grid-template-columns: 1fr; }
+  .grade-ladder ul, .grade-ladder-note, .grade-paper-body { padding-left: var(--space-4); padding-right: var(--space-4); }
+  .grade-ladder li > button {
+    grid-template-columns: 52px minmax(0, 1fr) 72px;
+    grid-template-areas: "badge minimum need" "bar bar bar" "note note note";
+    row-gap: var(--space-2);
+  }
+  .grade-ladder li .grade-badge { grid-area: badge; }
+  .grade-ladder li > button > b { grid-area: minimum; }
+  .grade-ladder li .grade-need-bar { grid-area: bar; }
+  .grade-ladder li > button > strong { grid-area: need; }
+  .grade-ladder li > button > small { grid-area: note; }
+  .grade-paper-log li { grid-template-columns: minmax(0, 1fr) 64px 96px; }
+  .grade-paper-log span { grid-column: 1; grid-row: 2; }
+}

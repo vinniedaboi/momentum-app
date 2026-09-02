@@ -22,6 +22,7 @@ const PATHS = {
   paperMeta: "/api/paper-meta",
   paperCatalogue: "/api/paper-catalogue",
   goals: "/api/goals",
+  gradeTargets: "/api/grade-targets",
   exams: "/api/exams",
   flashcards: "/api/flashcards",
   notes: "/api/notes",
@@ -88,6 +89,14 @@ export const studyApi = {
     save: <T>(body: unknown) => api.post<T>(PATHS.goals, body),
     remove: <T>(subjectId: Identifier, stage: string) =>
       api.remove<T>(`${PATHS.goals}?subjectId=${encodeURIComponent(subjectId)}&stage=${encodeURIComponent(stage)}`),
+  },
+
+  gradeTargets: {
+    path: PATHS.gradeTargets,
+    /** Upserts the target for one subject, so there is no separate update. */
+    save: <T>(body: unknown) => api.post<T>(PATHS.gradeTargets, body),
+    remove: <T>(subjectId: Identifier) =>
+      api.remove<T>(`${PATHS.gradeTargets}?subjectId=${encodeURIComponent(subjectId)}`),
   },
 
   exams: {

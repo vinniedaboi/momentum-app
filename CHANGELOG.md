@@ -19,7 +19,40 @@ Versions are `major.minor.patch`:
 
 ## Unreleased
 
-*Nothing yet.*
+### Grade targets — what A2 needs, now that AS is done
+
+- **Put in your AS grade and mark, and see what A2 has to average** for the
+  overall grade you want. Enter a percentage uniform mark or a raw score out of
+  its total.
+- **Every grade is priced, not just the one you picked.** A ladder shows what
+  A*, A, B, C, D and E would each cost you across the second year, and marks the
+  ones a perfect A2 can no longer reach.
+- **Pick a grade and it becomes your past-paper target.** Every A2 paper you log
+  is scored against it — on the new screen and while you are typing the marks in
+  on Past papers — or set your own number to aim above the boundary.
+- **Your recent papers project a grade.** The last five A2 attempts become a
+  form figure, carried through the same arithmetic to the grade that form lands.
+
+Every figure is an estimate and the screens say so: real boundaries move a mark
+or two each session.
+
+### Already sat AS? Say so
+
+- **Mark a stage as sat**, from the subject itself or from the Subjects list.
+  Its syllabus points leave the review board, the counters, the nav badge and
+  the calendar, so the queue stops asking for work that cannot be redone.
+- **Nothing is deleted.** Statuses, notes, history and dates all stay where they
+  were, the syllabus is still there to look back at, and putting the stage back
+  restores it to the board unchanged.
+- The sidebar reports a stage you have sat as **sat** rather than as a
+  percentage, and Grade targets opens on it as the half already behind you.
+
+### Fixed
+
+- **Logging a past paper works again.** Attempts were being filed under a
+  subject's display name rather than its id, which the database rejected, so
+  nothing saved. Papers are now logged against a subject you pick from your own
+  list, and the stage against that subject's own split.
 
 ---
 

@@ -26,6 +26,11 @@ export type Subject = {
   stages: string[];
   /** Maps a paper label to a stage, e.g. { "P1": "AS", "P5": "AS" }. */
   paperStages: Record<string, string>;
+  /**
+   * The stages already sat. A subset of `stages`; their syllabus points drop
+   * off the review board rather than being deleted, so unmarking restores them.
+   */
+  completedStages: string[];
   position: number;
   archived: boolean;
   createdAt: string;
@@ -48,7 +53,7 @@ export type SubjectInput = {
  * rules that used to live as if-statements in syllabus-stage.ts. Nothing is
  * created automatically: a new account picks from this list, or builds its own.
  */
-export const STARTER_SUBJECTS: Array<Omit<Subject, "createdAt" | "updatedAt" | "workspaceId">> = [
+export const STARTER_SUBJECTS: Array<Omit<Subject, "createdAt" | "updatedAt" | "workspaceId" | "completedStages">> = [
   {
     id: "mathematics", name: "Mathematics", shortName: "Math", tone: "blue",
     board: "CAIE", qualification: "Cambridge International AS & A Level", syllabusCode: "9709",
@@ -117,6 +122,7 @@ function mapSubject(row: Record<string, unknown>): Subject {
     syllabusCode: row.syllabus_code ? String(row.syllabus_code) : null,
     stages: parseJson<string[]>(row.stages_json, []),
     paperStages: parseJson<Record<string, string>>(row.paper_stages_json, {}),
+    completedStages: parseJson<string[]>(row.completed_stages_json, []),
     position: Number(row.position ?? 0),
     archived: Boolean(row.archived),
     createdAt: String(row.created_at),
@@ -227,12 +233,18 @@ export async function createSubjects(workspaceId: string, specs: SubjectSpec[]) 
 export async function updateSubject(
   workspaceId: string,
   id: string,
-  input: Partial<SubjectInput> & { archived?: boolean; position?: number },
+  input: Partial<SubjectInput> & { completedStages?: string[]; archived?: boolean; position?: number },
 ) {
   const sql = getSql();
   const current = await getSubject(workspaceId, id);
   if (!current) throw new Error("Subject not found.");
   const now = nowIso();
+
+  // Re-splitting a course cannot leave "AS is done" behind on a subject that no
+  // longer has an AS, which would retire syllabus points nothing could restore.
+  const stages = input.stages ?? current.stages;
+  const completedStages = (input.completedStages ?? current.completedStages)
+    .filter((stage) => stages.includes(stage));
   const rows = await sql<Record<string, unknown>[]>`
     UPDATE subjects SET
       name = ${input.name ?? current.name},
@@ -241,8 +253,9 @@ export async function updateSubject(
       board = ${input.board === undefined ? current.board : input.board},
       qualification = ${input.qualification === undefined ? current.qualification : input.qualification},
       syllabus_code = ${input.syllabusCode === undefined ? current.syllabusCode : input.syllabusCode},
-      stages_json = ${JSON.stringify(input.stages ?? current.stages)},
+      stages_json = ${JSON.stringify(stages)},
       paper_stages_json = ${JSON.stringify(input.paperStages ?? current.paperStages)},
+      completed_stages_json = ${JSON.stringify(completedStages)},
       position = ${input.position ?? current.position},
       archived = ${input.archived ?? current.archived},
       updated_at = ${now}
