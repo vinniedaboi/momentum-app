@@ -182,7 +182,7 @@ export default function StudyHoursView({
 
       <section className="hours-layout">
         <form className="hours-form panel-card" onSubmit={submit}>
-          <div className="panel-heading"><p className="eyebrow">QUICK LOG</p><h3>Add study time</h3><p>Copy your YPT total or add separate sessions.</p></div>
+          <div className="panel-heading"><p className="eyebrow">QUICK LOG</p><h3>Add study time</h3><p>Copy in a daily total, or add separate sessions.</p></div>
           <label><span>Date</span><input type="date" value={date} max={today} onChange={(event) => setDate(event.target.value)} required /></label>
           <div className="duration-fields">
             <label><span>Hours</span><input type="number" min="0" max="24" inputMode="numeric" placeholder="0" value={hours} onChange={(event) => setHours(event.target.value)} /></label>
@@ -250,7 +250,7 @@ export default function StudyHoursView({
             <b className="session-duration">{formatStudyTime(session.minutes)}</b>
             <button className="delete-session" onClick={() => onDelete(session.id)} aria-label={`Delete ${formatStudyTime(session.minutes)} entry from ${longDate(session.studyDate)}`}><Icon name="close" /></button>
           </article>
-        ))}</div> : <div className="empty-state compact"><span className="hours-empty-icon"><Icon name="hours" /></span><strong>No study hours logged yet</strong><p>Add today’s YPT time with the quick log above.</p></div>}
+        ))}</div> : <div className="empty-state compact"><span className="hours-empty-icon"><Icon name="hours" /></span><strong>No study hours logged yet</strong><p>Add today’s study time with the quick log above.</p></div>}
       </section>
     </div>
   );

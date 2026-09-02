@@ -185,7 +185,7 @@ const PILLARS = [
     body: "Put in the hours, tick what you covered. That one act marks those topics reviewed, books their next date, and moves your syllabus percentage. Nothing to keep in step by hand.",
     ticks: [
       "Daily and weekly totals, and your real study rhythm",
-      "Paste a YPT total in, or add sessions one at a time",
+      "Paste a daily total in, or add sessions one at a time",
       "Hours checked against the target your own plan set",
     ],
   },
