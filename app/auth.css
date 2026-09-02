@@ -219,7 +219,10 @@
 
 .subject-option {
   display: grid;
-  grid-template-columns: 24px 1fr;
+  /* minmax(0, …), not 1fr: a grid track sizes to its content by default, so a
+     long course title or a full qualification name would push the card wider
+     than the column it sits in rather than wrapping inside it. */
+  grid-template-columns: 24px minmax(0, 1fr);
   gap: var(--space-3);
   align-items: start;
   text-align: left;
@@ -248,7 +251,8 @@
   margin-top: var(--space-1);
 }
 
-.subject-option strong { display: block; font-size: var(--text-md); font-weight: 800; }
+.subject-option > span { min-width: 0; }
+.subject-option strong { display: block; font-size: var(--text-md); font-weight: 800; overflow-wrap: break-word; }
 
 /* One button per board that teaches the subject on this card. Picking a subject
    and picking its board are the same gesture, so the board is the control. */
@@ -261,11 +265,17 @@
 
 .subject-boards button {
   display: inline-flex;
-  align-items: baseline;
+  /* Centred, not baseline. "IB Diploma Programme" wraps to two lines in a card
+     this narrow, and baseline alignment left the syllabus code stranded
+     alongside the first of them — which read as text spilling out of the chip.
+     The radius follows: a stadium is a shape for one line of text. */
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: var(--c-surface-raised);
   color: var(--muted);
   font-size: var(--text-xs);
@@ -282,7 +292,7 @@
   color: var(--c-on-accent);
 }
 
-.subject-boards button small { color: inherit; opacity: .75; font-size: var(--text-2xs); }
+.subject-boards button small { margin-left: auto; color: inherit; opacity: .75; font-size: var(--text-2xs); white-space: nowrap; }
 .subject-option small { color: var(--muted); font-size: var(--text-xs); line-height: 1.5; }
 
 .onboarding-actions {
@@ -459,10 +469,13 @@
 .picker-chip {
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
   border: 1px solid var(--c-line-strong);
-  border-radius: var(--radius-pill);
+  /* A board name wraps on a narrow screen, and a stadium drawn around two
+     lines of text reads as a mistake. */
+  border-radius: var(--radius-md);
   background: var(--c-surface-raised);
   color: var(--ink);
   font-size: var(--text-sm);
@@ -552,10 +565,14 @@
 .board-chips button {
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
+  /* "Cambridge International AS & A Level" needs two lines on a phone, and a
+     stadium is a shape for one: drawn round wrapped text it reads as a bubble
+     that the words have burst out of. */
+  border-radius: var(--radius-md);
   background: var(--c-surface-raised);
   color: var(--muted);
   font-size: var(--text-sm);

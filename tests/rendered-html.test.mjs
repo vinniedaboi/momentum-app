@@ -949,12 +949,21 @@ test("an exam answers the same four questions a syllabus goal does", async () =>
 test("both planners' metric cards are styled by the same rules", async () => {
   // The cards were built for goals and lent to exams. Every rule that dresses
   // one has to name the other, or an exam card silently loses an accent — which
-  // is how the readiness card shipped blue while reporting that you were behind.
-  const css = await read("app/globals.css");
-  const missing = [...css.matchAll(/\.goal-metrics(?![-\w])[^,{]*/g)]
-    .map((match) => match[0].trim())
-    .filter((selector) => !css.includes(`.exam-metrics${selector.slice(".goal-metrics".length)}`));
-  assert.deepEqual(missing, [], `these goal-metric rules do not cover .exam-metrics: ${missing.join(", ")}`);
+  // is how the readiness card shipped blue while reporting you were behind, and
+  // how the exam cards later ended up a size tighter than the identical cards
+  // next door. Every sheet, not just globals: the theme layer loads last and is
+  // where most of these rules actually win.
+  const sheets = ["app/globals.css", "app/friendly-theme.css", "app/features.css", "app/exams.css"];
+  const missing = [];
+  for (const sheet of sheets) {
+    const css = await read(sheet);
+    for (const match of css.matchAll(/\.goal-metrics(?![-\w])[^,{]*/g)) {
+      const selector = match[0].trim();
+      const twin = `.exam-metrics${selector.slice(".goal-metrics".length)}`;
+      if (!css.includes(twin)) missing.push(`${sheet}: ${selector}`);
+    }
+  }
+  assert.deepEqual(missing, [], `these goal-metric rules do not cover .exam-metrics:\n  ${missing.join("\n  ")}`);
 });
 
 test("the type scale climbs, and starts above a footnote", async () => {
