@@ -1,0 +1,207 @@
+/*
+ * The public landing page. Reads the same tokens as the app, so the two never
+ * drift apart in colour, type or spacing, and so it follows the reader's theme
+ * the way every other screen does.
+ */
+
+.landing {
+  --landing-max: 1160px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--c-page);
+  color: var(--ink);
+}
+
+.landing > main { flex: 1; }
+
+.landing section,
+.landing-nav {
+  width: min(var(--landing-max), 100% - clamp(var(--space-5), 6vw, var(--space-10)) * 2);
+  margin-inline: auto;
+}
+
+/* Only ever announced to a screen reader. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- Nav ---------- */
+
+.landing-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-5) 0;
+}
+
+.landing-brand { display: flex; align-items: center; gap: var(--space-3); text-decoration: none; color: inherit; }
+.landing-brand .brand-mark { width: 40px; height: 40px; display: grid; place-items: center; border-radius: var(--radius-md); background: var(--c-surface-raised); box-shadow: var(--shadow-sm); }
+.landing-brand b { display: block; font: 700 var(--text-lg)/1.1 var(--font-display); }
+.landing-brand small { display: block; font-size: var(--text-3xs); font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+
+.landing-nav nav { display: flex; gap: var(--space-5); margin-left: auto; }
+.landing-nav nav a { color: var(--muted); font-size: var(--text-sm); font-weight: 700; text-decoration: none; }
+.landing-nav nav a:hover { color: var(--ink); }
+
+.landing-nav-actions { display: flex; align-items: center; gap: var(--space-3); }
+
+.landing-signin { color: var(--ink); font-size: var(--text-sm); font-weight: 800; text-decoration: none; padding: var(--space-2) var(--space-3); }
+.landing-signin:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.landing-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--navy);
+  color: var(--c-on-dark);
+  font-size: var(--text-sm);
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.landing-cta:hover { background: var(--navy-2, var(--c-navy-mid)); }
+.landing-cta.large, .landing-ghost.large { min-height: 52px; padding: 0 var(--space-7); font-size: var(--text-md); }
+
+.landing-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--c-surface-raised);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 800;
+  text-decoration: none;
+}
+.landing-ghost:hover { border-color: var(--c-on-panel); }
+
+/* ---------- Hero ---------- */
+
+.landing-hero { padding: clamp(var(--space-8), 6vw, var(--space-11)) 0 var(--space-9); text-align: center; }
+.landing-hero .eyebrow { color: var(--teal); }
+.landing-hero h1 {
+  margin: var(--space-3) 0 var(--space-4);
+  font: 650 clamp(var(--text-4xl), 6vw, var(--text-5xl))/1.05 var(--font-display);
+  letter-spacing: -.015em;
+}
+.landing-lede { max-width: 62ch; margin: 0 auto; color: var(--muted); font-size: var(--text-lg); line-height: 1.55; }
+.landing-hero-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); margin-top: var(--space-6); }
+.landing-hero-note { margin: var(--space-4) 0 0; color: var(--muted); font-size: var(--text-xs); }
+
+.landing-shot { margin: var(--space-8) 0 0; }
+.landing-shot picture, .landing-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+/* ---------- Stats ---------- */
+
+.landing-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+  padding: var(--space-7) 0;
+  border-block: 1px solid var(--line);
+}
+.landing-stats div { display: grid; gap: var(--space-1); }
+.landing-stats strong { font: 650 var(--text-3xl)/1 var(--font-display); color: var(--teal); }
+.landing-stats span { color: var(--muted); font-size: var(--text-xs); line-height: 1.45; }
+
+/* ---------- Sections ---------- */
+
+.landing-problem, .landing-loop, .landing-features, .landing-faq, .landing-close,
+.landing-schedule, .landing-feature { padding: clamp(var(--space-8), 6vw, var(--space-11)) 0; }
+
+.landing h2 { margin: 0 0 var(--space-4); font: 650 clamp(var(--text-2xl), 3.4vw, var(--text-4xl))/1.15 var(--font-display); }
+.landing p { line-height: 1.6; }
+
+/* Constrain the measure, not the section: capping the section's own width
+   centres it against the left-aligned sections above and below it. */
+.landing-problem h2, .landing-problem p { max-width: 62ch; }
+.landing-problem p { color: var(--muted); font-size: var(--text-md); }
+.landing-problem strong { color: var(--ink); }
+
+.landing-loop ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5); }
+.landing-loop li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: var(--space-4); align-items: start; padding: var(--space-5); border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--c-surface-raised); box-shadow: var(--shadow-sm); }
+.landing-loop-mark { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: var(--c-mint); color: var(--c-teal-deep); font-size: var(--text-lg); }
+.landing-loop-index { margin: 0 0 var(--space-1); color: var(--muted); font-size: var(--text-3xs); font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.landing-loop li strong { display: block; margin-bottom: var(--space-2); font-size: var(--text-md); }
+.landing-loop li p { margin: 0; color: var(--muted); font-size: var(--text-sm); }
+
+/* ---------- Alternating feature blocks ---------- */
+
+.landing-feature { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(var(--space-6), 4vw, var(--space-9)); align-items: center; }
+.landing-feature.reversed .landing-feature-copy { order: 2; }
+.landing-feature .landing-shot { margin: 0; }
+.landing-feature-copy p { color: var(--muted); font-size: var(--text-md); }
+.landing-feature-copy .eyebrow { color: var(--teal); }
+
+.landing-ticks { list-style: none; margin: var(--space-5) 0 0; padding: 0; display: grid; gap: var(--space-3); }
+.landing-ticks li { position: relative; padding-left: var(--space-6); font-size: var(--text-sm); line-height: 1.5; }
+.landing-ticks li::before { content: "✓"; position: absolute; left: 0; top: 0; color: var(--teal); font-weight: 900; }
+
+/* ---------- Schedule table ---------- */
+
+.landing-schedule { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(var(--space-6), 4vw, var(--space-9)); align-items: center; }
+.landing-schedule p { color: var(--muted); font-size: var(--text-md); margin: 0; }
+.landing-schedule table { width: 100%; border-collapse: collapse; border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; background: var(--c-surface-raised); }
+.landing-schedule th, .landing-schedule td { text-align: left; padding: var(--space-4); border-bottom: 1px solid var(--line); font-size: var(--text-sm); font-weight: 500; }
+.landing-schedule thead th { font-size: var(--text-3xs); font-weight: 900; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.landing-schedule tbody tr:last-child th, .landing-schedule tbody tr:last-child td { border-bottom: 0; }
+.landing-schedule tbody th { font-weight: 800; }
+.landing-schedule td:last-child { font-weight: 800; white-space: nowrap; }
+
+/* ---------- Feature grid ---------- */
+
+.landing-feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-4); margin-top: var(--space-6); }
+.landing-feature-grid article { padding: var(--space-5); border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--c-surface-raised); box-shadow: var(--shadow-sm); }
+.landing-feature-grid span { display: grid; place-items: center; width: 38px; height: 38px; margin-bottom: var(--space-3); border-radius: var(--radius-md); background: var(--c-blue-soft); color: var(--c-blue-deep); font-size: var(--text-md); }
+.landing-feature-grid strong { display: block; margin-bottom: var(--space-2); font-size: var(--text-md); }
+.landing-feature-grid p { margin: 0; color: var(--muted); font-size: var(--text-sm); }
+
+/* ---------- FAQ ---------- */
+
+.landing-faq-list { display: grid; gap: var(--space-3); margin-top: var(--space-6); max-width: 80ch; }
+.landing-faq details { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--c-surface-raised); }
+.landing-faq summary { padding: var(--space-5); font-size: var(--text-md); font-weight: 800; cursor: pointer; }
+.landing-faq summary::marker { color: var(--teal); }
+.landing-faq details p { margin: 0; padding: 0 var(--space-5) var(--space-5); color: var(--muted); font-size: var(--text-sm); }
+
+/* ---------- Close ---------- */
+
+.landing-close { text-align: center; }
+.landing-close p { max-width: 56ch; margin: 0 auto; color: var(--muted); font-size: var(--text-md); }
+
+/* ---------- Narrow ---------- */
+
+@media (max-width: 900px) {
+  .landing-nav { flex-wrap: wrap; gap: var(--space-3); }
+  .landing-nav nav { order: 3; width: 100%; margin-left: 0; overflow-x: auto; }
+  .landing-nav-actions { margin-left: auto; }
+  .landing-stats { grid-template-columns: repeat(2, 1fr); }
+  .landing-loop ol { grid-template-columns: 1fr; }
+  .landing-feature, .landing-schedule { grid-template-columns: 1fr; }
+  .landing-feature.reversed .landing-feature-copy { order: 0; }
+}
+
+@media (max-width: 560px) {
+  .landing-nav .landing-signin { display: none; }
+  .landing-hero-actions { flex-direction: column; align-items: stretch; }
+  .landing-stats { grid-template-columns: 1fr; gap: var(--space-5); }
+}

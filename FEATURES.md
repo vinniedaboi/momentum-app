@@ -195,7 +195,7 @@ goal milestones, scheduled syllabus points, exam revision and exam days.
   International AS & A Level and IGCSE, Edexcel International A Level and
   International GCSE, and the AQA, OCR and Edexcel A levels — searchable, and
   filtered by qualification
-- 221 of them arrive **with their full official syllabus tree already loaded**,
+- 233 of them arrive **with their full official syllabus tree already loaded**,
   every chapter and spec point in order; the rest are created ready for a
   syllabus to be imported later
 - Every account is fully isolated: separate data, enforced in the application

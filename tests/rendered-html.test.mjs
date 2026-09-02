@@ -1060,3 +1060,72 @@ test("the review board shows every point that is due, not the first thirty", asy
   assert.match(shell, /start \+= SELECTION_LIMIT/);
   assert.match(route, /ids\.length > 200/, "the client's limit should be the route's own");
 });
+
+test("the front door is a landing page, not a redirect to a sign-in form", async () => {
+  const page = await read("app/page.tsx");
+  const session = await read("lib/supabase/session.ts");
+
+  // Signed out, / is the marketing page. It used to redirect to /login, which
+  // left the product with no indexable address at all.
+  assert.match(page, /if \(!session\) return <Landing/);
+  assert.match(page, /landingStats\(\)/);
+  assert.match(session, /PUBLIC_EXACT = \["\/", "\/robots\.txt", "\/sitemap\.xml"\]/);
+
+  // Exactly, not as a prefix: everything under / stays behind a session.
+  assert.match(session, /PUBLIC_EXACT\.includes\(pathname\)/);
+});
+
+test("the landing page is indexable, and says nothing the product cannot do", async () => {
+  const landing = await read("app/landing.tsx");
+  const layout = await read("app/layout.tsx");
+  const features = await read("FEATURES.md");
+
+  // One h1, sections a crawler can follow, and machine-readable answers.
+  assert.equal((landing.match(/<h1>/g) ?? []).length, 1, "a page has one h1");
+  assert.match(landing, /application\/ld\+json/);
+  assert.match(landing, /"@type": "WebApplication"/);
+  assert.match(landing, /"@type": "FAQPage"/);
+  assert.match(layout, /metadataBase/);
+  assert.match(layout, /alternates: \{ canonical/);
+  assert.ok(await read("app/robots.ts"));
+  assert.ok(await read("app/sitemap.ts"));
+
+  // FEATURES.md is the reference for this copy and carries rules with it. The
+  // three that would actually mislead a student are enforced here.
+  assert.match(features, /Do not call it "AI-powered"/);
+  for (const banned of [/AI[- ]powered/i, /grade guarantee/i, /boost your grades/i]) {
+    assert.ok(!banned.test(landing), `landing copy uses banned phrasing: ${banned}`);
+  }
+  // Nothing on the "not built yet" list may be implied.
+  for (const absent of [/sign in with google/i, /download the app/i, /app store/i, /per month/i, /pricing/i]) {
+    assert.ok(!absent.test(landing), `landing copy promises something unbuilt: ${absent}`);
+  }
+
+  // Numbers on a public page are claims, so they are read rather than typed.
+  assert.match(landing, /number\(stats\.subjects\)/);
+  assert.match(await read("lib/landing-stats.ts"), /FROM catalogue_papers/);
+});
+
+test("every landing screenshot is real, described, and follows the reader's theme", async () => {
+  const landing = await read("app/landing.tsx");
+  const names = [...landing.matchAll(/file: "([\w-]+)"/g)].map((match) => match[1]);
+  assert.ok(names.length >= 4, `expected the app's screens, found ${names.length}`);
+
+  for (const name of names) {
+    // Both themes exist on disk: the app follows the reader's, and a page that
+    // showed a light product to someone reading in the dark would not.
+    for (const theme of ["light", "dark"]) {
+      const file = `public/shots/${name}-${theme}.png`;
+      await assert.doesNotReject(read(file), `${file} is missing`);
+    }
+  }
+  assert.match(landing, /media="\(prefers-color-scheme: dark\)"/);
+
+  // Alt text that describes what the screenshot shows, not "screenshot".
+  const alts = [...landing.matchAll(/alt: "([^"]+)"/g)].map((match) => match[1]);
+  assert.equal(alts.length, names.length, "every shot needs alt text");
+  for (const alt of alts) {
+    assert.ok(alt.length > 60, `alt text is too thin to be useful: "${alt}"`);
+    assert.ok(!/^screenshot/i.test(alt), `alt text should describe the screen: "${alt}"`);
+  }
+});

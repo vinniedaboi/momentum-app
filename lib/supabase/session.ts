@@ -14,7 +14,15 @@ const PUBLIC_PREFIXES = [
   "/api/cron", "/api/reminders/stop",
 ];
 
+/**
+ * `/` is public because it is the landing page when signed out and the app when
+ * signed in — the page itself makes that call, having already looked the
+ * session up. Matched exactly: everything under it stays private.
+ */
+const PUBLIC_EXACT = ["/", "/robots.txt", "/sitemap.xml"];
+
 function isPublic(pathname: string) {
+  if (PUBLIC_EXACT.includes(pathname)) return true;
   return PUBLIC_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );

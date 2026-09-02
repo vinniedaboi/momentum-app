@@ -10,6 +10,7 @@ import "./exams.css";
 import "./guide.css";
 import "./auth.css";
 import "./brand.css";
+import "./landing.css";
 
 const nunito = Nunito_Sans({
   variable: "--font-friendly-sans",
@@ -25,15 +26,36 @@ export async function generateMetadata(): Promise<Metadata> {
   const incoming = await headers();
   const host = incoming.get("host") ?? "localhost:3001";
   const protocol = host.includes("localhost") ? "http" : "https";
-  const image = `${protocol}://${host}/og.png`;
-  const title = "Momentum Study Tracker";
-  const description = "Know exactly what to review next, with automatic study scheduling.";
+  // The request's own origin rather than a configured one, so a preview
+  // deployment describes itself rather than pointing search engines and link
+  // previews at production.
+  const origin = `${protocol}://${host}`;
+  const title = "Momentum — Know exactly what to review next";
+  const description =
+    "A revision planner for A Level, IGCSE and IB students. Momentum loads your official "
+    + "syllabus, schedules every spec point, and tells you what to revise today. Free.";
 
   return {
-    title,
+    metadataBase: new URL(origin),
+    title: { default: title, template: "%s · Momentum" },
     description,
-    openGraph: { title, description, images: [image] },
-    twitter: { card: "summary_large_image", title, description, images: [image] },
+    applicationName: "Momentum",
+    keywords: [
+      "revision planner", "A Level revision", "IGCSE revision", "IB Diploma revision",
+      "syllabus tracker", "past paper tracker", "study schedule", "Cambridge International",
+      "spaced review", "exam planner",
+    ],
+    alternates: { canonical: "/" },
+    openGraph: {
+      type: "website",
+      siteName: "Momentum",
+      url: origin,
+      title,
+      description,
+      images: [{ url: "/og.png", width: 1200, height: 630, alt: "Momentum — know exactly what to review next" }],
+    },
+    twitter: { card: "summary_large_image", title, description, images: ["/og.png"] },
+    robots: { index: true, follow: true },
   };
 }
 
