@@ -27,32 +27,48 @@ const SHOTS = [
     file: "review-board",
     width: 1440,
     height: 900,
-    alt: "The Momentum review board, showing five overdue topics, nine due today and sixteen in the next seven days, above a queue of syllabus points grouped by chapter with the plan that scheduled each one.",
+    alt: "The Momentum review board, showing five overdue topics, nine due today and sixteen in the next seven days, above a queue of syllabus points grouped by chapter, each row naming the plan that scheduled it and how long it is worth.",
+  },
+  {
+    file: "syllabus-import",
+    width: 1000,
+    height: 820,
+    alt: "Momentum's sign-up subject picker, listing Physics, Chemistry, Mathematics, Biology and more with the number of syllabus rows each one arrives with, and the exam board each is taught on.",
   },
   {
     file: "syllabus-goals",
     width: 1440,
     height: 900,
-    alt: "A Physics AS syllabus goal in Momentum, showing 57% progress, the days remaining, the required weekly pace, whether the plan is on track, and how much time each syllabus point is worth.",
+    alt: "A Physics AS syllabus goal in Momentum, showing 57% progress, days remaining, the required weekly pace, whether the plan is on track, and how many minutes each syllabus point is worth.",
   },
   {
     file: "exam-planner",
     width: 1440,
     height: 900,
-    alt: "The Momentum exam planner counting down twenty-three days to a Physics P2 mock, with cards for time remaining, required pace, exam readiness and study hours logged on the exam's own topics.",
+    alt: "The Momentum exam planner counting down twenty-three days to a Physics P2 mock, with cards for time remaining, required pace, exam readiness and study hours logged against the exam's own topics.",
   },
   {
-    file: "calendar",
+    file: "past-papers",
     width: 1440,
     height: 900,
-    alt: "The Momentum study calendar for one month, combining topic reviews, task deadlines, logged study sessions, goal milestones and exam days in a single view.",
+    alt: "The Momentum past papers screen, showing five logged attempts with a 78.8% average and a 90.7% best, above a searchable catalogue of Cambridge papers with grade thresholds and mark schemes.",
+  },
+  {
+    file: "study-log",
+    width: 1440,
+    height: 900,
+    alt: "Momentum's study hours screen, showing 1h 35m logged today and 13h 15m across the week, a quick-log form, and a bar chart of daily study totals for the last seven days.",
   },
 ] as const;
 
 type ShotName = (typeof SHOTS)[number]["file"];
 
 /** A screenshot that follows the reader's theme, as the app itself does. */
-function Shot({ name, priority = false }: { name: ShotName; priority?: boolean }) {
+function Shot({ name, priority = false, wide = false }: {
+  name: ShotName;
+  priority?: boolean;
+  wide?: boolean;
+}) {
   const shot = SHOTS.find((item) => item.file === name)!;
   return (
     <figure className="landing-shot">
@@ -65,7 +81,7 @@ function Shot({ name, priority = false }: { name: ShotName; priority?: boolean }
           height={shot.height}
           priority={priority}
           loading={priority ? undefined : "lazy"}
-          sizes="(max-width: 900px) 100vw, 1100px"
+          sizes={wide ? "(max-width: 900px) 100vw, 1100px" : "(max-width: 900px) 100vw, 640px"}
         />
       </picture>
     </figure>
@@ -90,19 +106,95 @@ const LOOP = [
   },
 ];
 
-const FEATURES = [
-  { icon: "review" as const, title: "Review board", body: "Overdue, due today and the week ahead, above a queue grouped by chapter. Every row says which plan put it there and how long it is worth." },
-  { icon: "subjects" as const, title: "Your real syllabus", body: "Chapters and individual spec points in syllabus order, with AS and A2 — or SL and HL — tracked and paced separately." },
-  { icon: "goals" as const, title: "Syllabus goals", body: "Pick a finish date, your weekly hours and the days you study. Every outstanding point gets a date, snapped to days you actually work." },
-  { icon: "exams" as const, title: "Exam planner", body: "Tick the topics a mock actually covers and get a run-up. A topic can sit in several exams at once, each with its own dates." },
-  { icon: "papers" as const, title: "Past papers", body: "Score, grade, time taken and conditions for every attempt, with the weak topics behind each lost mark tagged to the spec point." },
-  { icon: "book" as const, title: "Paper catalogue", body: "A searchable directory of Cambridge past papers with question papers, mark schemes, examiner reports and grade thresholds." },
-  { icon: "flashcards" as const, title: "Flashcards", body: "Decks scoped to a subject, stage or chapter, with a five-level mastery rating and CSV import and export." },
-  { icon: "hours" as const, title: "Study hours", body: "Log the session once. The minutes, the reviews and the schedule all update together." },
-  { icon: "tasks" as const, title: "Tasks", body: "Homework and coursework with a subject, due date, priority and your own labels. Due ones surface on the review board." },
-  { icon: "notes" as const, title: "Notes library", body: "PDFs, documents, slides and images filed by subject, stage and chapter, stored privately to your account." },
-  { icon: "calendar" as const, title: "Calendar", body: "One month view combining reviews, deadlines, logged sessions, milestones, scheduled points and exam days." },
-  { icon: "trending" as const, title: "Progress that means something", body: "Percentages measured against the official syllabus, with a per-topic history of every status change, review and note." },
+/**
+ * The six the product is actually for. Each gets a section of its own with a
+ * screenshot of the real screen; everything else is listed further down as
+ * what comes with them, because a landing page that gives twelve features
+ * equal weight tells a reader nothing about which one to come for.
+ */
+const PILLARS = [
+  {
+    shot: "review-board" as const,
+    eyebrow: "REVIEW BOARD",
+    title: "Open it, and the day is already decided",
+    body: "Overdue, due today and the week ahead, above a queue grouped by chapter. Every row says which plan put it there, how long your plan can afford it, and how hard you told it you find the topic.",
+    ticks: [
+      "One queue for reviews, goal work and exam revision",
+      "Filter to a single subject, or to what is overdue",
+      "Update one point, a whole chapter, or a selection at once",
+      "Due homework and coursework surface alongside",
+    ],
+  },
+  {
+    shot: "syllabus-import" as const,
+    eyebrow: "SYLLABUS IMPORT",
+    title: "Your syllabus, already loaded",
+    body: "Pick your subjects at sign-up and most arrive with their full official structure — every chapter and spec point, in order, parsed from the exam board's own documents. Nothing to type in.",
+    ticks: [
+      "Cambridge, IB, Edexcel, AQA and OCR",
+      "AS and A2 — or SL and HL — tracked separately",
+      "Bring your own: paste an outline or import a CSV",
+      "Replace a syllabus later without losing the account",
+    ],
+  },
+  {
+    shot: "syllabus-goals" as const,
+    eyebrow: "SYLLABUS GOALS",
+    title: "Turn &ldquo;finish by March&rdquo; into what to do on Tuesday",
+    body: "Set the finish date, the hours you have each week and the days you study. Every outstanding spec point gets its own date, and points you have already finished are left out — so the plan only ever shows work that is still real.",
+    ticks: [
+      "Steady, front-loaded or finish-line pacing",
+      "Dates land only on days you said you study",
+      "The required pace recalculates as you fall behind or get ahead",
+      "Every point carries the minutes your plan can afford it",
+    ],
+  },
+  {
+    shot: "exam-planner" as const,
+    eyebrow: "EXAM PLANNING",
+    title: "A mock rarely covers the whole syllabus",
+    body: "So the exam planner asks which topics it actually includes. Tick whole chapters or individual points, and the selection is spread across the run-up with the same pacing choices as a goal.",
+    ticks: [
+      "Countdown, readiness and required pace per paper",
+      "Study hours counted from the exam's own topics",
+      "Tick a topic off the revision plan as you go",
+      "One topic can sit in several exams, each with its own dates",
+    ],
+  },
+  {
+    shot: "past-papers" as const,
+    eyebrow: "PAST PAPERS",
+    title: "The same three topics usually cost the marks",
+    body: "Log every attempt with its score, grade, timing and conditions, and tag the spec points behind each lost mark. The pattern stops being a feeling and becomes a list.",
+    ticks: [
+      "Score, percentage, grade and time taken per attempt",
+      "Weak topics tagged to the syllabus point that lost them",
+      "A searchable catalogue of Cambridge papers built in",
+      "Question papers, mark schemes, examiner reports and thresholds",
+    ],
+  },
+  {
+    shot: "study-log" as const,
+    eyebrow: "STUDY LOG",
+    title: "Log the session once",
+    body: "Minutes against a date and a subject, with the topics you covered attached. Logging the session also marks those topics reviewed and reschedules them — one action instead of two.",
+    ticks: [
+      "Daily and weekly totals, and your study rhythm",
+      "Copy a YPT total straight in, or add sessions one at a time",
+      "Hours checked against the target your plan set",
+      "Counts towards the goal or exam that owns the topic",
+    ],
+  },
+];
+
+/** What comes with them. Named, not sold. */
+const ALSO = [
+  { icon: "calendar" as const, title: "Calendar", body: "Reviews, deadlines, sessions, milestones and exam days in one month view, filterable by source." },
+  { icon: "flashcards" as const, title: "Flashcards", body: "Decks scoped to a subject, stage or chapter, with a five-level mastery rating and CSV import." },
+  { icon: "tasks" as const, title: "Tasks", body: "Homework and coursework with a due date, priority and your own labels." },
+  { icon: "notes" as const, title: "Notes library", body: "PDFs, documents, slides and images filed by subject, stage and chapter." },
+  { icon: "trending" as const, title: "History", body: "Every review, status change, session and paper, newest first." },
+  { icon: "subjects" as const, title: "Subject setup", body: "Add, reorder, recolour or archive subjects, and set which papers belong to which stage." },
 ];
 
 const FAQ = [
@@ -153,7 +245,7 @@ export default function Landing({ stats }: { stats: LandingStats }) {
           "A revision planner for A Level, IGCSE and IB students. Momentum loads the official "
           + "syllabus, schedules every spec point, and answers what to revise today.",
         offers: { "@type": "Offer", price: "0", priceCurrency: "GBP" },
-        featureList: FEATURES.map((feature) => feature.title),
+        featureList: [...PILLARS.map((p) => p.title), ...ALSO.map((a) => a.title)],
       },
       {
         "@type": "FAQPage",
@@ -207,7 +299,11 @@ export default function Landing({ stats }: { stats: LandingStats }) {
           <p className="landing-hero-note">
             Free, with no limits. Your syllabus is loaded for you at sign-up.
           </p>
-          <Shot name="review-board" priority />
+          <ul className="landing-pillar-strip" aria-label="What Momentum does">
+            {PILLARS.map((pillar) => (
+              <li key={pillar.eyebrow}>{pillar.eyebrow.toLowerCase().replace(/^./, (c) => c.toUpperCase())}</li>
+            ))}
+          </ul>
         </section>
 
         <section className="landing-stats" aria-label="What is loaded in">
@@ -245,43 +341,23 @@ export default function Landing({ stats }: { stats: LandingStats }) {
           </ol>
         </section>
 
-        <section className="landing-feature">
-          <div className="landing-feature-copy">
-            <p className="eyebrow">SYLLABUS GOALS</p>
-            <h2>Turn &ldquo;finish by March&rdquo; into what to do on Tuesday</h2>
-            <p>
-              Set the finish date, the hours you have each week and the days you study.
-              Every outstanding spec point gets its own date, and points you have already
-              finished are left out — so the plan only ever shows work that is still real.
-            </p>
-            <ul className="landing-ticks">
-              <li>Steady, front-loaded or finish-line pacing</li>
-              <li>Dates land only on days you said you study</li>
-              <li>The required pace recalculates as you fall behind or get ahead</li>
-              <li>Every point carries how many minutes your plan can afford it</li>
-            </ul>
-          </div>
-          <Shot name="syllabus-goals" />
-        </section>
-
-        <section className="landing-feature reversed">
-          <div className="landing-feature-copy">
-            <p className="eyebrow">EXAM PLANNER</p>
-            <h2>A mock rarely covers the whole syllabus</h2>
-            <p>
-              So the exam planner asks which topics it actually includes. Tick whole
-              chapters or individual points, and the selection is spread across the run-up
-              with the same pacing choices as a goal.
-            </p>
-            <ul className="landing-ticks">
-              <li>Countdown, readiness and required pace per paper</li>
-              <li>Study hours counted from the exam&rsquo;s own topics</li>
-              <li>Tick a topic off the revision plan as you go</li>
-              <li>One topic can sit in several exams, each with its own dates</li>
-            </ul>
-          </div>
-          <Shot name="exam-planner" />
-        </section>
+        {PILLARS.map((pillar, index) => (
+          <section
+            key={pillar.eyebrow}
+            className={index === 0 ? "landing-pillar lead" : `landing-pillar ${index % 2 === 0 ? "" : "reversed"}`}
+            id={index === 0 ? "features" : undefined}
+          >
+            <div className="landing-feature-copy">
+              <p className="eyebrow">{pillar.eyebrow}</p>
+              <h2 dangerouslySetInnerHTML={{ __html: pillar.title }} />
+              <p>{pillar.body}</p>
+              <ul className="landing-ticks">
+                {pillar.ticks.map((tick) => <li key={tick}>{tick}</li>)}
+              </ul>
+            </div>
+            <Shot name={pillar.shot} priority={index === 0} wide={index === 0} />
+          </section>
+        ))}
 
         <section className="landing-schedule">
           <div>
@@ -316,11 +392,11 @@ export default function Landing({ stats }: { stats: LandingStats }) {
           </table>
         </section>
 
-        <section id="features" className="landing-features">
-          <p className="eyebrow">EVERYTHING IN THE APP</p>
-          <h2>One place for the whole of revision</h2>
+        <section className="landing-features">
+          <p className="eyebrow">AND THE REST OF IT</p>
+          <h2>Everything else comes with them</h2>
           <div className="landing-feature-grid">
-            {FEATURES.map((feature) => (
+            {ALSO.map((feature) => (
               <article key={feature.title}>
                 <span aria-hidden="true"><Icon name={feature.icon} /></span>
                 <strong>{feature.title}</strong>
@@ -328,19 +404,6 @@ export default function Landing({ stats }: { stats: LandingStats }) {
               </article>
             ))}
           </div>
-        </section>
-
-        <section className="landing-feature">
-          <div className="landing-feature-copy">
-            <p className="eyebrow">CALENDAR</p>
-            <h2>Every date you owe, in one month view</h2>
-            <p>
-              Reviews due, task deadlines, logged study sessions, goal milestones,
-              scheduled syllabus points, exam revision and the exam days themselves —
-              filterable by source, so a month can be read as just its exams.
-            </p>
-          </div>
-          <Shot name="calendar" />
         </section>
 
         <section id="faq" className="landing-faq">

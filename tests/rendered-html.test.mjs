@@ -1129,3 +1129,35 @@ test("every landing screenshot is real, described, and follows the reader's them
     assert.ok(!/^screenshot/i.test(alt), `alt text should describe the screen: "${alt}"`);
   }
 });
+
+test("the landing page leads with the six features the product is for", async () => {
+  const landing = await read("app/landing.tsx");
+
+  // Named because they are the pitch. A page that gives twelve features equal
+  // weight tells a reader nothing about which one to come for, which is what
+  // the first version of this page did.
+  const pillars = [...landing.matchAll(/eyebrow: "([A-Z ]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(pillars, [
+    "REVIEW BOARD",
+    "SYLLABUS IMPORT",
+    "SYLLABUS GOALS",
+    "EXAM PLANNING",
+    "PAST PAPERS",
+    "STUDY LOG",
+  ]);
+
+  // Each carries a screenshot of its own screen, and the review board leads:
+  // it is the screen the rest of the product feeds.
+  const shots = [...landing.matchAll(/shot: "([\w-]+)" as const/g)].map((match) => match[1]);
+  assert.equal(shots.length, pillars.length, "every pillar needs its own screenshot");
+  assert.equal(shots[0], "review-board");
+  assert.match(landing, /className={index === 0 \? "landing-pillar lead"/);
+
+  // Everything else is listed as what comes with them, not sold beside them.
+  assert.match(landing, /Everything else comes with them/);
+  const also = [...landing.matchAll(/icon: "\w+" as const, title: "([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(also.length > 0 && also.length <= 8, `the secondary list should stay short, found ${also.length}`);
+  for (const secondary of also) {
+    assert.ok(!pillars.includes(secondary.toUpperCase()), `${secondary} is both a pillar and a footnote`);
+  }
+});
