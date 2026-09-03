@@ -364,6 +364,43 @@ export default function Landing({ stats }: { stats: LandingStats }) {
     ],
   };
 
+  /*
+   * Built once and printed in two places: the board goes first, then the table
+   * of intervals that fills it, then the loop that runs it, and the other five
+   * follow those. The layout and the alternation are still worked out across
+   * the whole list, so splitting where they are printed does not change which
+   * of them runs full width or which side any of them sits on.
+   */
+  const pillars = PILLARS.map((pillar, index) => (
+    <section
+      key={pillar.eyebrow}
+      className={`landing-pillar ${LAYOUTS[index]}`.trimEnd()}
+      id={index === 0 ? "features" : undefined}
+    >
+      <div className="landing-feature-copy">
+        <p className="eyebrow">{pillar.eyebrow}</p>
+        <h2 dangerouslySetInnerHTML={{ __html: pillar.title }} />
+        <p>{pillar.body}</p>
+        <ul className="landing-ticks">
+          {pillar.ticks.map((tick) => <li key={tick}>{tick}</li>)}
+        </ul>
+      </div>
+      <div className="landing-shot-stack">
+        {/* The board is the first picture in the document now, and the only one
+            near the fold, so it is the one worth fetching eagerly. */}
+        <Shot
+          name={pillar.shot}
+          priority={index === 0}
+          wide={LAYOUTS[index] === "lead"}
+          caption={pillar.caption}
+        />
+        {pillar.shot2 ? (
+          <Shot name={pillar.shot2} wide={LAYOUTS[index] === "lead"} caption={pillar.caption2} />
+        ) : null}
+      </div>
+    </section>
+  ));
+
   return (
     <div className="landing">
       <script
@@ -418,68 +455,11 @@ export default function Landing({ stats }: { stats: LandingStats }) {
           <div><strong>{number(stats.papers)}</strong><span>past papers</span></div>
         </section>
 
-        <section id="how-it-works" className="landing-loop">
-          <p className="eyebrow">THE LOOP</p>
-          <h2>Set it up once. After that it is the same three moves.</h2>
-          <p className="landing-loop-lede">
-            Nobody starts by logging time. You start by saying what you study — and
-            from then on it is the app holding the plan, not you.
-          </p>
-          <ol>
-            {LOOP.map((step, index) => (
-              <li key={step.title}>
-                <div className="landing-loop-copy">
-                  <span className="landing-loop-mark" aria-hidden="true"><Icon name={step.icon} /></span>
-                  <p className="landing-loop-index">
-                    Step {index + 1}
-                    {"once" in step ? <span className="landing-loop-once">once</span> : null}
-                  </p>
-                  <strong>{step.title}</strong>
-                  <p>{step.body}</p>
-                </div>
-                <Shot
-                  name={step.shot}
-                  priority={index === 0}
-                  sizes="(max-width: 900px) 100vw, 620px"
-                />
-              </li>
-            ))}
-          </ol>
-          <p className="landing-loop-back">
-            <span aria-hidden="true"><Icon name="review" /></span>
-            Then it is step 2 again, on a board that has already counted what you did.
-          </p>
-        </section>
-
-        {PILLARS.map((pillar, index) => (
-          <section
-            key={pillar.eyebrow}
-            className={`landing-pillar ${LAYOUTS[index]}`.trimEnd()}
-            id={index === 0 ? "features" : undefined}
-          >
-            <div className="landing-feature-copy">
-              <p className="eyebrow">{pillar.eyebrow}</p>
-              <h2 dangerouslySetInnerHTML={{ __html: pillar.title }} />
-              <p>{pillar.body}</p>
-              <ul className="landing-ticks">
-                {pillar.ticks.map((tick) => <li key={tick}>{tick}</li>)}
-              </ul>
-            </div>
-            <div className="landing-shot-stack">
-              {/* Not the eager one: the loop's first frame is the first picture
-                  in the document, and two of these racing each other only slows
-                  the one that is actually on screen. */}
-              <Shot
-                name={pillar.shot}
-                wide={LAYOUTS[index] === "lead"}
-                caption={pillar.caption}
-              />
-              {pillar.shot2 ? (
-                <Shot name={pillar.shot2} wide={LAYOUTS[index] === "lead"} caption={pillar.caption2} />
-              ) : null}
-            </div>
-          </section>
-        ))}
+        {/* The board leads: it is the screen the rest of the product feeds, and
+            the one a reader has to see to know what any of this is. The
+            intervals that fill it come next, then the loop that runs it, and
+            the other five sections after those. */}
+        {pillars[0]}
 
         <section className="landing-schedule">
           <div>
@@ -512,6 +492,37 @@ export default function Landing({ stats }: { stats: LandingStats }) {
             </tbody>
           </table>
         </section>
+
+        <section id="how-it-works" className="landing-loop">
+          <p className="eyebrow">THE LOOP</p>
+          <h2>Set it up once. After that it is the same three moves.</h2>
+          <p className="landing-loop-lede">
+            Nobody starts by logging time. You start by saying what you study — and
+            from then on it is the app holding the plan, not you.
+          </p>
+          <ol>
+            {LOOP.map((step, index) => (
+              <li key={step.title}>
+                <div className="landing-loop-copy">
+                  <span className="landing-loop-mark" aria-hidden="true"><Icon name={step.icon} /></span>
+                  <p className="landing-loop-index">
+                    Step {index + 1}
+                    {"once" in step ? <span className="landing-loop-once">once</span> : null}
+                  </p>
+                  <strong>{step.title}</strong>
+                  <p>{step.body}</p>
+                </div>
+                <Shot name={step.shot} sizes="(max-width: 900px) 100vw, 620px" />
+              </li>
+            ))}
+          </ol>
+          <p className="landing-loop-back">
+            <span aria-hidden="true"><Icon name="review" /></span>
+            Then it is step 2 again, on a board that has already counted what you did.
+          </p>
+        </section>
+
+        {pillars.slice(1)}
 
         <section className="landing-features">
           <p className="eyebrow">AND THE REST OF IT</p>

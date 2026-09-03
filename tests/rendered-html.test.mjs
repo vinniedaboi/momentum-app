@@ -1386,6 +1386,18 @@ test("the landing page leads with the six features the product is for", async ()
   const shots = [...pillarBlock.matchAll(/shot: "([\w-]+)" as const/g)].map((match) => match[1]);
   assert.equal(shots.length, pillars.length, "every pillar needs its own screenshot");
   assert.equal(shots[0], "review-board");
+
+  // And it is printed first, ahead of everything the page has to say about it:
+  // the board is the screen the rest of the product feeds, so the intervals
+  // that fill it and the loop that runs it both come after it, and the other
+  // five sections after those.
+  let at = -1;
+  for (const marker of ["{pillars[0]}", "landing-schedule", 'className="landing-loop"', "{pillars.slice(1)}"]) {
+    const found = landing.indexOf(marker);
+    assert.ok(found > at, `${marker} is out of order on the page`);
+    at = found;
+  }
+
   // Any pillar may claim the full width — the paper catalogue is a table, and a
   // table in half a column is unreadable.
   assert.match(landing, /index === 0 \|\| "wide" in pillar \? "lead"/);
