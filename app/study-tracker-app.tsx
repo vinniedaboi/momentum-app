@@ -124,6 +124,31 @@ function examSchedule(exams: PlannedExam[]) {
   return due;
 }
 
+/**
+ * Points gathered under the chapter that owns them, in the order they arrive.
+ *
+ * The review queue and the Studied today band are one board over two sets of
+ * points, so they group through one function: a change to how a chapter is
+ * keyed cannot land on one and miss the other. Every point handed in is
+ * grouped — none is sliced off — because a folded chapter renders no rows at
+ * all, which is what keeps a long board cheap.
+ */
+function groupByChapter(points: Topic[], topics: Topic[]): QueueGroup[] {
+  const chapterById = new Map(topics.filter((topic) => topic.kind === "chapter").map((topic) => [topic.id, topic]));
+  const groups = new Map<string, QueueGroup>();
+  points.forEach((topic) => {
+    const key = topic.parentId ?? `${topic.subjectId}:${topic.section ?? "Other"}`;
+    const group = groups.get(key) ?? {
+      key,
+      chapter: topic.parentId ? chapterById.get(topic.parentId) ?? null : null,
+      items: [],
+    };
+    group.items.push(topic);
+    groups.set(key, group);
+  });
+  return [...groups.values()];
+}
+
 /** What /api/topics accepts in one selection, so a bigger one is sent in parts. */
 const SELECTION_LIMIT = 200;
 
@@ -170,9 +195,12 @@ export default function StudyTrackerApp() {
   // Null until the learner opens or closes a chapter on the board, which is
   // what lets the default below depend on a queue that has not loaded yet.
   const [openGroups, setOpenGroups] = useState<Set<string> | null>(null);
-  // The Studied today band opens by default so the day's work is in sight, and
-  // folds away like the queue's own groups once a learner wants it out of view.
-  const [studiedTodayOpen, setStudiedTodayOpen] = useState(true);
+  // Studied today is the same board over the day's finished work, so it keeps
+  // its own fold and selection state rather than sharing the queue's: a chapter
+  // can have points on both boards, and folding it on one should not fold it on
+  // the other.
+  const [openStudiedGroups, setOpenStudiedGroups] = useState<Set<string> | null>(null);
+  const [selectedStudied, setSelectedStudied] = useState<Set<string>>(new Set());
   const [updating, setUpdating] = useState<Set<string>>(new Set());
   const [selectedReviews, setSelectedReviews] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<StudyStatus>("Practising");
@@ -360,22 +388,12 @@ export default function StudyTrackerApp() {
     return all;
   }, [overdue, dueToday, upcoming, queueFilter, today, dueOn]);
 
-  const queueGroups = useMemo(() => {
-    const chapterById = new Map(topics.filter((topic) => topic.kind === "chapter").map((topic) => [topic.id, topic]));
-    const groups = new Map<string, QueueGroup>();
-    // Every due point, not the first thirty of them. The queue was silently
-    // truncated while the counters above it went on reporting the true total,
-    // so a learner with a real backlog was told about work the board would not
-    // show them — and anything past the cut simply did not exist. Grouping the
-    // lot is cheap because a folded chapter renders no rows at all.
-    queue.forEach((topic) => {
-      const key = topic.parentId ?? `${topic.subjectId}:${topic.section ?? "Other"}`;
-      const group = groups.get(key) ?? { key, chapter: topic.parentId ? chapterById.get(topic.parentId) ?? null : null, items: [] };
-      group.items.push(topic);
-      groups.set(key, group);
-    });
-    return [...groups.values()];
-  }, [queue, topics]);
+  // Every due point, not the first thirty of them. The queue was silently
+  // truncated while the counters above it went on reporting the true total, so
+  // a learner with a real backlog was told about work the board would not show
+  // them — and anything past the cut simply did not exist.
+  const queueGroups = useMemo(() => groupByChapter(queue, topics), [queue, topics]);
+  const studiedGroups = useMemo(() => groupByChapter(studiedToday, topics), [studiedToday, topics]);
 
   /**
    * How long each point on the board is worth, taken from the plan that put it
@@ -444,6 +462,18 @@ export default function StudyTrackerApp() {
 
   const visibleQueueIds = useMemo(() => queueGroups.flatMap((group) => group.items.map((topic) => topic.id)), [queueGroups]);
 
+  // Studied today folds the same way, from its own state: the top chapter of
+  // the day's work open, the rest scannable.
+  const openStudied = openStudiedGroups ?? new Set(studiedGroups.slice(0, 1).map((group) => group.key));
+  function toggleStudiedGroup(key: string) {
+    setOpenStudiedGroups((current) => {
+      const next = new Set(current ?? studiedGroups.slice(0, 1).map((group) => group.key));
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+  const visibleStudiedIds = useMemo(() => studiedGroups.flatMap((group) => group.items.map((topic) => topic.id)), [studiedGroups]);
+
   const searchResults = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return [];
@@ -507,13 +537,21 @@ export default function StudyTrackerApp() {
     }
   }
 
-  async function updateSelectedReviews(options: { status?: StudyStatus; difficulty?: TopicDifficulty; reviewedNow?: boolean }) {
-    const ids = [...selectedReviews];
+  /**
+   * Applies one change to a selection of points, whichever board it came from.
+   * The route takes 200 ids at a time and a full board can hand over more than
+   * that in one "Select all", so the ids go up in parts. `clear` empties the
+   * board's own selection — the queue's and Studied today's are separate sets,
+   * so a select-all on one leaves the other alone.
+   */
+  async function updateSelection(
+    ids: string[],
+    clear: () => void,
+    options: { status?: StudyStatus; difficulty?: TopicDifficulty; reviewedNow?: boolean },
+  ) {
     if (!ids.length) return;
     setUpdating((current) => new Set([...current, ...ids]));
     try {
-      // The route takes 200 ids at a time, and a full board can now hand over
-      // more than that in one "Select all".
       const changed = new Map<string, Topic>();
       for (let start = 0; start < ids.length; start += SELECTION_LIMIT) {
         const data = await studyApi.topics.update<{ topics: Topic[] }>({
@@ -523,7 +561,7 @@ export default function StudyTrackerApp() {
         for (const item of data.topics) changed.set(item.id, item);
       }
       setTopics((current) => current.map((item) => changed.get(item.id) ?? item));
-      setSelectedReviews(new Set());
+      clear();
       setMessage(options.reviewedNow ? `${ids.length} reviews logged and rescheduled`
         : options.difficulty && !options.status ? `${ids.length} points rated ${options.difficulty}`
         : `${ids.length} syllabus points updated`);
@@ -538,14 +576,21 @@ export default function StudyTrackerApp() {
     }
   }
 
-  function toggleReviewSelection(ids: string[]) {
-    setSelectedReviews((current) => {
+  const updateSelectedReviews = (options: { status?: StudyStatus; difficulty?: TopicDifficulty; reviewedNow?: boolean }) =>
+    updateSelection([...selectedReviews], () => setSelectedReviews(new Set()), options);
+  const updateSelectedStudied = (options: { status?: StudyStatus; difficulty?: TopicDifficulty; reviewedNow?: boolean }) =>
+    updateSelection([...selectedStudied], () => setSelectedStudied(new Set()), options);
+
+  function toggleSelection(setSelected: (updater: (current: Set<string>) => Set<string>) => void, ids: string[]) {
+    setSelected((current) => {
       const next = new Set(current);
       const everySelected = ids.every((id) => next.has(id));
       ids.forEach((id) => everySelected ? next.delete(id) : next.add(id));
       return next;
     });
   }
+  const toggleReviewSelection = (ids: string[]) => toggleSelection(setSelectedReviews, ids);
+  const toggleStudiedSelection = (ids: string[]) => toggleSelection(setSelectedStudied, ids);
 
   async function addStudySession(input: {
     studyDate: string;
@@ -963,32 +1008,65 @@ export default function StudyTrackerApp() {
             </section>
 
             {studiedToday.length > 0 && (
-              <section className={`review-panel studied-today ${studiedTodayOpen ? "open" : ""}`}>
+              <section className="review-panel studied-today">
                 <div className="section-heading">
-                  <button
-                    type="button"
-                    className="studied-today-toggle"
-                    aria-expanded={studiedTodayOpen}
-                    onClick={() => setStudiedTodayOpen((open) => !open)}
-                  >
-                    <Icon name="chevron-right" className="chevron" />
-                    <span className="studied-today-head">
-                      <small className="eyebrow">STUDIED TODAY</small>
-                      <strong>
-                        Go again while it’s fresh
-                        {subjectFilter ? <span className="queue-subject">{subjectName(subjectLookup, subjectFilter)}</span> : null}
-                      </strong>
-                      <span className="queue-total">
-                        {studiedToday.length} point{studiedToday.length === 1 ? "" : "s"} worked today · the next spaced review is already set, and a repeat now keeps it here until tomorrow
-                      </span>
-                    </span>
-                  </button>
+                  <div>
+                    <p className="eyebrow">STUDIED TODAY</p>
+                    <h3>
+                      Go again while it’s fresh
+                      {subjectFilter ? <span className="queue-subject">{subjectName(subjectLookup, subjectFilter)}</span> : null}
+                    </h3>
+                    <span className="queue-total">{studiedToday.length} point{studiedToday.length === 1 ? "" : "s"} worked today · their next review is set, and a repeat keeps them here until tomorrow</span>
+                  </div>
+                  <div className="queue-heading-actions">
+                    {studiedGroups.length > 1 && <button className="ghost-button" onClick={() => setOpenStudiedGroups(openStudied.size === studiedGroups.length ? new Set() : new Set(studiedGroups.map((group) => group.key)))}>{openStudied.size === studiedGroups.length ? "Collapse all" : "Expand all"}</button>}
+                    <button className="ghost-button" onClick={() => toggleStudiedSelection(visibleStudiedIds)}>{visibleStudiedIds.every((id) => selectedStudied.has(id)) ? "Clear selection" : "Select all"}</button>
+                  </div>
                 </div>
-                {studiedTodayOpen && (
-                  <div className="review-list">
-                    {studiedToday.map((topic) => (
-                      <TopicRow key={topic.id} topic={topic} subjects={subjectLookup} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} onOpenTimeline={setTimelineTopicId} exam={examDue.get(topic.id)} primaryLabel="Review again" />
-                    ))}
+                <div className="queue-groups">
+                  {studiedGroups.map((group) => {
+                    const ids = group.items.map((topic) => topic.id);
+                    const selectedCount = ids.filter((id) => selectedStudied.has(id)).length;
+                    const label = group.chapter?.title ?? group.items[0]?.section ?? "Other topics";
+                    const isOpen = openStudied.has(group.key);
+                    return (
+                      <section className={`queue-group ${isOpen ? "open" : ""}`} key={group.key}>
+                        <div className="queue-group-heading">
+                          <label className="queue-group-select">
+                            <input type="checkbox" checked={selectedCount === ids.length} onChange={() => toggleStudiedSelection(ids)} aria-label={`Select all points in ${label}`} />
+                          </label>
+                          <button type="button" className="queue-group-toggle" aria-expanded={isOpen} onClick={() => toggleStudiedGroup(group.key)}>
+                            <Icon name="chevron-right" className="chevron" />
+                            <i className={`subject-pin ${subjectLookup.get(group.items[0].subjectId)?.tone ?? "slate"}`} />
+                            <span><small>{subjectName(subjectLookup, group.items[0].subjectId)} · {getTopicStage(group.items[0], topics, subjectLookup.get(group.items[0].subjectId))} · {group.chapter?.code ?? group.items[0].code}</small><strong>{label}</strong></span>
+                            <b>{selectedCount ? `${selectedCount} of ${ids.length} selected` : `${ids.length} point${ids.length === 1 ? "" : "s"}`}</b>
+                          </button>
+                        </div>
+                        {isOpen && (
+                          <div className="review-list">
+                            {group.items.map((topic) => (
+                              <TopicRow key={topic.id} topic={topic} subjects={subjectLookup} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} selected={selectedStudied.has(topic.id)} onSelect={() => toggleStudiedSelection([topic.id])} onOpenTimeline={setTimelineTopicId} exam={examDue.get(topic.id)} primaryLabel="Review again" />
+                            ))}
+                          </div>
+                        )}
+                      </section>
+                    );
+                  })}
+                </div>
+                {selectedStudied.size > 0 && (
+                  <div className="bulk-review-bar" aria-label="Bulk actions for today’s points">
+                    <strong>{selectedStudied.size} selected</strong>
+                    <span>Update them together:</span>
+                    <select value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value as StudyStatus)} aria-label="Status for selected points">
+                      {STATUSES.map((status) => <option key={status}>{status}</option>)}
+                    </select>
+                    <button className="ghost-button" disabled={[...selectedStudied].some((id) => updating.has(id))} onClick={() => updateSelectedStudied({ status: bulkStatus })}>Set status</button>
+                    <select value={bulkDifficulty} onChange={(event) => setBulkDifficulty(event.target.value as TopicDifficulty)} aria-label="Difficulty for selected points">
+                      {DIFFICULTIES.map((level) => <option key={level} value={level}>{DIFFICULTY_LABELS[level]}</option>)}
+                    </select>
+                    <button className="ghost-button" disabled={[...selectedStudied].some((id) => updating.has(id))} onClick={() => updateSelectedStudied({ difficulty: bulkDifficulty })}>Set difficulty</button>
+                    <button className="primary-button" disabled={[...selectedStudied].some((id) => updating.has(id))} onClick={() => updateSelectedStudied({ reviewedNow: true })}>Review again</button>
+                    <button className="clear-selection" onClick={() => setSelectedStudied(new Set())}>Clear</button>
                   </div>
                 )}
               </section>

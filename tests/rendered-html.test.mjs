@@ -1246,9 +1246,12 @@ test("the review board shows every point that is due, not the first thirty", asy
 
   // The queue was sliced to thirty while the counters above it reported the
   // real total, so a learner with a backlog was told about work the board would
-  // not show — and anything past the cut could not be reached at all.
+  // not show — and anything past the cut could not be reached at all. The
+  // grouping now runs through a shared helper that the Studied today board uses
+  // too, so neither can drift back into truncating.
   assert.ok(!/queue\.slice\(0, *\d+\)/.test(shell), "the queue must not be truncated");
-  assert.match(shell, /queue\.forEach\(\(topic\) => \{/);
+  assert.match(shell, /points\.forEach\(\(topic\) => \{/);
+  assert.match(shell, /groupByChapter\(queue, topics\)/);
 
   // Folding is what keeps a long board readable, not hiding rows: a closed
   // chapter renders none of them, so grouping the lot stays cheap.
