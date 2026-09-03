@@ -913,7 +913,9 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
           {finished
             ? <>Every paper in, and <strong>{formatPercent(outcome!.percent)}</strong> across the lot</>
             : banked
-              ? <><strong>{target.completedStage}</strong> banked at <strong>{formatPercent(target.completedPercent)}</strong></>
+              ? target.completedStage
+                ? <><strong>{target.completedStage}</strong> banked at <strong>{formatPercent(target.completedPercent)}</strong></>
+                : <><strong>{Math.round(target.completedWeight)}%</strong> of the grade banked at <strong>{formatPercent(target.completedPercent)}</strong></>
               : <><strong>Mock</strong> came to <strong>{formatPercent(target.completedPercent)}</strong></>}
           {target.completedGrade ? <> · grade <strong>{target.completedGrade}</strong></> : null}
         </p>
@@ -928,7 +930,9 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
             </>
             : banked
             ? <>
-              <span>{target.completedStage} worth {target.completedWeight}%</span>
+              <span>{target.completedStage
+                ? `${target.completedStage} worth ${target.completedWeight}%`
+                : `${Math.round(target.completedWeight)}% settled`}</span>
               <span>Best possible {range.best}</span>
               <span>Guaranteed {range.worst === "U" ? "nothing yet" : range.worst}</span>
             </>

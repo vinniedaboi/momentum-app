@@ -128,6 +128,11 @@ export async function POST(request: Request) {
         );
       }
 
+      const components = cleanComponents(body.components);
+      if (typeof components === "string") {
+        return Response.json({ error: components }, { status: 400 });
+      }
+
       // Zero is a mock: a result that says where the learner is without owning
       // any of the grade. A hundred is a course with every paper sat, which has
       // a result rather than a target. In between is a stage of the course that
@@ -142,8 +147,13 @@ export async function POST(request: Request) {
       }
       const banked = weight > 0;
       const finished = weight >= 99.95;
-      const completedStage = banked && !finished ? body.completedStage : null;
-      if (banked && !finished && (!completedStage
+      // Which stage a banked result came from is a question only a single
+      // typed-in mark raises. Papers answer it themselves — the ones marked sat
+      // are the ones that are sat — so a target built from them names no stage,
+      // whatever fraction of the award it has settled so far.
+      const needsStage = banked && !finished && !components.length;
+      const completedStage = needsStage ? body.completedStage : null;
+      if (needsStage && (!completedStage
         || !subject.stages.includes(completedStage)
         || completedStage === remainingStage)) {
         return Response.json(
@@ -186,10 +196,6 @@ export async function POST(request: Request) {
         return Response.json({ error: "Enter a paper target between 0 and 100 per cent." }, { status: 400 });
       }
 
-      const components = cleanComponents(body.components);
-      if (typeof components === "string") {
-        return Response.json({ error: components }, { status: 400 });
-      }
       // The award the papers are weighted against. Free text rather than a
       // fixed set, because it is whatever `syllabus_assessment` says — and a
       // learner typing their own route in names it themselves.

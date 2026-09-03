@@ -1020,6 +1020,34 @@ test("a course with every paper sat can actually be saved", async () => {
   // And the percentage the ladder reads has to reach the server, or the route
   // rejects a form that has just finished computing it.
   assert.match(client, /completedPercent: usingPapers \? fromPapers\.completedPercent/);
+
+  // Which stage a banked result came from is a question only a typed-in mark
+  // raises. Papers answer it themselves, so neither the route nor the schema
+  // may demand one of a target that has them.
+  assert.match(route, /const needsStage = banked && !finished && !components\.length/);
+  assert.doesNotMatch(migrations.split("0017")[1] ?? "", /add constraint grade_targets_banked_names_its_stage/);
+  assert.match(migrations, /drop constraint grade_targets_banked_names_its_stage/);
+
+  // A row with no stage must not print an empty name where one would go.
+  assert.match(client, /of the grade banked at/);
+});
+
+test("one panel heading spaces itself like every other", async () => {
+  const [theme, exams, features] = await Promise.all([
+    read("app/friendly-theme.css"),
+    read("app/exams.css"),
+    read("app/features.css"),
+  ]);
+
+  // Every panel body in the app starts flush against the heading's rule, so the
+  // space under the lettering is the heading's alone. It was carrying a full
+  // step of it plus a min-height that centring spent putting back whatever a
+  // shorter padding took away — and two panels had been patched around that one
+  // at a time, which is how the same screen ends up with two spacings.
+  assert.match(theme, /\.section-heading \{ min-height: 0; padding: var\(--space-5\) var\(--space-6\) var\(--space-3\); /);
+  assert.doesNotMatch(theme, /\.section-heading \{ min-height: 76px/);
+  assert.doesNotMatch(exams, /\.exam-planner \.section-heading/);
+  assert.doesNotMatch(features, /\.due-task-panel>\.section-heading/);
 });
 
 test("a stage already sat leaves the board without leaving the account", async () => {
