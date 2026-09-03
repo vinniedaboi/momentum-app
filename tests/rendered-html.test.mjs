@@ -1293,12 +1293,16 @@ test("the landing page is indexable, and says nothing the product cannot do", as
   // FEATURES.md is the reference for this copy and carries rules with it. The
   // three that would actually mislead a student are enforced here.
   assert.match(features, /Do not call it "AI-powered"/);
-  for (const banned of [/AI[- ]powered/i, /grade guarantee/i, /boost your grades/i]) {
-    assert.ok(!banned.test(landing), `landing copy uses banned phrasing: ${banned}`);
+  // Against the copy rather than the file: the comments in that file are where
+  // these rules are written down, and a page may not be failed for explaining
+  // the phrase it is refusing to use.
+  const copy = landing.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  for (const banned of [/\bAI[- ]powered\b/i, /\bgrade guarantee/i, /\bboost your grades\b/i]) {
+    assert.ok(!banned.test(copy), `landing copy uses banned phrasing: ${banned}`);
   }
   // Nothing on the "not built yet" list may be implied.
-  for (const absent of [/sign in with google/i, /download the app/i, /app store/i, /per month/i, /pricing/i]) {
-    assert.ok(!absent.test(landing), `landing copy promises something unbuilt: ${absent}`);
+  for (const absent of [/sign in with google/i, /download the app/i, /app store/i, /per month/i, /\bpricing\b/i]) {
+    assert.ok(!absent.test(copy), `landing copy promises something unbuilt: ${absent}`);
   }
 
   // Numbers on a public page are claims, so they are read rather than typed.
@@ -1330,6 +1334,33 @@ test("every landing screenshot is real, described, and follows the reader's them
   }
 });
 
+test("the landing page's loop starts where a learner starts, and shows each step", async () => {
+  const landing = await read("app/landing.tsx");
+  const loop = landing.match(/const LOOP = \[[\s\S]*?\n\];/)?.[0] ?? "";
+  const shots = [...loop.matchAll(/shot: "([\w-]+)" as const/g)].map((match) => match[1]);
+  const titles = [...loop.matchAll(/title: "([^"]+)"/g)].map((match) => match[1]);
+
+  // Logging time is nobody's first move. There is nothing to log against until
+  // the syllabus is in, and the thing done daily is opening the board.
+  assert.equal(shots[0], "loop-subjects", `the loop opens on ${shots[0]}`);
+  assert.ok(
+    shots.indexOf("loop-board") < shots.indexOf("loop-log"),
+    "the board comes before the log: it is the screen a day starts on",
+  );
+  // Exactly one step is setup rather than routine, and it is that first one.
+  assert.equal((loop.match(/once: true/g) ?? []).length, 1);
+  assert.match(loop.split("},")[0], /once: true/);
+
+  // Each step carries the screen it happens on, cropped close enough to read.
+  assert.equal(shots.length, titles.length, "every loop step needs its own screenshot");
+  const names = [...landing.matchAll(/file: "([\w-]+)"/g)].map((match) => match[1]);
+  for (const shot of shots) assert.ok(names.includes(shot), `${shot} needs an entry in SHOTS`);
+
+  // And it closes: four numbered steps with no way back read as a finish line,
+  // which is the opposite of what the section is called.
+  assert.match(landing, /landing-loop-back/);
+});
+
 test("the landing page leads with the six features the product is for", async () => {
   const landing = await read("app/landing.tsx");
   const names = [...landing.matchAll(/file: "([\w-]+)"/g)].map((match) => match[1]);
@@ -1348,8 +1379,11 @@ test("the landing page leads with the six features the product is for", async ()
   ]);
 
   // Each carries a screenshot of its own screen, and the review board leads:
-  // it is the screen the rest of the product feeds.
-  const shots = [...landing.matchAll(/shot: "([\w-]+)" as const/g)].map((match) => match[1]);
+  // it is the screen the rest of the product feeds. Scoped to the array, as the
+  // loop above it names its screens the same way and counting both put this
+  // page four screenshots over its own list of features.
+  const pillarBlock = landing.match(/const PILLARS = \[[\s\S]*?\n\];/)?.[0] ?? "";
+  const shots = [...pillarBlock.matchAll(/shot: "([\w-]+)" as const/g)].map((match) => match[1]);
   assert.equal(shots.length, pillars.length, "every pillar needs its own screenshot");
   assert.equal(shots[0], "review-board");
   // The review board leads, and any pillar may claim the full width — the paper
@@ -1361,7 +1395,7 @@ test("the landing page leads with the six features the product is for", async ()
   // counters mean nothing without the queue they are counting, and a goal's
   // summary is a summary of a chapter timeline the first shot stops above.
   // Both get a second frame, and both therefore have to run full width.
-  const paired = [...landing.matchAll(/shot2: "([\w-]+)" as const/g)].map((match) => match[1]);
+  const paired = [...pillarBlock.matchAll(/shot2: "([\w-]+)" as const/g)].map((match) => match[1]);
   assert.deepEqual(paired, ["review-queue", "goal-detail"]);
   for (const name of paired) {
     assert.ok(names.includes(name), `${name} needs an entry in SHOTS`);

@@ -140,12 +140,45 @@
 .landing h2 { max-width: 22ch; margin: 0 0 var(--space-4); font: 650 clamp(var(--text-2xl), 3.8vw, var(--text-4xl))/1.12 var(--font-display); letter-spacing: -.015em; }
 .landing p { line-height: 1.6; }
 
-.landing-loop ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5); }
-.landing-loop li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: var(--space-4); align-items: start; padding: var(--space-5); border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--c-surface-raised); box-shadow: var(--shadow-sm); }
-.landing-loop-mark { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: var(--c-mint); color: var(--c-teal-deep); font-size: var(--text-lg); }
-.landing-loop-index { margin: 0 0 var(--space-1); color: var(--muted); font-size: var(--text-3xs); font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
-.landing-loop li strong { display: block; margin-bottom: var(--space-2); font-size: var(--text-md); }
-.landing-loop li p { margin: 0; color: var(--muted); font-size: var(--text-sm); }
+/* ---------- The loop ---------- */
+
+.landing-loop-lede { max-width: 56ch; margin: 0 0 clamp(var(--space-7), 4vw, var(--space-9)); color: var(--muted); font-size: var(--text-lg); }
+
+/* One step per row rather than three across: each carries the screen it happens
+   on, and a screenshot in a third of a column is a thumbnail of something
+   nobody can read. Same side every time — the point of the section is that
+   these run in an order, which alternating sides would argue against. */
+.landing-loop ol { list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(var(--space-7), 4vw, var(--space-9)); }
+.landing-loop li {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: clamp(var(--space-5), 4vw, var(--space-8));
+  align-items: center;
+}
+.landing-loop li + li { padding-top: clamp(var(--space-7), 4vw, var(--space-9)); border-top: 1px solid var(--line); }
+.landing-loop-mark { width: 44px; height: 44px; display: grid; place-items: center; margin-bottom: var(--space-4); border-radius: 50%; background: var(--c-mint); color: var(--c-teal-deep); font-size: var(--text-lg); }
+.landing-loop-index { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-2); color: var(--muted); font-size: var(--text-3xs); font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+/* The one step that does not repeat, said on the step rather than in a
+   footnote under the list where it would be read after the fact. */
+.landing-loop-once { padding: 2px var(--space-2); border-radius: var(--radius-pill); background: var(--c-mint); color: var(--c-teal-deep); letter-spacing: .06em; }
+.landing-loop li strong { display: block; margin-bottom: var(--space-3); font: 650 var(--text-xl)/1.2 var(--font-display); letter-spacing: -.01em; }
+.landing-loop li p { margin: 0; color: var(--muted); font-size: var(--text-md); }
+.landing-loop .landing-shot { margin: 0; }
+
+/* What closes the loop. Steps 2 to 4 have no last one, and a list of four ends
+   as if they do. */
+.landing-loop-back {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: clamp(var(--space-7), 4vw, var(--space-9)) 0 0;
+  padding: var(--space-5) var(--space-6);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-lg);
+  color: var(--muted);
+  font-size: var(--text-md);
+}
+.landing-loop-back span { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--c-mint); color: var(--c-teal-deep); }
 
 /* ---------- The six, alternating ---------- */
 
@@ -231,7 +264,7 @@
   .landing-nav nav { order: 3; width: 100%; margin-left: 0; overflow-x: auto; }
   .landing-nav-actions { margin-left: auto; }
   .landing-stats { grid-template-columns: repeat(2, 1fr); }
-  .landing-loop ol { grid-template-columns: 1fr; }
+  .landing-loop li { grid-template-columns: 1fr; }
   .landing-pillar, .landing-schedule { grid-template-columns: 1fr; }
   .landing-pillar.reversed .landing-feature-copy { order: 0; }
   .landing-pillar.lead .landing-ticks { grid-template-columns: 1fr; }

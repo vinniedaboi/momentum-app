@@ -71,16 +71,48 @@ const SHOTS = [
     height: 900,
     alt: "Momentum's study hours screen, showing 1h 35m logged today and 13h 15m across the week, a quick-log form, and a bar chart of daily study totals for the last seven days.",
   },
+  /*
+   * The four the loop runs on. Each is a crop of one of the screens above,
+   * taken at the same 2.26:1 so the steps sit in bands of one height, and cut
+   * close enough that the numbers in it are still readable beside the copy —
+   * a whole 1440px screen shrunk into half a column shows nothing.
+   */
+  {
+    file: "loop-subjects",
+    width: 810,
+    height: 358,
+    alt: "Momentum's sign-up subject picker: cards for Physics, Chemistry and Mathematics arriving with 412, 388 and 264 syllabus rows, each naming the exam board it is taught on.",
+  },
+  {
+    file: "loop-board",
+    width: 1055,
+    height: 466,
+    alt: "The top of the Momentum review board: six overdue, eleven due today, twenty in the next seven days, 58% of the syllabus covered, and 1h 35m logged today.",
+  },
+  {
+    file: "loop-log",
+    width: 1055,
+    height: 466,
+    alt: "Momentum's quick-log form — date, hours, minutes, subject and a note — beside a bar chart of the last seven days of study, totalling 13h 15m.",
+  },
+  {
+    file: "loop-reschedule",
+    width: 1055,
+    height: 466,
+    alt: "Four Physics syllabus points in the Momentum queue: stress and strain two days overdue and rated hard, elastic and plastic behaviour and the Young modulus due today, strain energy tomorrow, each carrying a status of learning, practising, covered or exam ready.",
+  },
 ] as const;
 
 type ShotName = (typeof SHOTS)[number]["file"];
 
 /** A screenshot that follows the reader's theme, as the app itself does. */
-function Shot({ name, priority = false, wide = false, caption }: {
+function Shot({ name, priority = false, wide = false, caption, sizes }: {
   name: ShotName;
   priority?: boolean;
   wide?: boolean;
   caption?: string;
+  /** Overrides the two column widths below, for a frame neither describes. */
+  sizes?: string;
 }) {
   const shot = SHOTS.find((item) => item.file === name)!;
   return (
@@ -94,7 +126,7 @@ function Shot({ name, priority = false, wide = false, caption }: {
           height={shot.height}
           priority={priority}
           loading={priority ? undefined : "lazy"}
-          sizes={wide ? "(max-width: 900px) 100vw, 1100px" : "(max-width: 900px) 100vw, 640px"}
+          sizes={sizes ?? (wide ? "(max-width: 900px) 100vw, 1100px" : "(max-width: 900px) 100vw, 640px")}
         />
       </picture>
       {caption ? <figcaption>{caption}</figcaption> : null}
@@ -102,10 +134,45 @@ function Shot({ name, priority = false, wide = false, caption }: {
   );
 }
 
+/**
+ * What a learner actually does, in the order they actually do it.
+ *
+ * It used to open on logging time, which is nobody's first move: you cannot log
+ * against spec points before the syllabus is in, and the thing people do every
+ * day is open the board, not fill in a form. So the picking of subjects is here
+ * as the one-off it is, and the three that repeat run board → log → reschedule,
+ * closing back on the board.
+ *
+ * Each step carries the screen it happens on, because the claim in the copy —
+ * the counters, the row of dates, the syllabus row counts — is a thing you can
+ * see rather than take on trust.
+ */
 const LOOP = [
-  { icon: "hours" as const, title: "Log what you studied", body: "Minutes, and the spec points you covered." },
-  { icon: "review" as const, title: "Topics reschedule themselves", body: "Every point you touched gets its next date." },
-  { icon: "spark" as const, title: "The board says what is next", body: "Open it and work the list. No planning session." },
+  {
+    icon: "subjects" as const,
+    shot: "loop-subjects" as const,
+    once: true,
+    title: "Pick your subjects",
+    body: "The syllabus comes with them: the exam board's own chapters and spec points, in order, already scheduled. This is the whole of the setup, and it takes about a minute.",
+  },
+  {
+    icon: "review" as const,
+    shot: "loop-board" as const,
+    title: "Open the board",
+    body: "Overdue first, then what is due today. The list was worked out before you got there, so the session starts with studying rather than with deciding what to study.",
+  },
+  {
+    icon: "hours" as const,
+    shot: "loop-log" as const,
+    title: "Log what you studied",
+    body: "The minutes, and the spec points they covered. That one entry counts as the review as well — you are never recording the same work twice.",
+  },
+  {
+    icon: "spark" as const,
+    shot: "loop-reschedule" as const,
+    title: "Every point books its own next date",
+    body: "The status you gave it sets how long it goes away for, and your syllabus percentage moves with it. Tomorrow's board is built by the time you close the tab.",
+  },
 ];
 
 /**
@@ -333,19 +400,35 @@ export default function Landing({ stats }: { stats: LandingStats }) {
 
         <section id="how-it-works" className="landing-loop">
           <p className="eyebrow">THE LOOP</p>
-          <h2>Three moves, and the schedule runs itself</h2>
+          <h2>Set it up once. After that it is the same three moves.</h2>
+          <p className="landing-loop-lede">
+            Nobody starts by logging time. You start by saying what you study — and
+            from then on it is the app holding the plan, not you.
+          </p>
           <ol>
             {LOOP.map((step, index) => (
               <li key={step.title}>
-                <span className="landing-loop-mark" aria-hidden="true"><Icon name={step.icon} /></span>
-                <div>
-                  <p className="landing-loop-index">Step {index + 1}</p>
+                <div className="landing-loop-copy">
+                  <span className="landing-loop-mark" aria-hidden="true"><Icon name={step.icon} /></span>
+                  <p className="landing-loop-index">
+                    Step {index + 1}
+                    {"once" in step ? <span className="landing-loop-once">once</span> : null}
+                  </p>
                   <strong>{step.title}</strong>
                   <p>{step.body}</p>
                 </div>
+                <Shot
+                  name={step.shot}
+                  priority={index === 0}
+                  sizes="(max-width: 900px) 100vw, 620px"
+                />
               </li>
             ))}
           </ol>
+          <p className="landing-loop-back">
+            <span aria-hidden="true"><Icon name="review" /></span>
+            Then it is step 2 again, on a board that has already counted what you did.
+          </p>
         </section>
 
         {PILLARS.map((pillar, index) => (
@@ -363,9 +446,11 @@ export default function Landing({ stats }: { stats: LandingStats }) {
               </ul>
             </div>
             <div className="landing-shot-stack">
+              {/* Not the eager one any more: the loop's first frame is now the
+                  first picture in the document, and two of these racing each
+                  other only slows the one that is actually on screen. */}
               <Shot
                 name={pillar.shot}
-                priority={index === 0}
                 wide={LAYOUTS[index] === "lead"}
                 caption={pillar.caption}
               />

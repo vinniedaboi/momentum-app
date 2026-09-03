@@ -26,10 +26,14 @@ Momentum answers that question in one screen.
 
 ## The core loop
 
-**Log what you studied → topics reschedule themselves → the review board tells
-you what is next.**
+Once, at sign-up: **pick your subjects, and the syllabus arrives with them.**
 
-Everything else in the product feeds that loop.
+Every day after: **open the board → log what you studied → every point books its
+own next date → back to the board.**
+
+Logging time is not where anyone starts — there is nothing to log against until
+the syllabus is in, and the move made daily is opening the board. Everything
+else in the product feeds that loop.
 
 | Status | Meaning | Comes back in |
 | --- | --- | --- |
