@@ -989,6 +989,39 @@ test("the type scale climbs, and starts above a footnote", async () => {
   }
 });
 
+test("a course with every paper sat can actually be saved", async () => {
+  const [route, migrations, client] = await Promise.all([
+    read("app/api/grade-targets/route.ts"),
+    readdir(new URL("../supabase/migrations/", import.meta.url))
+      .then((files) => Promise.all(files.filter((name) => name.endsWith(".sql"))
+        .sort().map((name) => read(`supabase/migrations/${name}`))))
+      .then((all) => all.join("\n")),
+    read("app/grades.tsx"),
+  ]);
+
+  // The banked share was capped at 95 while it was a number a learner typed.
+  // Papers can settle the whole award, and every ceiling on the way in has to
+  // agree — the check constraint, the route, and the form's own input.
+  assert.doesNotMatch(route, /between 0 and 95/);
+  assert.doesNotMatch(route, /weight > 95/);
+  assert.match(migrations, /completed_weight >= 0 and completed_weight <= 100/);
+  assert.doesNotMatch(client, /min="5" max="95"/);
+
+  // A share counted from papers is rarely a whole number: 9702's are 15.5, 23,
+  // 11.5 and 38.5 of the A Level.
+  assert.doesNotMatch(route, /Number\.isInteger\(weight\)/);
+  assert.match(migrations, /alter column completed_weight type double precision/);
+
+  // A finished course belongs to no stage, so the rule that a banked result
+  // names its stage has to exempt a whole one.
+  assert.match(migrations, /completed_weight >= 99\.95/);
+  assert.match(route, /const finished = weight >= 99\.95/);
+
+  // And the percentage the ladder reads has to reach the server, or the route
+  // rejects a form that has just finished computing it.
+  assert.match(client, /completedPercent: usingPapers \? fromPapers\.completedPercent/);
+});
+
 test("a stage already sat leaves the board without leaving the account", async () => {
   const [shell, subjects, settings, route, db] = await Promise.all([
     read("app/study-tracker-app.tsx"),

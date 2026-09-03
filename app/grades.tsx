@@ -353,8 +353,12 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
         completedStage: usingPapers ? null : draft.completedStage,
         remainingStage: draft.remainingStage,
         completedGrade: draft.completedGrade || null,
-        completedMark: draft.mark === "" ? null : Number(draft.mark),
-        completedMax: draft.max === "" ? null : Number(draft.max),
+        // With papers, the single mark field is not on screen and the pair the
+        // ladder reads is counted from the rows instead. Sending the percentage
+        // is what lets the server check it before recounting it for itself.
+        completedMark: usingPapers || draft.mark === "" ? null : Number(draft.mark),
+        completedMax: usingPapers || draft.max === "" ? null : Number(draft.max),
+        completedPercent: usingPapers ? fromPapers.completedPercent : (typed ?? 0),
         completedWeight: usingPapers ? fromPapers.completedWeight : Number(draft.weight),
         targetGrade: draft.targetGrade,
         // Editing the result should not silently drop a paper target the
@@ -760,7 +764,7 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
       </div>}
       {!papers && banked && <label><span>{completed} counts for</span>
         <div className="hours-input">
-          <input type="number" min="5" max="95" step="1" required value={draft.weight} onChange={(event) => onChange({ ...draft, weight: event.target.value })} />
+          <input type="number" min="1" max="100" step="0.5" required value={draft.weight} onChange={(event) => onChange({ ...draft, weight: event.target.value })} />
           <b>% of the grade</b>
         </div>
       </label>}

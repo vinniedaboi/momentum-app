@@ -129,15 +129,21 @@ export async function POST(request: Request) {
       }
 
       // Zero is a mock: a result that says where the learner is without owning
-      // any of the grade. Anything above it is a stage of the course that has
-      // been sat, and a stage has to say which one it was.
-      const weight = cleanNumber(body.completedWeight);
-      if (weight == null || !Number.isInteger(weight) || weight < 0 || weight > 95) {
-        return Response.json({ error: "Enter a share of the grade between 0 and 95." }, { status: 400 });
+      // any of the grade. A hundred is a course with every paper sat, which has
+      // a result rather than a target. In between is a stage of the course that
+      // has been sat, and a stage has to say which one it was.
+      //
+      // Not an integer: a share counted from papers rarely is. Physics 9702's
+      // papers are worth 15.5, 23, 11.5 and 38.5 of the A Level, so a candidate
+      // part way through has banked 38.5 rather than 39.
+      const weight = cleanPercent(body.completedWeight);
+      if (weight == null) {
+        return Response.json({ error: "Enter a share of the grade between 0 and 100." }, { status: 400 });
       }
       const banked = weight > 0;
-      const completedStage = banked ? body.completedStage : null;
-      if (banked && (!completedStage
+      const finished = weight >= 99.95;
+      const completedStage = banked && !finished ? body.completedStage : null;
+      if (banked && !finished && (!completedStage
         || !subject.stages.includes(completedStage)
         || completedStage === remainingStage)) {
         return Response.json(
