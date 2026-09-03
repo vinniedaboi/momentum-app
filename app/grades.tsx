@@ -70,10 +70,20 @@ function average(values: number[]) {
  * `custom` is a paper the learner typed in themselves. The board's own table
  * covers 131 Cambridge syllabuses and nothing else, so every other course — an
  * Edexcel unit, an AQA A Level, a language nobody has parsed — is one where the
- * weightings are on the page in front of the student and not in our data. Those
- * rows are editable; the board's are not.
+ * weightings are on the page in front of the student and not in our data.
+ *
+ * Every row is editable either way. What we parsed is a good starting point,
+ * not an authority: a syllabus is revised between sessions, a candidate can be
+ * entered for a different combination than the one we assumed, and a parser can
+ * simply be wrong. `source` is what the board's table said, kept so a row can
+ * say it has been changed and offer the way back.
  */
-type DraftComponent = TargetComponent & { included: boolean; custom: boolean };
+type DraftComponent = TargetComponent & {
+  included: boolean;
+  custom: boolean;
+  /** The syllabus's own figure, or null for a paper the learner added. */
+  source: number | null;
+};
 
 type Draft = {
   subjectId: string;
@@ -97,7 +107,7 @@ function draftFor(target: GradeTarget): Draft {
     subjectId: target.subjectId,
     gradeScale: target.gradeScale,
     award: target.award,
-    components: target.components.map((component) => ({ ...component, included: true, custom: true })),
+    components: target.components.map((component) => ({ ...component, included: true, custom: true, source: null })),
     completedStage: target.completedStage,
     remainingStage: target.remainingStage,
     completedGrade: target.completedGrade ?? "",
@@ -244,6 +254,7 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
           position: index,
           included: false,
           custom: false,
+          source: component.weighting,
         })),
       }));
     }
@@ -456,6 +467,9 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
   const splits = stages.length > 1;
   const covered = coveredWeight(chosen);
   const settled = bankedFromComponents(chosen);
+  /** Whether anything on the form now disagrees with what the syllabus said. */
+  const edited = draft.components.some(
+    (component) => component.source != null && component.source !== component.weighting);
 
   /** Rewrites one paper of the route, leaving the rest of the draft alone. */
   function setComponent(component: DraftComponent, changes: Partial<DraftComponent>) {
@@ -491,6 +505,7 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
         position: draft.components.length,
         included: true,
         custom: true,
+        source: null,
       }],
     });
   }
@@ -522,6 +537,7 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
         position: index,
         included: false,
         custom: false,
+        source: component.weighting,
       })),
     });
   }
@@ -617,31 +633,37 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
                   })}
                   aria-label={`Sitting ${component.component}`}
                 />
-                {component.custom
-                  ? <input
-                    className="grade-paper-name"
-                    value={component.component}
-                    maxLength={40}
-                    aria-label="Paper name"
-                    onChange={(event) => setComponent(component, { component: event.target.value })}
-                  />
-                  : <strong>{component.component}</strong>}
-                <small>{component.title ?? ""}</small>
+                <input
+                  className="grade-paper-name"
+                  value={component.component}
+                  maxLength={40}
+                  aria-label="Paper name"
+                  onChange={(event) => setComponent(component, { component: event.target.value })}
+                />
+                <small>
+                  <i>{component.title ?? ""}</i>
+                  {/* A weighting we supplied and the learner has since changed
+                      says so, and offers the way back — a syllabus is revised
+                      between sessions, and a parser can simply be wrong. */}
+                  {component.source != null && component.source !== component.weighting && <button
+                    type="button"
+                    className="grade-paper-reset"
+                    onClick={() => setComponent(component, { weighting: component.source! })}
+                  >syllabus says {component.source}%</button>}
+                </small>
               </label>
-              {component.custom
-                ? <span className="grade-paper-weight editable">
-                  <input
-                    type="number"
-                    min="1"
-                    max="100"
-                    step="0.5"
-                    value={component.weighting}
-                    aria-label={`What ${component.component} is worth`}
-                    onChange={(event) => setComponent(component, { weighting: Number(event.target.value) })}
-                  />
-                  <i>%</i>
-                </span>
-                : <b className="grade-paper-weight">{component.weighting}%</b>}
+              <span className="grade-paper-weight">
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  step="0.5"
+                  value={component.weighting}
+                  aria-label={`What ${component.component} is worth`}
+                  onChange={(event) => setComponent(component, { weighting: Number(event.target.value) })}
+                />
+                <i>%</i>
+              </span>
               {component.included ? <>
                 <select
                   aria-label={`${component.component} status`}
@@ -688,14 +710,16 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
         </button>
         <p className="grade-papers-note">
           {!draft.components.length
-            ? "We have not read this syllabus's paper list, so add the papers yourself: their weightings are printed in the assessment overview at the front of the specification. Or leave this and enter one overall mark below."
+            ? "We have not read this syllabus's paper list, so add the papers yourself: a name, what each is worth, and what it is marked out of. Every specification prints those in the assessment overview at the front. Or leave this and enter one overall mark below."
             : covered > 100.05
               ? "That is more than a whole award. Most syllabuses list alternatives — a practical or its written stand-in, a Core route or an Extended one — so untick the papers you are not sitting."
               : covered < 99.95 && covered > 0
                 ? `Those papers come to ${Math.round(covered * 10) / 10}% between them. A full route adds up to 100, so there is a paper missing.`
-                : settled.completedWeight > 0
-                  ? `${Math.round(settled.completedWeight * 10) / 10}% of the grade is settled, averaging ${settled.completedPercent}% across it.`
-                  : "Nothing banked yet, so what you need is simply what the grade needs."}
+                : edited
+                  ? "Your figures, not ours — the target is worked out from whatever is on the row. Press the reminder under a paper to put the syllabus's own number back."
+                  : settled.completedWeight > 0
+                    ? `${Math.round(settled.completedWeight * 10) / 10}% of the grade is settled, averaging ${settled.completedPercent}% across it.`
+                    : "Every name and weighting here can be changed, so a syllabus we have read wrongly — or one revised since — is a number you correct rather than live with."}
         </p>
       </div>
       {!papers && <div className="grade-mark-field">

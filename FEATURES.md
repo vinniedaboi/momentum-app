@@ -155,6 +155,9 @@ the mock says how far off it you are.
 - **Any other course, entered by hand.** Add your own papers, name them and set
   what each is worth. The weightings are printed at the front of every
   specification, so a niche subject is a minute of typing rather than a dead end
+- **Correct ours too.** Every name and weighting on the list is editable,
+  whether it came from the board's PDF or from you; a figure you have changed
+  offers the syllabus's own back in one press
 - A paper marked **sat** banks its marks and its weight; one marked **mock**
   forecasts what it will do without counting towards anything
 - Enter the mark as a percentage uniform mark, or a raw score out of its total

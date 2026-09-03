@@ -38,6 +38,11 @@ Versions are `major.minor.patch`:
   nobody has parsed — takes its papers by hand. Name them, say what each is
   worth, and the arithmetic is the same. The weightings are printed in the
   assessment overview at the front of any specification.
+- **Every name and weighting is editable, including ours.** A syllabus gets
+  revised between sessions, a candidate can be entered for a different
+  combination than we assumed, and a parser can simply be wrong — so nothing on
+  the row is fixed. Change one of our figures and the paper says what the
+  syllabus had, one press away, in case you want it back.
 - **Priced on your own ladder.** A* to E for an A Level, A* to G for an IGCSE,
   9 to 1 for an International GCSE. The subject picks it from its
   qualification, and you can change it.

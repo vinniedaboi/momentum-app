@@ -105,7 +105,7 @@
 .grade-papers ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
 .grade-papers li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 62px 150px minmax(110px, 150px) 26px;
+  grid-template-columns: minmax(0, 1.2fr) 72px 148px minmax(110px, 148px) 26px;
   gap: var(--space-2);
   align-items: center;
   padding: var(--space-2) var(--space-3);
@@ -120,9 +120,25 @@
    same label, and it must not be sized like the tick beside it. */
 .grade-paper-pick input[type="checkbox"] { width: 18px; height: 18px; grid-row: 1 / 3; accent-color: var(--teal); }
 .grade-paper-pick strong { font-size: var(--text-2xs); font-weight: 900; }
-.grade-paper-pick small { font-size: var(--text-3xs); color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The title truncates; the reminder beside it does not, because a chip cut off
+   at "syllabus say…" is worse than a title cut off at all. */
+.grade-paper-pick small { display: flex; align-items: center; gap: var(--space-1); min-width: 0; font-size: var(--text-3xs); color: var(--muted); }
+.grade-paper-pick small > i { font-style: normal; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.grade-paper-weight { font-size: var(--text-2xs); font-weight: 900; color: var(--c-ink-soft); text-align: right; }
+.grade-paper-weight { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-1); }
+.grade-paper-weight input {
+  width: 100%;
+  min-height: 30px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-raised);
+  color: var(--ink);
+  padding: 0 var(--space-1);
+  font-size: var(--text-2xs);
+  font-weight: 900;
+  text-align: right;
+}
+.grade-paper-weight i { font-style: normal; font-size: var(--text-3xs); color: var(--muted); }
 .grade-papers li select {
   width: 100%;
   min-height: 36px;
@@ -171,20 +187,6 @@
   font-size: var(--text-2xs);
   font-weight: 900;
 }
-.grade-paper-weight.editable { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-1); }
-.grade-paper-weight.editable input {
-  width: 100%;
-  min-height: 30px;
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--c-surface-raised);
-  color: var(--ink);
-  padding: 0 var(--space-1);
-  font-size: var(--text-2xs);
-  font-weight: 900;
-  text-align: right;
-}
-.grade-paper-weight.editable i { font-style: normal; font-size: var(--text-3xs); color: var(--muted); }
 .grade-paper-drop {
   width: 26px;
   height: 26px;
@@ -198,6 +200,18 @@
 .grade-paper-drop:hover { background: var(--c-red-soft); color: var(--c-red); }
 .grade-paper-drop svg { width: 14px; height: 14px; }
 .grade-paper-add { justify-self: start; min-height: 36px; font-size: var(--text-3xs); }
+.grade-paper-reset {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: var(--c-amber-soft);
+  color: var(--c-amber-ink);
+  padding: 0 var(--space-1);
+  font-size: var(--text-3xs);
+  font-weight: 800;
+  white-space: nowrap;
+}
+.grade-paper-reset:hover { background: var(--c-peach-strong); }
 
 /* ---------- hero ---------- */
 
