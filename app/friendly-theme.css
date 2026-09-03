@@ -134,14 +134,21 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 button.summary-card:hover, button.summary-card.selected { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 
 /* A panel heading sits above a body that starts flush against its rule — every
-   list in the app provides its own side padding and no top padding at all. So
-   the space under the lettering is the heading's alone, and it was carrying
-   twenty pixels of it plus the eight the display face leaves below its own
-   baseline: thirty above the rule against nothing below it.
+   list in the app provides its own side padding, and a list of rows divided by
+   hairlines no top padding at all. So the space under the lettering is the
+   heading's alone, and it was carrying twenty pixels of it plus the eight the
+   display face leaves below its own baseline: thirty above the rule against
+   nothing below it.
    globals.css always asked for a shorter bottom than top; this file was
    flattening it back and then pinning a min-height that centring spent on
    putting it back again. Two panels had already been patched around it
-   one at a time. */
+   one at a time.
+   Flush is only right for those hairline rows. A body of separated cards
+   carries a border of its own, and starting it at zero puts that border on the
+   rule: they merge into one thick line and the first card reads as welded to
+   the heading. Those bodies — .exam-list, .grade-outcome-rows, .grade-ladder
+   ul — clear the rule by the same gap they already keep between their cards,
+   so the stack is evenly spaced from the rule down. */
 .section-heading { min-height: 0; padding: var(--space-5) var(--space-6) var(--space-2); border-color: var(--line); }
 .section-heading h3, .panel-heading h3, .subject-settings-intro h3, .deck-sidebar-heading h3,
 .deck-create h3, .card-maker h3, .study-deck-heading h3, .deck-overview h3 {
@@ -230,6 +237,12 @@ input, select, textarea { color: var(--ink); }
   letter-spacing: .08em;
 }
 .empty-state { padding: var(--space-7) var(--space-6); color: var(--c-muted); font-size: var(--text-sm); }
+/* The same rule as the card stacks: an empty state that is a panel's whole body
+   keeps its border, so full-bleed it welds to the heading's rule and its
+   rounded corners press into the panel's own edge. Inset it and it sits where
+   the cards it stands in for would. The compact variant has no border to weld
+   and stays flush. */
+.section-heading + .empty-state:not(.compact) { margin: var(--space-4) var(--space-6) var(--space-6); }
 
 /* Tasks */
 .task-composer { border-radius: var(--radius-2xl); }

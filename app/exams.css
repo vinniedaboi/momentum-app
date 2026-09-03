@@ -4,7 +4,10 @@
 .exam-planner { display: grid; gap: var(--space-4); }
 
 
-.exam-list { list-style: none; margin: 0; padding: 0 var(--space-6) var(--space-6); display: grid; gap: var(--space-4); }
+/* The top padding is the card gap, not zero: an exam card has a border, and at
+   zero it sits on the heading's rule as one thickened line. See the note above
+   .section-heading in friendly-theme.css. */
+.exam-list { list-style: none; margin: 0; padding: var(--space-4) var(--space-6) var(--space-6); display: grid; gap: var(--space-4); }
 
 .exam-card {
   border: 1px solid var(--line);

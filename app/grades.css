@@ -272,12 +272,14 @@
 /* Three readings of the same set of marks: the half already banked, the papers
    still to come read on their own, and the two together. The middle one is the
    point — "what did I get in A2" is the question a student asks once the last
-   mark is in, and no board answers it. */
+   mark is in, and no board answers it.
+   The top padding matches the gap, so the cards clear the heading's rule by the
+   same space they keep from each other rather than sitting on it. */
 .grade-outcome-rows {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: var(--space-3);
-  padding: 0 var(--space-6) var(--space-4);
+  padding: var(--space-3) var(--space-6) var(--space-4);
 }
 .grade-outcome-rows article {
   display: grid;
@@ -307,7 +309,7 @@
 /* ---------- the ladder ---------- */
 
 .grade-ladder .section-heading > span { color: var(--muted); font-size: var(--text-3xs); font-weight: 800; }
-.grade-ladder ul { list-style: none; margin: 0; padding: 0 var(--space-6) var(--space-4); display: grid; gap: var(--space-2); }
+.grade-ladder ul { list-style: none; margin: 0; padding: var(--space-2) var(--space-6) var(--space-4); display: grid; gap: var(--space-2); }
 
 .grade-ladder li > button {
   width: 100%;

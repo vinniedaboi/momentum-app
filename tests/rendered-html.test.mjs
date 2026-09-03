@@ -1039,11 +1039,12 @@ test("one panel heading spaces itself like every other", async () => {
     read("app/features.css"),
   ]);
 
-  // Every panel body in the app starts flush against the heading's rule, so the
-  // space under the lettering is the heading's alone. It was carrying a full
-  // step of it plus a min-height that centring spent putting back whatever a
-  // shorter padding took away — and two panels had been patched around that one
-  // at a time, which is how the same screen ends up with two spacings.
+  // A panel body of hairline-divided rows starts flush against the heading's
+  // rule, so the space under the lettering is the heading's alone. It was
+  // carrying a full step of it plus a min-height that centring spent putting
+  // back whatever a shorter padding took away — and two panels had been patched
+  // around that one at a time, which is how the same screen ends up with two
+  // spacings. (Bodies made of separated cards are the exception, below.)
   assert.match(theme, /\.section-heading \{ min-height: 0; padding: var\(--space-5\) var\(--space-6\) var\(--space-2\); /);
   // The other half of the same gap: a display face at its default line-height
   // carries slack inside its own box, so trimming the padding alone moves the
@@ -1052,6 +1053,22 @@ test("one panel heading spaces itself like every other", async () => {
   assert.doesNotMatch(theme, /\.section-heading \{ min-height: 76px/);
   assert.doesNotMatch(exams, /\.exam-planner \.section-heading/);
   assert.doesNotMatch(features, /\.due-task-panel>\.section-heading/);
+});
+
+test("no card starts on the heading's rule", async () => {
+  const [exams, grades] = await Promise.all([
+    read("app/exams.css"),
+    read("app/grades.css"),
+  ]);
+
+  // A card carries a border of its own. Started at zero it lands on the rule
+  // under the heading and the two merge into one thickened line, which reads as
+  // the first card being welded to the heading. These three bodies clear the
+  // rule by the gap they already keep between their cards, so the stack is
+  // spaced the same from the rule down.
+  assert.match(exams, /\.exam-list \{[^}]*padding: var\(--space-4\) var\(--space-6\) var\(--space-6\);[^}]*gap: var\(--space-4\);/);
+  assert.match(grades, /\.grade-outcome-rows \{[^}]*gap: var\(--space-3\);\s*padding: var\(--space-3\) var\(--space-6\)/);
+  assert.match(grades, /\.grade-ladder ul \{[^}]*padding: var\(--space-2\) var\(--space-6\)[^}]*gap: var\(--space-2\);/);
 });
 
 test("a stage already sat leaves the board without leaving the account", async () => {
