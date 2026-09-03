@@ -1071,6 +1071,32 @@ test("no card starts on the heading's rule", async () => {
   assert.match(grades, /\.grade-ladder ul \{[^}]*padding: var\(--space-2\) var\(--space-6\)[^}]*gap: var\(--space-2\);/);
 });
 
+test("the board filter's heading lines up with what it labels", async () => {
+  const auth = await read("app/auth.css");
+
+  // Every other fieldset in the app is borderless, so its legend is an ordinary
+  // label. This one has a border, and a legend drawn straddling one needs side
+  // padding to punch the gap — which pushed the heading eight pixels right of
+  // the hint and the chips below it, and opened the gap level with the end of
+  // the corner curve, leaving a sliver of border in the corner. Floating it
+  // opts out of the legend rendering: the border closes up whole and the
+  // heading starts where its content starts.
+  assert.match(auth, /\.board-filter legend \{[^}]*float: left;[^}]*width: 100%;[^}]*padding: 0 0 var\(--space-1\);/);
+  assert.doesNotMatch(auth, /\.board-filter legend \{[^}]*padding: 0 var\(--space-2\);/);
+  // The hint is an ordinary block, so it needs telling to clear that float.
+  assert.match(auth, /\.board-filter-hint \{[^}]*clear: both;/);
+});
+
+test("the walkthrough link leaves the steps below it room", async () => {
+  const guide = await read("app/guide.css");
+
+  // The link took the last place in the loop's head, where the paragraph before
+  // it had been carrying the gap to the steps. With no bottom margin of its own
+  // its border landed on the first step card's border, and the two read as one
+  // line — the same weld the panel bodies had.
+  assert.match(guide, /\.guide-walkthrough \{[^}]*margin: var\(--space-4\) 0 var\(--space-6\);/);
+});
+
 test("a stage already sat leaves the board without leaving the account", async () => {
   const [shell, subjects, settings, route, db] = await Promise.all([
     read("app/study-tracker-app.tsx"),

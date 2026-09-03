@@ -534,8 +534,21 @@
   background: var(--soft-sage);
 }
 
+/*
+ * Every other fieldset in the app drops its border and lets the legend be an
+ * ordinary label above the controls. This one keeps a border, so the legend was
+ * drawn straddling it, and the eight pixels of side padding that punch the gap
+ * in the rule pushed the heading eight pixels right of the hint and the chips
+ * it labels — a heading out of line with its own box. The notch also opened
+ * level with the content, which is where the 16px corner curve ends, leaving a
+ * sub-pixel stub of border in the corner.
+ * Floating the legend opts out of that rendering: the top border closes up
+ * whole and the heading starts where everything under it starts.
+ */
 .board-filter legend {
-  padding: 0 var(--space-2);
+  float: left;
+  width: 100%;
+  padding: 0 0 var(--space-1);
   font-size: var(--text-sm);
   font-weight: 800;
   color: var(--ink);
@@ -548,6 +561,9 @@
  * is an ordinary paragraph now, and stays inside the box it belongs to.
  */
 .board-filter-hint {
+  /* Clears the floated legend above it; .board-chips is a flex container and
+     keeps clear of floats on its own. */
+  clear: both;
   margin: 0 0 var(--space-1);
   font-weight: 600;
   color: var(--muted);

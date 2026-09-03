@@ -292,10 +292,14 @@
   .guide-section-body { padding: 0 var(--space-3) var(--space-4); }
 }
 
-/* The way back to the setup walkthrough, from the guide that replaced it. */
+/* The way back to the setup walkthrough, from the guide that replaced it.
+   The bottom margin is the gap the head's paragraph used to leave before the
+   steps. This link took the last place in the head and carried no bottom margin
+   of its own, so its border sat on the first step card's border and the two
+   read as one line. */
 .guide-walkthrough {
   display: inline-block;
-  margin-top: var(--space-4);
+  margin: var(--space-4) 0 var(--space-6);
   border: 1px solid var(--c-line-strong);
   border-radius: var(--radius-pill);
   padding: var(--space-2) var(--space-4);
