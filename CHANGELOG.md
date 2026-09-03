@@ -46,6 +46,11 @@ Versions are `major.minor.patch`:
 - **Priced on your own ladder.** A* to E for an A Level, A* to G for an IGCSE,
   9 to 1 for an International GCSE. The subject picks it from its
   qualification, and you can change it.
+- **See what A2 itself came to.** Fill in the marks for the papers still to
+  come and the screen reads them three ways: what AS banked, what those papers
+  came to on their own, and where the two land together. A2 is not certificated
+  separately, so nobody else gives you that middle number — and it is usually
+  the one you want after results day.
 - **Every grade is priced, not just the one you picked.** The ladder shows what
   each one would cost you, and marks the ones a perfect paper can no longer
   reach.

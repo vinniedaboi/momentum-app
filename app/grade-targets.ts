@@ -220,6 +220,40 @@ export function forecastFromComponents(components: TargetComponent[]) {
   return weight > 0 ? Math.round((earned / weight) * 1000) / 10 : null;
 }
 
+/**
+ * What the papers still to come come to on their own.
+ *
+ * The other half of `bankedFromComponents`, and the answer to the question a
+ * student actually asks once the marks are in: not "where does the whole
+ * A Level land" but "what did I get in A2". A2 is not separately certificated,
+ * so this is the same arithmetic read over a different set of papers — the
+ * ones that are not banked — and against the same ladder.
+ *
+ * `known` is how much of that share has a mark against it, which is what the
+ * average is taken over: three of four papers filled in is a real figure for
+ * three papers, not a fictional one for four. Null when none of them has a
+ * mark, because a stage nobody has sat yet has no grade.
+ */
+export function remainingFromComponents(components: TargetComponent[]) {
+  let weight = 0;
+  let known = 0;
+  let earned = 0;
+  for (const component of components) {
+    if (component.status === "sat") continue;
+    weight += component.weighting;
+    const percent = componentPercent(component);
+    if (percent == null) continue;
+    known += component.weighting;
+    earned += (percent / 100) * component.weighting;
+  }
+  if (known <= 0) return null;
+  return {
+    weight: Math.round(weight * 10) / 10,
+    known: Math.round(known * 10) / 10,
+    percent: Math.round((earned / known) * 1000) / 10,
+  };
+}
+
 /** How much of the award the chosen papers add up to. 100 means a full route. */
 export function coveredWeight(components: TargetComponent[]) {
   return Math.round(components.reduce((sum, component) => sum + component.weighting, 0) * 10) / 10;

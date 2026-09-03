@@ -26,6 +26,7 @@ import {
   overallGrade,
   overallPercent,
   paperTarget,
+  remainingFromComponents,
   resultGrades,
   type ComponentStatus,
   type GradeReach,
@@ -812,13 +813,27 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
   const hits = scored.filter((paper) => paper.percentage! >= wanted).length;
 
   /**
-   * Where the learner is standing right now. Logged papers say it best, but a
-   * mock is a reading too — and for a course sat in one go it is often the
-   * only one there is, so it stands in until papers arrive. A banked half is
-   * not a reading of the same thing: it is marks already in the bank, and the
-   * screen reports it separately.
+   * What the papers still to come have come to, once their marks are filled
+   * in. A2 is not separately certificated, so this is the same arithmetic read
+   * over a different set of papers — and it is the figure a student is really
+   * after once the last mark is in: not where the whole A Level lands, but
+   * what they got in A2.
    */
-  const standing = form ?? (banked ? null : target.completedPercent);
+  const remaining = remainingFromComponents(target.components);
+  const remainingGrade = remaining ? overallGrade(target.gradeScale, remaining.percent) : null;
+  /** Every paper of the award now has a mark against it, so nothing is a guess. */
+  const complete = Boolean(remaining && remaining.known >= remaining.weight - 0.05);
+
+  /**
+   * Where the learner is standing right now.
+   *
+   * Marks entered against the papers themselves say it best — they are this
+   * course, not practice for it. Logged past papers stand in until there are
+   * any, and for a one-sitting course a mock stands in until there are those.
+   * A banked half is not a reading of the same thing: it is marks already in
+   * the bank, and the screen reports it separately.
+   */
+  const standing = remaining?.percent ?? form ?? (banked ? null : target.completedPercent);
   const projected = standing == null ? null : overallPercent(target, standing);
   const projectedGrade = projected == null ? null : overallGrade(target.gradeScale, projected);
   const gap = standing == null ? null : wanted - standing;
@@ -886,6 +901,49 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
         <small>{best == null ? "nothing logged yet" : `best ${formatPercent(best)}`}</small>
       </article>
     </section>
+
+    {remaining && <section className="grade-outcome panel-card">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">{complete ? "EVERY PAPER IN" : "ON THE MARKS SO FAR"}</p>
+          <h3>Where this lands</h3>
+        </div>
+        <span>{complete
+          ? "Every paper has a mark against it."
+          : `${remaining.known}% of the ${remaining.weight}% still to come has a mark.`}</span>
+      </div>
+      <div className="grade-outcome-rows">
+        {banked && <article>
+          <span>{target.completedStage ?? "Banked"}</span>
+          <strong>{formatPercent(target.completedPercent)}</strong>
+          <b className={`grade-badge ${gradeTone(overallGrade(target.gradeScale, target.completedPercent))}`}>
+            {overallGrade(target.gradeScale, target.completedPercent)}
+          </b>
+          <small>{Math.round(target.completedWeight * 10) / 10}% of the grade, already sat</small>
+        </article>}
+        <article className="highlight">
+          <span>{named ? target.remainingStage : "These papers"}</span>
+          <strong>{formatPercent(remaining.percent)}</strong>
+          <b className={`grade-badge ${gradeTone(remainingGrade)}`}>{remainingGrade}</b>
+          <small>{complete
+            ? `across all ${remaining.weight}% of it`
+            : `across the ${remaining.known}% marked so far`}</small>
+        </article>
+        <article>
+          <span>Overall</span>
+          <strong>{formatPercent(projected)}</strong>
+          <b className={`grade-badge ${gradeTone(projectedGrade)}`}>{projectedGrade}</b>
+          <small>{complete ? "the two halves together" : "if the rest matches"}</small>
+        </article>
+      </div>
+      {/* A grade for one half of a course is not a grade the board awards, and
+          saying so is the difference between a useful figure and a wrong one. */}
+      <p className="grade-outcome-note">
+        {named
+          ? `${target.remainingStage} is not certificated on its own — the board awards the ${target.award === "qualification" ? "qualification" : target.award}. This is what those papers came to, read against the same boundaries.`
+          : "Read against the standard boundaries, which move a mark or two each session."}
+      </p>
+    </section>}
 
     <section className="grade-ladder panel-card">
       <div className="section-heading">

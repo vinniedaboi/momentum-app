@@ -168,6 +168,10 @@ the mock says how far off it you are.
 - Pick a grade from that ladder and its required percentage becomes the target
   every past paper for that stage is measured against — on this screen and on
   Past papers
+- **Three readings of the same marks** once the remaining papers are filled in:
+  what the banked half came to, what those papers came to *on their own*, and
+  where the two land together. A2 is not certificated separately, so the middle
+  figure is one no board gives you
 - Your recent papers become a form figure, projected forward to the grade that
   form would land; a mock stands in until the first paper is logged
 - Override the paper target by hand to aim above the boundary

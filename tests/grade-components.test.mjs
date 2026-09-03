@@ -3,6 +3,9 @@ import test from "node:test";
 
 import {
   bankedFromComponents,
+  overallGrade,
+  overallPercent,
+  remainingFromComponents,
   componentPercent,
   componentRequirement,
   coveredWeight,
@@ -102,4 +105,54 @@ test("one paper still to come is priced against everything already settled", () 
   // scoring that much across what is left lands exactly on the boundary.
   const rung = gradeLadder(target).find((entry) => entry.grade === "A");
   assert.ok(Math.abs(rung.raw - overall) < 1e-9);
+});
+
+test("the papers still to come read as their own grade", () => {
+  // AS banked in full; the two A2 papers marked and nothing else outstanding.
+  const filled = [
+    sat(physics[0], 38, 40), sat(physics[1], 54, 60), sat(physics[2], 34, 40),
+    mock(physics[3], 78, 100), mock(physics[4], 20, 30),
+  ];
+  const remaining = remainingFromComponents(filled);
+  // Paper 4 and Paper 5 are 38.5 and 11.5 of the A Level — half of it.
+  assert.equal(remaining.weight, 50);
+  assert.equal(remaining.known, 50, "both of them have a mark");
+  // 78% of 38.5 plus 66.7% of 11.5, over the 50 they cover.
+  assert.ok(Math.abs(remaining.percent - 75.4) < 0.2);
+  assert.equal(overallGrade("a-level", remaining.percent), "B", "what A2 itself came to");
+
+  // The whole thing lands a grade higher, because AS was the stronger half —
+  // which is exactly why one figure cannot answer both questions.
+  const banked = bankedFromComponents(filled);
+  assert.ok(Math.abs(banked.completedPercent - 90.4) < 0.2);
+  const overall = overallPercent({ ...banked, gradeScale: "a-level" }, remaining.percent);
+  assert.ok(Math.abs(overall - 82.9) < 0.2);
+  assert.equal(overallGrade("a-level", overall), "A");
+});
+
+test("a half-filled stage averages what it knows, not what it hopes", () => {
+  const partway = [
+    sat(physics[0], 40, 40), sat(physics[1], 60, 60), sat(physics[2], 40, 40),
+    mock(physics[3], 50, 100), physics[4],
+  ];
+  const remaining = remainingFromComponents(partway);
+  assert.equal(remaining.weight, 50, "both papers are still to come");
+  assert.equal(remaining.known, 38.5, "but only one of them has a mark");
+  assert.equal(remaining.percent, 50, "which is what the average is taken over");
+});
+
+test("a stage nobody has touched has no grade to report", () => {
+  assert.equal(remainingFromComponents(physics), null);
+  // Every paper banked leaves nothing still to come.
+  assert.equal(remainingFromComponents(physics.map((p) => sat(p, 1, 1))), null);
+});
+
+test("a course sat in one go reads its remaining papers as the whole thing", () => {
+  const mocked = igcse.map((component) => mock(component, 30, 40));
+  const remaining = remainingFromComponents(mocked);
+  assert.equal(remaining.weight, 100);
+  assert.equal(remaining.percent, 75);
+  // Nothing banked, so the two readings agree — which is the right answer.
+  const banked = bankedFromComponents(mocked);
+  assert.equal(overallPercent({ ...banked, gradeScale: "igcse" }, remaining.percent), 75);
 });

@@ -257,6 +257,43 @@
 .grade-headline.out-of-reach strong { font-size: var(--text-2xl); color: var(--c-peach-strong); }
 .grade-headline.secured strong { font-size: var(--text-2xl); }
 
+/* ---------- where the marks land ---------- */
+
+/* Three readings of the same set of marks: the half already banked, the papers
+   still to come read on their own, and the two together. The middle one is the
+   point — "what did I get in A2" is the question a student asks once the last
+   mark is in, and no board answers it. */
+.grade-outcome-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--space-3);
+  padding: 0 var(--space-6) var(--space-4);
+}
+.grade-outcome-rows article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-3);
+  align-items: center;
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--c-surface-sunken);
+}
+.grade-outcome-rows article.highlight { border-color: var(--c-line-strong); background: var(--c-mint); }
+.grade-outcome-rows span {
+  grid-column: 1;
+  font-size: var(--text-3xs);
+  font-weight: 900;
+  color: var(--c-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.grade-outcome-rows strong { grid-column: 1; font: 700 var(--text-2xl) var(--font-display); line-height: 1.1; }
+.grade-outcome-rows .grade-badge { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+.grade-outcome-rows small { grid-column: 1 / -1; font-size: var(--text-3xs); color: var(--muted); line-height: 1.4; }
+.grade-outcome .section-heading > span { color: var(--muted); font-size: var(--text-3xs); font-weight: 800; text-align: right; }
+.grade-outcome-note { margin: 0; padding: 0 var(--space-6) var(--space-6); font-size: var(--text-3xs); color: var(--muted); line-height: 1.5; }
+
 /* ---------- the ladder ---------- */
 
 .grade-ladder .section-heading > span { color: var(--muted); font-size: var(--text-3xs); font-weight: 800; }
@@ -412,6 +449,7 @@
 }
 
 @media (max-width: 850px) {
+  .grade-outcome-rows, .grade-outcome-note { padding-left: var(--space-4); padding-right: var(--space-4); }
   .grade-setup { grid-template-columns: 1fr; }
   .grade-form { grid-template-columns: 1fr; }
   .grade-papers li { grid-template-columns: minmax(0, 1fr) 62px 26px; row-gap: var(--space-2); }
