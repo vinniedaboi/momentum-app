@@ -284,13 +284,34 @@ export default function StudyTrackerApp() {
     [trackedSubjects, subjectQueueCounts, subjectFilter],
   );
 
+  /**
+   * Points you have already worked today, newest touch first.
+   *
+   * Logging a session — or any status change — anchors a point's next spaced
+   * review to today, and that alone pushes it days forward and off the board.
+   * So a point you meant to hit again after school would vanish the moment you
+   * first touched it, reading as done when you were only getting started. These
+   * gather here instead for the rest of the local day: still in reach to
+   * repeat, while their real next review sits correctly days out. Tomorrow the
+   * day rolls over and each one falls away to that date on its own.
+   */
+  const studiedToday = useMemo(
+    () => points
+      .filter((topic) => topic.reviewedOn === today && (!subjectFilter || topic.subjectId === subjectFilter))
+      .sort((a, b) => (b.reviewedAt ?? b.reviewedOn ?? "").localeCompare(a.reviewedAt ?? a.reviewedOn ?? "")),
+    [points, today, subjectFilter],
+  );
+  const studiedTodayIds = useMemo(() => new Set(studiedToday.map((topic) => topic.id)), [studiedToday]);
+
   // The subject filter is applied here rather than to the queue, so the three
   // counters above the queue and the queue itself are answering the same
   // question. Counters that disagree with the list under them are how a board
-  // ends up promising work it will not show.
+  // ends up promising work it will not show. Anything worked today is held out:
+  // it lives in the Studied today band, not in the work still waiting.
   const tracked = useMemo(
-    () => points.filter((topic) => dueOn(topic) && (!subjectFilter || topic.subjectId === subjectFilter)),
-    [points, dueOn, subjectFilter],
+    () => points.filter((topic) =>
+      dueOn(topic) && !studiedTodayIds.has(topic.id) && (!subjectFilter || topic.subjectId === subjectFilter)),
+    [points, dueOn, subjectFilter, studiedTodayIds],
   );
   const overdue = useMemo(() => tracked.filter((topic) => dueOn(topic)! < today), [tracked, today, dueOn]);
   const dueToday = useMemo(() => tracked.filter((topic) => dueOn(topic) === today), [tracked, today, dueOn]);
@@ -867,6 +888,28 @@ export default function StudyTrackerApp() {
               <button onClick={() => setActiveView("Hours")}>{todayStudyMinutes ? "Add more time" : "Log today’s study time"}</button>
             </section>
 
+            {studiedToday.length > 0 && (
+              <section className="review-panel studied-today">
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">STUDIED TODAY</p>
+                    <h3>
+                      Go again while it’s fresh
+                      {subjectFilter ? <span className="queue-subject">{subjectName(subjectLookup, subjectFilter)}</span> : null}
+                    </h3>
+                    <span className="queue-total">
+                      {studiedToday.length} point{studiedToday.length === 1 ? "" : "s"} worked today · the next spaced review is already set, and a repeat now keeps it here until tomorrow
+                    </span>
+                  </div>
+                </div>
+                <div className="review-list">
+                  {studiedToday.map((topic) => (
+                    <TopicRow key={topic.id} topic={topic} subjects={subjectLookup} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} onOpenTimeline={setTimelineTopicId} exam={examDue.get(topic.id)} primaryLabel="Review again" />
+                  ))}
+                </div>
+              </section>
+            )}
+
             <DueTasksPanel tasks={tasks} subjects={subjectLookup} today={today} busyIds={taskBusyIds} onUpdate={updateTask} onOpenTasks={() => setActiveView("Tasks")} />
 
             <section className="review-panel">
@@ -1060,7 +1103,7 @@ function DifficultySelect({ value, label, disabled, onChange }: {
   );
 }
 
-function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onOpenTimeline, subjects, exam, minutes }: {
+function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onOpenTimeline, subjects, exam, minutes, primaryLabel = "Reviewed now" }: {
   topic: Topic;
   subjects: Map<string, Subject>;
   /** The exam wanting this topic soonest, where one does. */
@@ -1073,6 +1116,8 @@ function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onO
   selected?: boolean;
   onSelect?: () => void;
   onOpenTimeline: (id: string) => void;
+  /** What the log-a-review button says. "Review again" for a point already worked today. */
+  primaryLabel?: string;
 }) {
   const dueDate = scheduledDate(topic, exam?.date);
   const source = dueSource(topic, dueDate, exam);
@@ -1097,7 +1142,7 @@ function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onO
       <select className={`status-select status-${statusSlug(topic.status)}`} aria-label={`Status for ${topic.title}`} value={topic.status} disabled={updating} onChange={(event) => updateTopic(topic, { status: event.target.value as StudyStatus })}>
         {STATUSES.map((status) => <option key={status}>{status}</option>)}
       </select>
-      <button className="primary-button" disabled={updating} onClick={() => updateTopic(topic, { reviewedNow: true })}>{updating ? "Saving…" : "Reviewed now"}</button>
+      <button className="primary-button" disabled={updating} onClick={() => updateTopic(topic, { reviewedNow: true })}>{updating ? "Saving…" : primaryLabel}</button>
     </article>
   );
 }

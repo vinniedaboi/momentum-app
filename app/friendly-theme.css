@@ -204,6 +204,12 @@ button.summary-card:hover, button.summary-card.selected { transform: translateY(
 .hours-glance span { font-size: var(--text-xs); }
 .hours-glance button { min-height: 40px; border-radius: var(--radius-md); background: var(--c-teal); font-size: var(--text-xs); }
 
+/* Points already worked today. Tied to the study-time palette so it reads as
+   part of "what I've done", and marked done rather than as another queue
+   asking to be cleared. */
+.studied-today .section-heading { background: var(--c-mint); }
+.studied-today .eyebrow { color: var(--c-teal); }
+
 input, select, textarea { color: var(--ink); }
 .hours-form input, .hours-form select, .goal-form input, .goal-form select,
 .deck-create input, .deck-create select, .card-maker textarea,
