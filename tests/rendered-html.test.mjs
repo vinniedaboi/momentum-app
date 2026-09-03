@@ -1044,7 +1044,11 @@ test("one panel heading spaces itself like every other", async () => {
   // step of it plus a min-height that centring spent putting back whatever a
   // shorter padding took away — and two panels had been patched around that one
   // at a time, which is how the same screen ends up with two spacings.
-  assert.match(theme, /\.section-heading \{ min-height: 0; padding: var\(--space-5\) var\(--space-6\) var\(--space-3\); /);
+  assert.match(theme, /\.section-heading \{ min-height: 0; padding: var\(--space-5\) var\(--space-6\) var\(--space-2\); /);
+  // The other half of the same gap: a display face at its default line-height
+  // carries slack inside its own box, so trimming the padding alone moves the
+  // box and leaves the lettering where it was.
+  assert.match(theme, /\.section-heading h3 \{ font-size: var\(--text-3xl\); line-height: 1\.08; \}/);
   assert.doesNotMatch(theme, /\.section-heading \{ min-height: 76px/);
   assert.doesNotMatch(exams, /\.exam-planner \.section-heading/);
   assert.doesNotMatch(features, /\.due-task-panel>\.section-heading/);

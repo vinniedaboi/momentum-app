@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<title>gap probe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,100..900&family=Nunito+Sans:opsz,wght@6..12,200..1000&display=block" rel="stylesheet">
+<style>
+/* Faithful stand-in for `@import "tailwindcss"` inside globals.css: preflight
+   lives in @layer base, so every unlayered app rule beats it regardless of
+   source order or specificity. */
+@layer theme, base, components, utilities;
+@layer base {
+  *, ::before, ::after, ::backdrop { box-sizing: border-box; margin: 0; padding: 0; border: 0 solid; }
+  html, :host { line-height: 1.5; -webkit-text-size-adjust: 100%; tab-size: 4; font-family: ui-sans-serif, system-ui, sans-serif; }
+  h1, h2, h3, h4, h5, h6 { font-size: inherit; font-weight: inherit; }
+  ol, ul, menu { list-style: none; }
+  button, input, select, optgroup, textarea, ::file-selector-button { font: inherit; font-feature-settings: inherit; font-variation-settings: inherit; letter-spacing: inherit; color: inherit; opacity: 1; background-color: transparent; border-radius: 0; }
+  :where(button, ::file-selector-button) { cursor: default; appearance: button; }
+  b, strong { font-weight: bolder; }
+  small { font-size: 80%; }
+}
+</style>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="globals.css">
+<link rel="stylesheet" href="features.css">
+<link rel="stylesheet" href="friendly-theme.css">
+<link rel="stylesheet" href="exams.css">
+<link rel="stylesheet" href="grades.css">
+<link rel="stylesheet" href="guide.css">
+<link rel="stylesheet" href="auth.css">
+<link rel="stylesheet" href="brand.css">
+<link rel="stylesheet" href="landing.css">
+<style>
+  :root { --font-friendly-sans: "Nunito Sans"; --font-friendly-display: "Fraunces"; }
+  #probe-wrap { padding: 24px; display: grid; gap: 32px; max-width: 1100px; }
+  #out { position: fixed; right: 0; top: 0; width: 0; height: 0; overflow: hidden; }
+</style>
+</head>
+<body class="antialiased">
+<div id="probe-wrap">
+
+  <div class="exam-planner">
+    <section class="review-panel" id="examsPanel">
+      <div class="section-heading" id="examsHead">
+        <h3 id="examsH3">Your exams</h3>
+        <button class="primary-button">Plan an exam</button>
+      </div>
+      <ul class="exam-list" id="examsList">
+        <li><article class="exam-card" id="examsCard">
+          <div class="exam-head">
+            <div class="exam-title"><span class="subject-pin blue"></span><div><strong>Stats</strong><small>Paper 5 &middot; 12 May</small></div></div>
+            <div class="exam-countdown"><strong>in 41 days</strong><small>Mock</small></div>
+          </div>
+          <div class="exam-progress"><div style="width:40%"></div></div>
+        </article></li>
+      </ul>
+    </section>
+  </div>
+
+  <section class="grade-ladder panel-card" id="gradesPanel">
+    <div class="section-heading" id="gradesHead">
+      <div id="gradesHeadCopy"><p class="eyebrow" id="gradesEyebrow">EVERY GRADE, PRICED</p><h3 id="gradesH3">What each one costs you in the exam</h3></div>
+      <span>Pick one to make it your target</span>
+    </div>
+    <ul id="gradesList">
+      <li class="reachable" id="gradesLi"><button type="button" id="gradesBtn">
+        <span class="grade-badge">A*</span>
+        <b>90% overall</b>
+        <div class="grade-need-bar"><i style="width:88%"></i><em style="left:70%"></em></div>
+        <strong>88%</strong>
+        <small>18 points off your form</small>
+      </button></li>
+    </ul>
+    <p class="grade-ladder-note">Boundaries move between sessions.</p>
+  </section>
+
+</div>
+<pre id="out"></pre>
+<script>
+function cs(el){return getComputedStyle(el);}
+function rect(el){return el.getBoundingClientRect();}
+
+// Measure where the ink actually is: render the h3 text into a canvas-free way
+// by using a Range over the text node and reading its client rects, then
+// compare against the font's own cap/baseline via a probe span.
+function inkTop(h3){
+  const r = document.createRange();
+  r.selectNodeContents(h3);
+  const rects = r.getClientRects();
+  return rects.length ? rects[0].top : rect(h3).top;
+}
+
+function capMetrics(h3){
+  // Build an inline probe with the same computed font to find where the cap
+  // height sits inside the line box.
+  const s = cs(h3);
+  const probe = document.createElement('span');
+  probe.textContent = 'H';
+  probe.style.font = s.font || (s.fontStyle+' '+s.fontVariant+' '+s.fontWeight+' '+s.fontSize+'/'+s.lineHeight+' '+s.fontFamily);
+  probe.style.fontFamily = s.fontFamily;
+  probe.style.fontSize = s.fontSize;
+  probe.style.fontWeight = s.fontWeight;
+  probe.style.lineHeight = s.lineHeight;
+  probe.style.letterSpacing = s.letterSpacing;
+  probe.style.position = 'absolute';
+  probe.style.left = '-9999px';
+  probe.style.whiteSpace = 'nowrap';
+  document.body.appendChild(probe);
+  const pr = probe.getBoundingClientRect();
+  // strut: an empty inline of same font gives the line box; measure the glyph
+  // box by using a canvas TextMetrics for cap height.
+  const c = document.createElement('canvas').getContext('2d');
+  c.font = s.fontWeight + ' ' + s.fontSize + ' ' + s.fontFamily;
+  const tm = c.measureText('Hxg');
+  const out = {
+    lineBoxH: pr.height,
+    fontBoundingBoxAscent: tm.fontBoundingBoxAscent,
+    fontBoundingBoxDescent: tm.fontBoundingBoxDescent,
+    actualAscent: tm.actualBoundingBoxAscent,
+    actualDescent: tm.actualBoundingBoxDescent,
+  };
+  probe.remove();
+  return out;
+}
+
+function report(name, head, h3, body, extra){
+  const hs = cs(head), h3s = cs(h3), bs = cs(body);
+  const hr = rect(head), h3r = rect(h3), br = rect(body);
+  const m = capMetrics(h3);
+  const fsz = parseFloat(h3s.fontSize);
+  const lh = parseFloat(h3s.lineHeight);
+  // half-leading above the glyph content box
+  const contentArea = m.fontBoundingBoxAscent + m.fontBoundingBoxDescent;
+  const halfLeading = (lh - contentArea) / 2;
+  // distance from top of h3 box to the top of the capital letters
+  const capSlackTop = halfLeading + (m.fontBoundingBoxAscent - m.actualAscent);
+  // distance from bottom of the capitals' baseline area to bottom of h3 box
+  const baseline = halfLeading + m.fontBoundingBoxAscent;
+  const belowBaseline = lh - baseline;
+  return {
+    name,
+    heading: {
+      display: hs.display, alignItems: hs.alignItems, gap: hs.gap,
+      padding: hs.paddingTop+' '+hs.paddingRight+' '+hs.paddingBottom+' '+hs.paddingLeft,
+      minHeight: hs.minHeight, height: hr.height,
+      borderBottomWidth: hs.borderBottomWidth, borderBottomColor: hs.borderBottomColor,
+      backgroundOfPanel: cs(head.parentElement).backgroundColor,
+    },
+    h3: {
+      fontFamily: h3s.fontFamily, fontSize: h3s.fontSize, fontWeight: h3s.fontWeight,
+      lineHeight: h3s.lineHeight, margin: h3s.marginTop+' '+h3s.marginBottom,
+      boxHeight: h3r.height,
+      fontBoundingBoxAscent: m.fontBoundingBoxAscent, fontBoundingBoxDescent: m.fontBoundingBoxDescent,
+      actualAscent: m.actualAscent, actualDescent: m.actualDescent,
+      contentArea, halfLeading,
+      slackAboveCaps: capSlackTop,
+      slackBelowBaseline: belowBaseline,
+    },
+    body: {
+      tag: body.tagName, cls: body.className,
+      paddingTop: bs.paddingTop, marginTop: bs.marginTop, height: br.height,
+    },
+    measured: {
+      h3BoxTop_to_headBottomBorder: (hr.bottom - h3r.bottom),
+      capsBaseline_to_firstRowTop: (br.top - (h3r.top + baseline)),
+      h3BoxBottom_to_firstRowTop: (br.top - h3r.bottom),
+      inkBottom_to_firstRowTop: (br.top - (h3r.top + halfLeading + m.fontBoundingBoxAscent + m.actualDescent)),
+      capsTop_to_headingTop: ((h3r.top + capSlackTop) - hr.top),
+      flexCenteringSlackBelowH3: (hr.height - parseFloat(hs.paddingTop) - parseFloat(hs.paddingBottom) - parseFloat(hs.borderBottomWidth) - h3r.height),
+    },
+    extra: extra || null,
+  };
+}
+
+const results = [];
+results.push(report('EXAMS  .review-panel', document.getElementById('examsHead'), document.getElementById('examsH3'), document.getElementById('examsList'), {
+  firstCardTop_minus_listTop: rect(document.getElementById('examsCard')).top - rect(document.getElementById('examsList')).top,
+  buttonHeight: rect(document.querySelector('#examsHead .primary-button')).height,
+  headingContentBoxHeight: rect(document.getElementById('examsHead')).height - parseFloat(cs(document.getElementById('examsHead')).paddingTop) - parseFloat(cs(document.getElementById('examsHead')).paddingBottom) - parseFloat(cs(document.getElementById('examsHead')).borderBottomWidth),
+}));
+
+const gEye = document.getElementById('gradesEyebrow');
+results.push(report('GRADES .grade-ladder.panel-card', document.getElementById('gradesHead'), document.getElementById('gradesH3'), document.getElementById('gradesList'), {
+  eyebrowMargin: cs(gEye).marginTop+' '+cs(gEye).marginBottom,
+  eyebrowHeight: rect(gEye).height,
+  eyebrowLineHeight: cs(gEye).lineHeight,
+  wrapperDivHeight: rect(document.getElementById('gradesHeadCopy')).height,
+  firstRowTop_minus_listTop: rect(document.getElementById('gradesLi')).top - rect(document.getElementById('gradesList')).top,
+  spanHeight: rect(document.querySelector('#gradesHead > span')).height,
+}));
+
+// Every stylesheet rule that matches .section-heading, its h3, or the bodies.
+const targets = [
+  ['#examsHead', document.getElementById('examsHead')],
+  ['#examsH3', document.getElementById('examsH3')],
+  ['#examsList', document.getElementById('examsList')],
+  ['#gradesHead', document.getElementById('gradesHead')],
+  ['#gradesH3', document.getElementById('gradesH3')],
+  ['#gradesList', document.getElementById('gradesList')],
+  ['#gradesEyebrow', gEye],
+];
+const matches = {};
+for (const [label, el] of targets) matches[label] = [];
+function walk(rules, sheetName, media){
+  for (const rule of rules){
+    if (rule.type === CSSRule.MEDIA_RULE){ walk(rule.cssRules, sheetName, (media?media+' && ':'')+rule.conditionText); continue; }
+    if (rule.type === CSSRule.SUPPORTS_RULE){ walk(rule.cssRules, sheetName, media); continue; }
+    if (!rule.selectorText) continue;
+    for (const sel of rule.selectorText.split(',')){
+      const s = sel.trim();
+      for (const [label, el] of targets){
+        try { if (el.matches(s)) matches[label].push({sheet: sheetName, media: media||'(none)', selector: s, css: rule.style.cssText}); } catch(e){}
+      }
+    }
+  }
+}
+for (const sheet of document.styleSheets){
+  let name = sheet.href ? sheet.href.split('/').pop() : '(inline <style>)';
+  try { walk(sheet.cssRules, name, null); } catch(e){ matches['#examsHead'].push({sheet:name, error:String(e)}); }
+}
+
+document.title = 'probe done';
+window.__PROBE__ = { results, matches };
+</script>
+</body>
+</html>

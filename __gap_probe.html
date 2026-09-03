@@ -1,0 +1,97 @@
+<!doctype html><html data-theme="dark"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,650;9..144,700&family=Nunito+Sans:wght@400;700;800;900&display=block" rel="stylesheet">
+<link rel="stylesheet" href="app/tokens.css">
+<link rel="stylesheet" href="app/globals.css">
+<link rel="stylesheet" href="app/features.css">
+<link rel="stylesheet" href="app/friendly-theme.css">
+<link rel="stylesheet" href="app/exams.css">
+<link rel="stylesheet" href="app/grades.css">
+<link rel="stylesheet" href="app/guide.css">
+<link rel="stylesheet" href="app/auth.css">
+<link rel="stylesheet" href="app/brand.css">
+<link rel="stylesheet" href="app/landing.css">
+<style>
+:root{--font-friendly-display:"Fraunces";--font-body:"Nunito Sans",system-ui,sans-serif;--font-display:"Fraunces","Iowan Old Style",Georgia,serif}
+body{font-family:var(--font-body);padding:24px}
+.wrap{width:1140px}
+</style>
+</head><body>
+<div class="wrap">
+<div class="exam-planner">
+  <section class="review-panel" id="examPanel">
+    <div class="section-heading" id="examHeading">
+      <h3 id="examH3">Your exams</h3>
+      <button class="primary-button" id="examBtn">Plan an exam</button>
+    </div>
+    <ul class="exam-list" id="examList">
+      <li><article class="exam-card" id="examCard">
+        <div class="exam-head"><div class="exam-title"><span class="subject-pin"></span><div><strong>Stats</strong><small>Paper 5</small></div></div>
+        <div class="exam-countdown"><strong>in 41 days</strong><small>14 Oct</small></div></div>
+        <div class="exam-progress"><div style="width:40%"></div></div>
+      </article></li>
+    </ul>
+  </section>
+</div>
+
+<div style="height:40px"></div>
+
+<section class="grade-ladder panel-card" id="ladderPanel">
+  <div class="section-heading" id="ladderHeading">
+    <div id="ladderCopy"><p class="eyebrow" id="ladderEyebrow">EVERY GRADE, PRICED</p><h3 id="ladderH3">What each one costs you in A2</h3></div>
+    <span id="ladderSpan">Pick one to make it your target</span>
+  </div>
+  <ul id="ladderUl">
+    <li class="reachable" id="ladderLi"><button type="button" id="ladderBtn">
+      <span class="grade-badge">A*</span><b>min 90%</b><span class="grade-need-bar"><i style="width:80%"></i></span><strong>86%</strong><small>needs 86% across A2</small>
+    </button></li>
+  </ul>
+  <p class="grade-ladder-note">Boundaries move between sessions.</p>
+</section>
+</div>
+<pre id="out" style="font:12px/1.5 monospace;white-space:pre-wrap;background:#fff;color:#000;padding:12px;margin-top:40px"></pre>
+<script>
+function cs(el){return getComputedStyle(el)}
+function box(el){var r=el.getBoundingClientRect();return {top:+r.top.toFixed(2),bottom:+r.bottom.toFixed(2),h:+r.height.toFixed(2)}}
+function report(){
+  var L=[];
+  function sect(name, heading, textEl, firstBody, firstInner){
+    var hb=box(heading), tb=box(textEl), bb=box(firstBody), ib=box(firstInner);
+    var hs=cs(heading), ts=cs(textEl), bs=cs(firstBody);
+    L.push("### "+name);
+    L.push("heading: h="+hb.h+" padTop="+hs.paddingTop+" padBottom="+hs.paddingBottom+" minH="+hs.minHeight+" height="+hs.height+" alignItems="+hs.alignItems+" borderBottom="+hs.borderBottomWidth+" display="+hs.display);
+    L.push("heading CONTENT box height (the flex line) = "+(hb.h - parseFloat(hs.paddingTop) - parseFloat(hs.paddingBottom) - parseFloat(hs.borderTopWidth) - parseFloat(hs.borderBottomWidth)).toFixed(2));
+    L.push("text el ("+textEl.tagName+"): h="+tb.h+" fontSize="+ts.fontSize+" lineHeight="+ts.lineHeight+" marginBottom="+ts.marginBottom);
+    L.push("  ALIGN redistribution below text = "+((hb.bottom - parseFloat(hs.borderBottomWidth) - parseFloat(hs.paddingBottom)) - tb.bottom).toFixed(2)+"px");
+    L.push("  heading padding-bottom = "+hs.paddingBottom+" ; border-bottom = "+hs.borderBottomWidth);
+    L.push("body container: padTop="+bs.paddingTop+" marginTop="+bs.marginTop+" display="+bs.display+" top="+bb.top);
+    L.push("  heading bottom = "+hb.bottom+" ; body container top = "+bb.top+" ; delta = "+(bb.top-hb.bottom).toFixed(2));
+    L.push("first inner element top = "+ib.top+" ; TOTAL gap text-box-bottom -> first row top = "+(ib.top-tb.bottom).toFixed(2)+"px");
+    var range=document.createRange(); range.selectNodeContents(textEl);
+    var rr=range.getBoundingClientRect();
+    L.push("  inline text-run box: top="+rr.top.toFixed(2)+" bottom="+rr.bottom.toFixed(2)+" h="+rr.height.toFixed(2));
+    L.push("  half-leading below the text run = "+(tb.bottom-rr.bottom).toFixed(2));
+    L.push("  TOTAL gap from TEXT RUN bottom to first row top = "+(ib.top-rr.bottom).toFixed(2)+"px");
+    L.push("");
+  }
+  sect("EXAMS  .review-panel", document.getElementById("examHeading"), document.getElementById("examH3"), document.getElementById("examList"), document.getElementById("examCard"));
+  var btn=document.getElementById("examBtn"), bs2=cs(btn);
+  L.push("exam button: h="+box(btn).h+" minHeight="+bs2.minHeight+" padTop="+bs2.paddingTop+" padBottom="+bs2.paddingBottom+" fontSize="+bs2.fontSize+" lineHeight="+bs2.lineHeight+" borderW="+bs2.borderTopWidth+" top="+box(btn).top+" bottom="+box(btn).bottom);
+  L.push("");
+  sect("GRADES .grade-ladder", document.getElementById("ladderHeading"), document.getElementById("ladderH3"), document.getElementById("ladderUl"), document.getElementById("ladderBtn"));
+  var lc=document.getElementById("ladderCopy"), sp=document.getElementById("ladderSpan");
+  L.push("ladder inner div: h="+box(lc).h+" top="+box(lc).top+" bottom="+box(lc).bottom);
+  L.push("ladder span: h="+box(sp).h+" top="+box(sp).top+" bottom="+box(sp).bottom);
+  L.push("ladder eyebrow: h="+box(document.getElementById("ladderEyebrow")).h+" marginBottom="+cs(document.getElementById("ladderEyebrow")).marginBottom+" fontSize="+cs(document.getElementById("ladderEyebrow")).fontSize+" lh="+cs(document.getElementById("ladderEyebrow")).lineHeight);
+  L.push("ladder h3 font: "+cs(document.getElementById("ladderH3")).fontFamily+" size="+cs(document.getElementById("ladderH3")).fontSize+" lh="+cs(document.getElementById("ladderH3")).lineHeight);
+  L.push("ladder li button: h="+box(document.getElementById("ladderBtn")).h+" padTop="+cs(document.getElementById("ladderBtn")).paddingTop+" minH="+cs(document.getElementById("ladderBtn")).minHeight);
+  L.push("ladder li marginTop="+cs(document.getElementById("ladderLi")).marginTop);
+  L.push("ul padding="+cs(document.getElementById("ladderUl")).padding+" margin="+cs(document.getElementById("ladderUl")).margin);
+  L.push("exam h3 font: "+cs(document.getElementById("examH3")).fontFamily+" size="+cs(document.getElementById("examH3")).fontSize+" lh="+cs(document.getElementById("examH3")).lineHeight);
+  L.push("exam-list padding="+cs(document.getElementById("examList")).padding+" gap="+cs(document.getElementById("examList")).rowGap);
+  document.getElementById("out").textContent=L.join("\n");
+}
+document.fonts.ready.then(function(){setTimeout(report,400)});
+</script>
+</body></html>

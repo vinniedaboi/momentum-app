@@ -142,7 +142,7 @@ button.summary-card:hover, button.summary-card.selected { transform: translateY(
    flattening it back and then pinning a min-height that centring spent on
    putting it back again. Two panels had already been patched around it
    one at a time. */
-.section-heading { min-height: 0; padding: var(--space-5) var(--space-6) var(--space-3); border-color: var(--line); }
+.section-heading { min-height: 0; padding: var(--space-5) var(--space-6) var(--space-2); border-color: var(--line); }
 .section-heading h3, .panel-heading h3, .subject-settings-intro h3, .deck-sidebar-heading h3,
 .deck-create h3, .card-maker h3, .study-deck-heading h3, .deck-overview h3 {
   color: var(--c-ink);
@@ -690,7 +690,7 @@ input, select, textarea { color: var(--ink); }
   .summary-grid { gap: var(--space-3); }
   .summary-card { min-height: 120px; padding: var(--space-4); }
   .summary-card strong { font-size: var(--text-3xl); }
-  .section-heading { min-height: 0; padding: var(--space-5) var(--space-5) var(--space-3); }
+  .section-heading { min-height: 0; padding: var(--space-5) var(--space-5) var(--space-2); }
   .section-heading h3 { font-size: var(--text-2xl); }
   .review-row { min-height: 0; }
   .ghost-button, .primary-button, .danger-button, .hours-submit { min-height: 44px; }
