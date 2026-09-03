@@ -49,7 +49,9 @@ Versions are `major.minor.patch`:
 - **Fill in every paper and get the grade.** Once each paper of the award has a
   mark against it there is nothing left to target, so the screen stops asking
   for a percentage and reports the result: what it came to, what grade that is,
-  and whether it cleared the grade you were aiming at.
+  and whether it cleared the grade you were aiming at. It answers as you type,
+  too — the form is a grade calculator while it is still open, and a half-filled
+  one prices what is left instead.
 - **See what A2 itself came to.** Fill in the marks for the papers still to
   come and the screen reads them three ways: what AS banked, what those papers
   came to on their own, and where the two land together. A2 is not certificated

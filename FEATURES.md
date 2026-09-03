@@ -170,7 +170,9 @@ the mock says how far off it you are.
   Past papers
 - **A final grade once every paper is marked.** With nothing outstanding there
   is nothing to target, so the screen reports the result instead: the
-  percentage, the grade, and whether it cleared the one you were aiming at
+  percentage, the grade, and whether it cleared the one you were aiming at —
+  answered live as you fill the form in, so it doubles as a grade calculator.
+  Half the papers in, and it prices what is left instead
 - **Three readings of the same marks** while some papers are still ahead:
   what the banked half came to, what those papers came to *on their own*, and
   where the two land together. A2 is not certificated separately, so the middle

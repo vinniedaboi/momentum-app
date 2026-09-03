@@ -81,6 +81,10 @@
 .grade-preview.reachable { border-left-color: var(--teal); background: var(--c-mint); }
 .grade-preview.secured { border-left-color: var(--c-blue); background: var(--c-blue-white); }
 .grade-preview.out-of-reach { border-left-color: var(--c-red); background: var(--c-red-soft); }
+/* The calculator's answer: a grade first, the percentage that earned it beside
+   it. Nothing is being targeted here — it has already happened. */
+.grade-preview.outcome strong { display: flex; align-items: center; gap: var(--space-3); }
+.grade-preview.outcome .grade-badge { font-size: var(--text-md); padding: var(--space-1) var(--space-4); }
 
 /* ---------- the papers of the award ---------- */
 

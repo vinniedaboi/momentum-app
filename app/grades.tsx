@@ -284,10 +284,29 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
   const usingPapers = chosenComponents.length > 0;
   const draftPercent = usingPapers ? fromPapers.completedPercent : typed;
   const draftWeight = usingPapers ? fromPapers.completedWeight : Number(draft.weight);
-  const draftPreview = draftPercent == null || !Number.isFinite(draftWeight) || draftWeight < 0 || draftWeight > 95
+  // 95 was the ceiling while the weight was a share typed in by hand. Papers
+  // can settle the whole award, and a course with everything sat is exactly the
+  // case the form most needs to report.
+  const draftPreview = draftPercent == null || !Number.isFinite(draftWeight) || draftWeight < 0 || draftWeight > 100
     ? null
     : gradeLadder({ completedPercent: draftPercent, completedWeight: draftWeight, gradeScale: draft.gradeScale })
       .find((rung) => rung.grade === draft.targetGrade) ?? null;
+
+  /**
+   * What the marks on the form already come to, while it is still open.
+   *
+   * The screen is a calculator as much as a planner: someone who has every
+   * paper in front of them is not setting a target, they are adding up. Null
+   * until the papers cover a whole award and each of them has a mark.
+   */
+  const draftOutcome = usingPapers
+    ? courseOutcome({
+      completedPercent: fromPapers.completedPercent,
+      completedWeight: fromPapers.completedWeight,
+      gradeScale: draft.gradeScale,
+      components: chosenComponents,
+    })
+    : null;
 
   function beginNew() {
     const subject = untargeted[0];
@@ -424,6 +443,8 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
         existing={targets.some((target) => target.subjectId === draft.subjectId)}
         percent={draftPercent}
         preview={draftPreview}
+        outcome={draftOutcome}
+        settledWeight={usingPapers ? fromPapers.completedWeight : null}
         busy={busy}
         onChange={setDraft}
         onChooseSubject={chooseSubject}
@@ -446,7 +467,7 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
   </div>;
 }
 
-function ResultForm({ draft, stages, awards, assessment, subjects, existing, percent, preview, busy, onChange, onChooseSubject, onSubmit, onCancel }: {
+function ResultForm({ draft, stages, awards, assessment, subjects, existing, percent, preview, outcome, settledWeight, busy, onChange, onChooseSubject, onSubmit, onCancel }: {
   draft: Draft;
   stages: string[];
   awards: string[];
@@ -455,6 +476,10 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
   existing: boolean;
   percent: number | null;
   preview: { required: number; reach: GradeReach } | null;
+  /** What the papers already add up to, once they add up to a whole award. */
+  outcome: { percent: number; grade: string; settled: boolean } | null;
+  /** How much of the award the marks already settle, or null without papers. */
+  settledWeight: number | null;
   busy: boolean;
   onChange: (draft: Draft) => void;
   onChooseSubject: (subjectId: string) => void;
@@ -751,17 +776,39 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
           >{grade}</button>)}
         </div>
       </fieldset>
-      <div className={`grade-preview ${preview?.reach ?? "empty"}`} aria-live="polite">
-        {preview == null || percent == null
-          ? <><strong>—</strong><small>Enter {banked ? `your ${completed} mark` : "your mock mark"} to see the target</small></>
-          : preview.reach === "out-of-reach"
-            ? <><strong>Out of reach</strong><small>{percent}% in {completed} puts {gradeArticle(draft.targetGrade)} {draft.targetGrade} beyond a perfect {remaining}</small></>
-            : preview.reach === "secured"
-              ? <><strong>Already yours</strong><small>{percent}% in {completed} secures {gradeArticle(draft.targetGrade)} {draft.targetGrade} whatever {remaining} does</small></>
-              : <><strong>{preview.required}%</strong><small>{banked
-                  ? `needed in ${remaining} for ${gradeArticle(draft.targetGrade)} ${draft.targetGrade}`
-                  : `needed for ${gradeArticle(draft.targetGrade)} ${draft.targetGrade} — your mock is on ${percent}%`}</small></>}
-      </div>
+      {/* Every paper in and nothing outstanding is an answer, not a target —
+          and it is the answer someone typing four marks in a row is after. */}
+      {outcome
+        ? <div className={`grade-preview outcome ${gradeBeats(draft.gradeScale, outcome.grade, draft.targetGrade) || outcome.grade === draft.targetGrade ? "reachable" : "out-of-reach"}`} aria-live="polite">
+          <strong>
+            <b className={`grade-badge ${gradeTone(outcome.grade)}`}>{outcome.grade}</b>
+            {formatPercent(outcome.percent)}
+          </strong>
+          <small>
+            {outcome.settled ? "across every paper" : "on these marks, some of them mocks"}
+            {" — "}
+            {outcome.grade === draft.targetGrade
+              ? `exactly your ${draft.targetGrade} target`
+              : gradeBeats(draft.gradeScale, outcome.grade, draft.targetGrade)
+                ? `above your ${draft.targetGrade} target`
+                : `short of your ${draft.targetGrade} target`}
+          </small>
+        </div>
+        : <div className={`grade-preview ${preview?.reach ?? "empty"}`} aria-live="polite">
+          {preview == null || percent == null
+            ? <><strong>—</strong><small>{papers
+              ? "Fill in a paper's mark to see where you are"
+              : `Enter ${banked ? `your ${completed} mark` : "your mock mark"} to see the target`}</small></>
+            : preview.reach === "out-of-reach"
+              ? <><strong>Out of reach</strong><small>{percent}% across {settledWeight != null ? `the ${Math.round(settledWeight)}% settled so far` : completed} puts {gradeArticle(draft.targetGrade)} {draft.targetGrade} beyond a perfect finish</small></>
+              : preview.reach === "secured"
+                ? <><strong>Already yours</strong><small>{percent}% across {settledWeight != null ? `the ${Math.round(settledWeight)}% settled so far` : completed} secures {gradeArticle(draft.targetGrade)} {draft.targetGrade} whatever follows</small></>
+                : <><strong>{preview.required}%</strong><small>{settledWeight != null
+                    ? `needed across the ${Math.round(100 - settledWeight)}% still to come for ${gradeArticle(draft.targetGrade)} ${draft.targetGrade} — you are on ${percent}% so far`
+                    : banked
+                      ? `needed in ${remaining} for ${gradeArticle(draft.targetGrade)} ${draft.targetGrade}`
+                      : `needed for ${gradeArticle(draft.targetGrade)} ${draft.targetGrade} — your mock is on ${percent}%`}</small></>}
+        </div>}
       <div className="goal-form-actions">
         {onCancel && <button type="button" className="ghost-button" onClick={onCancel}>Cancel</button>}
         <button className="primary-button" disabled={busy || !draft.subjectId || (papers && !chosen.length)}>
