@@ -27,6 +27,11 @@ CROPS = {
     # And the catalogue under them, cut so the two frames of that section do not
     # both show the same summary cards.
     "paper-catalogue": ("past-papers", (330, 300, 1385, 1240)),
+    # One queue row at each status that parks a topic, for the table of
+    # intervals to sit against. Not Started is the fifth row of that table and
+    # the one with no interval, so the four here are the whole of what it
+    # schedules.
+    "status-rows": ("review-queue", (341, 204, 1385, 558)),
     # The four loop boxes are 2.26:1, so those steps sit in bands of one height
     # however wide the column gets.
     # The subject picker's cards, with the syllabus row count on each.

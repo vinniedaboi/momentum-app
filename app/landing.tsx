@@ -78,6 +78,12 @@ const SHOTS = [
    * at a size it can be read at.
    */
   {
+    file: "status-rows",
+    width: 1044,
+    height: 354,
+    alt: "Four syllabus points in the Momentum queue, one at each status: stress and strain rated hard, set to Learning and two days overdue; elastic and plastic behaviour set to Practising and due today; the Young modulus set to Covered and due today; strain energy set to Exam Ready and due tomorrow.",
+  },
+  {
     file: "paper-figures",
     width: 1055,
     height: 140,
@@ -491,6 +497,15 @@ export default function Landing({ stats }: { stats: LandingStats }) {
               ))}
             </tbody>
           </table>
+          {/* The same statuses on real rows, because a table of intervals is a
+              claim about the app and this is the app making it. Not Started is
+              the one row of that table with no interval to show, so the four
+              here are the whole of what it schedules. */}
+          <Shot
+            name="status-rows"
+            wide
+            caption="One row at each status that parks a topic, with the rating that stretches or shortens its next date."
+          />
         </section>
 
         <section id="how-it-works" className="landing-loop">

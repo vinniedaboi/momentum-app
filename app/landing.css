@@ -232,6 +232,10 @@
 .landing-schedule tbody tr:last-child th, .landing-schedule tbody tr:last-child td { border-bottom: 0; }
 .landing-schedule tbody th { font-weight: 800; }
 .landing-schedule td:last-child { font-weight: 800; white-space: nowrap; }
+/* Under both columns rather than beside one: the rows it shows are as wide as
+   the section, and half of it would render the statuses too small to read
+   against the table naming them. */
+.landing-schedule .landing-shot { grid-column: 1 / -1; margin: 0; }
 
 /* ---------- Feature grid ---------- */
 
