@@ -221,6 +221,10 @@ actually done.
 - A rhythm chart that reads as days over a fortnight and as weeks over longer
 - **Time by subject**, biggest share first, and **your week** — what you average
   on each day of the week
+- **Time by topic** — each topic you ticked while logging, biggest first, with
+  its chapter and how many sittings it came from. A session's minutes are split
+  evenly between the topics it names, and time logged without one is left out of
+  the split rather than shared between them
 - Sessions, longest single sitting, and how many topic reviews logging drove
 
 **Why it matters:** one action instead of two — log the session, and the

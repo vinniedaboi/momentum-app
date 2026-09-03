@@ -55,6 +55,15 @@ function asDate(date: string) {
 /** Monday first, which is how a school week reads. */
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
+/**
+ * Topic rows shown before the panel offers the rest.
+ *
+ * A window where a chapter was ticked each session runs to a handful of rows;
+ * one logged point by point runs to dozens, and forty rows of two minutes each
+ * is a wall rather than an answer to "where did the time go".
+ */
+const TOPIC_ROWS = 10;
+
 /** A signed percentage, for a figure that is only interesting as a direction. */
 function signed(value: number) {
   return `${value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(value)}%`;
@@ -95,6 +104,8 @@ export default function StudyHoursView({
    * one, and it resets before a habit shows up in it.
    */
   const [range, setRange] = useState<RangeKey>("30");
+  /** Whether the topic split is showing everything or just its top rows. */
+  const [allTopics, setAllTopics] = useState(false);
 
   const chapters = useMemo(() => syllabusTopics.filter((topic) =>
     topic.kind === "chapter" && topic.subjectId === subject && getTopicStage(topic, syllabusTopics, chosen) === stage
@@ -123,6 +134,17 @@ export default function StudyHoursView({
   );
   const maxMinutes = Math.max(60, ...stats.buckets.map((bucket) => bucket.minutes));
   const busiestWeekday = Math.max(0, ...stats.byWeekday);
+  // Bars are drawn against the biggest topic rather than against the window,
+  // because a topic's honest share of a whole month is a sliver — the number
+  // beside the bar is the share, and the bar is there to be compared with the
+  // rows above and below it.
+  const busiestTopic = Math.max(0, ...stats.byTopic.map((entry) => entry.minutes));
+  const shownTopics = allTopics ? stats.byTopic : stats.byTopic.slice(0, TOPIC_ROWS);
+  /** A point says which chapter it belongs to; a chapter says it is the whole one. */
+  const topicLookup = useMemo(
+    () => new Map(syllabusTopics.map((topic) => [topic.id, topic])),
+    [syllabusTopics],
+  );
   const daily = stats.buckets.length > 0 && stats.buckets[0].start === stats.buckets[0].end;
 
   async function submit(event: FormEvent) {
@@ -338,6 +360,51 @@ export default function StudyHoursView({
             <div><dt>Topics reviewed</dt><dd>{stats.reviewed}</dd></div>
           </dl>
         </article>
+      </section>}
+
+      {/* Where the hours went inside a subject. "Physics, 9 hours" answers a
+          different question from "Physics, 9 hours, six of them on nuclear
+          physics" — and only the second one tells you what you have been
+          avoiding. */}
+      {stats.byTopic.length > 0 && <section className="hours-topics panel-card">
+        <div className="panel-heading">
+          <p className="eyebrow">INSIDE EACH SUBJECT</p>
+          <h3>Time by topic</h3>
+          <p>
+            {formatStudyTime(stats.topicMinutes)} of the {span.label.toLowerCase()} was
+            logged against a topic{stats.topicMinutes < stats.minutes
+              ? `, out of ${formatStudyTime(stats.minutes)} in total.`
+              : "."} A session&rsquo;s time is split evenly between the topics it names.
+          </p>
+        </div>
+        <ul className="hours-topic-split">
+          {shownTopics.map((entry) => {
+            const parent = entry.parentId ? topicLookup.get(entry.parentId) : null;
+            return <li key={entry.id}>
+              <i className={`subject-pin ${toneFor(lookup, entry.subjectId)}`} />
+              <span>
+                <strong><small>{entry.code}</small>{entry.title}</strong>
+                <em>
+                  {entry.kind === "chapter"
+                    ? "Whole chapter"
+                    : parent ? `${parent.code} ${parent.title}` : "Syllabus point"}
+                  {" · "}
+                  {entry.sessions} {entry.sessions === 1 ? "session" : "sessions"}
+                </em>
+              </span>
+              <div><i style={{ width: `${busiestTopic ? (entry.minutes / busiestTopic) * 100 : 0}%` }} /></div>
+              <b>{formatStudyTime(entry.minutes)}</b>
+              <small>{entry.share}%</small>
+            </li>;
+          })}
+        </ul>
+        {stats.byTopic.length > TOPIC_ROWS && <button
+          type="button"
+          className="ghost-button hours-topic-more"
+          onClick={() => setAllTopics(!allTopics)}
+        >{allTopics
+          ? `Show the top ${TOPIC_ROWS}`
+          : `Show all ${stats.byTopic.length} topics`}</button>}
       </section>}
 
       <section className="hours-history review-panel">

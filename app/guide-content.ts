@@ -179,6 +179,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       { term: "Pick a window", detail: "7 days, 30, 90 or everything you have logged. Every figure on the screen answers for the one you pick — a week cannot tell a good week from an ordinary one, and it resets before a habit shows up in it." },
       { term: "Two kinds of average", detail: "What you average across every day of the window, and what you average on the days you actually studied. The gap between them is the honest measure of consistency, and it sits beside your streak." },
       { term: "Where the time goes", detail: "Each subject's share of the window, biggest first, so the course quietly getting none of it is impossible to miss." },
+      { term: "And where it goes inside one", detail: "Each topic you ticked gets its own line too, with the chapter it sits in and how many sittings it came from. A session's minutes are split evenly between the topics it names — it records how long it ran, not how the time inside it divided — and hours logged without a topic stay out of the split." },
       { term: "When you study", detail: "Your average for each day of the week — the Sunday you always work and the Friday you never do." },
     ],
     tip: "The chart follows the window: a fortnight or less reads as days, anything longer as weeks counted back from today. Ninety daily bars is a texture rather than a trend.",

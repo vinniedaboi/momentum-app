@@ -13,11 +13,21 @@
  * what time of day anyone works.
  */
 
+/** A syllabus topic a session says it covered. */
+export type AnalyticsTopic = {
+  id: string;
+  code: string;
+  title: string;
+  kind: "chapter" | "point";
+  /** The chapter a point sits inside; null for a chapter logged whole. */
+  parentId: string | null;
+};
+
 export type AnalyticsSession = {
   studyDate: string;
   minutes: number;
   subjectId: string | null;
-  topics: Array<{ id: string }>;
+  topics: AnalyticsTopic[];
 };
 
 /** The windows the screen offers. `days` of null is everything ever logged. */
@@ -134,11 +144,30 @@ export type StudyAnalytics = {
   change: number | null;
   streak: { current: number; longest: number };
   bySubject: Array<{ subjectId: string | null; minutes: number; share: number; sessions: number }>;
+  /** What each topic got, biggest first. See the split below for what that means. */
+  byTopic: TopicSplit[];
+  /**
+   * Minutes from sessions that named a topic at all — what `byTopic` divides
+   * between them. Less than the window's total whenever anything was logged
+   * without saying what it was on, which the screen has to admit rather than
+   * let the shares quietly fail to add up.
+   */
+  topicMinutes: number;
   /** Average minutes on each weekday of the window, Sunday first. */
   byWeekday: number[];
   buckets: Bucket[];
   /** Topics marked reviewed by logging, which is the point of attaching them. */
   reviewed: number;
+};
+
+/** A topic's share of the time, and how many sittings it came from. */
+export type TopicSplit = AnalyticsTopic & {
+  /** The subject the sessions were logged under, for the row's own colour. */
+  subjectId: string | null;
+  minutes: number;
+  /** Per cent of the window's whole total, not of the part that named a topic. */
+  share: number;
+  sessions: number;
 };
 
 /**
@@ -201,6 +230,42 @@ export function studyAnalytics(
     }))
     .sort((a, b) => b.minutes - a.minutes);
 
+  /**
+   * Where the hours went inside a subject.
+   *
+   * A session says how long it ran and which topics it covered, and nothing
+   * whatever about how the time divided between them — so an even split is the
+   * only division that does not quietly favour one topic over another. It also
+   * keeps the parts adding back up to the session, which is what lets this be
+   * read against the subject split without the two disagreeing about the same
+   * hour. Sessions that named nothing are left out and counted separately.
+   */
+  const splits = new Map<string, TopicSplit>();
+  let topicMinutes = 0;
+  for (const session of inRange) {
+    if (!session.topics.length) continue;
+    topicMinutes += session.minutes;
+    const each = session.minutes / session.topics.length;
+    for (const topic of session.topics) {
+      const current = splits.get(topic.id);
+      if (current) {
+        current.minutes += each;
+        current.sessions += 1;
+      } else {
+        splits.set(topic.id, { ...topic, subjectId: session.subjectId, minutes: each, share: 0, sessions: 1 });
+      }
+    }
+  }
+  // Rounded once, at the end: a topic that took a third of three sessions is
+  // owed the thirds it accumulated rather than three rounded fifths of an hour.
+  const byTopic = [...splits.values()]
+    .map((entry) => ({
+      ...entry,
+      minutes: Math.round(entry.minutes),
+      share: minutes ? Math.round((entry.minutes / minutes) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.minutes - a.minutes || a.code.localeCompare(b.code));
+
   return {
     from,
     to,
@@ -217,6 +282,8 @@ export function studyAnalytics(
     change: previousMinutes ? Math.round(((minutes - previousMinutes) / previousMinutes) * 100) : null,
     streak: streaks(totals, today),
     bySubject,
+    byTopic,
+    topicMinutes,
     byWeekday: weekdayMinutes.map((total, index) => (weekdayCounts[index] ? Math.round(total / weekdayCounts[index]) : 0)),
     buckets: buckets(totals, from, to),
     reviewed: inRange.reduce((sum, session) => sum + session.topics.length, 0),

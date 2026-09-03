@@ -95,6 +95,14 @@ or two each session.
   texture rather than a trend.
 - **Where the time goes.** Every subject's share of the window, biggest first,
   so the course quietly getting none of it is impossible to miss.
+- **And where it goes inside a subject.** "Physics, nine hours" and "Physics,
+  nine hours, six of them on nuclear physics" are different sentences, and only
+  the second one tells you what you have been avoiding. Every topic you ticked
+  when logging now has its own line, biggest first, with the chapter it belongs
+  to and how many sittings it came from. A session's time is split evenly
+  between the topics it names — it records how long it ran, never how the time
+  inside it divided — and hours logged without a topic are left out of the split
+  rather than shared between them, which the panel says on its face.
 - **When you actually study.** Your average for each day of the week, so the
   Sunday you always work and the Friday you never do both show up.
 - Plus the count of sessions, your longest single sitting, and how many topics

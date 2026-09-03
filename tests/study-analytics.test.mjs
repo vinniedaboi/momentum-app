@@ -12,9 +12,18 @@ import {
 
 const TODAY = "2026-09-03";
 
+/** A syllabus point and a whole chapter, as a session records each. */
+const point = (id, code = id, parentId = "c1") =>
+  ({ id, code, title: `Point ${code}`, kind: "point", parentId });
+const chapter = (id, code = id) =>
+  ({ id, code, title: `Chapter ${code}`, kind: "chapter", parentId: null });
+
+/** `topics` is a count where the test only needs some, or the topics themselves. */
 const session = (studyDate, minutes, subjectId = "physics", topics = 0) => ({
   studyDate, minutes, subjectId,
-  topics: Array.from({ length: topics }, (_, index) => ({ id: `t${index}` })),
+  topics: Array.isArray(topics)
+    ? topics
+    : Array.from({ length: topics }, (_, index) => point(`t${index}`, `1.${index + 1}`)),
 });
 
 /** A day's offset from today, so the fixtures read as "three days ago". */
@@ -121,6 +130,56 @@ test("the best day and the longest single session are different questions", () =
 test("reviews driven by logging are counted", () => {
   const analytics = studyAnalytics([session(ago(0), 60, "physics", 4), session(ago(1), 30, "physics", 2)], TODAY, 7);
   assert.equal(analytics.reviewed, 6);
+});
+
+test("a session's minutes are split evenly between the topics it named", () => {
+  const analytics = studyAnalytics([
+    session(ago(0), 60, "physics", [point("a", "1.1"), point("b", "1.2"), point("c", "1.3")]),
+    session(ago(1), 30, "physics", [point("a", "1.1")]),
+  ], TODAY, 7);
+
+  const byId = new Map(analytics.byTopic.map((entry) => [entry.id, entry]));
+  // A third of the hour, plus the half hour that was only ever about this one.
+  // The session says nothing about how its time divided, and an even split is
+  // the only division that does not quietly favour one topic over another.
+  assert.equal(byId.get("a").minutes, 50);
+  assert.equal(byId.get("b").minutes, 20);
+  assert.equal(byId.get("a").sessions, 2);
+  // Biggest first, because the panel answers "where did it actually go".
+  assert.equal(analytics.byTopic[0].id, "a");
+  // Shares are of the whole window, so they can be read against the subject
+  // split without the two disagreeing about the same hour.
+  assert.equal(byId.get("a").share, 55.6);
+});
+
+test("time logged without a topic is left out rather than shared between them", () => {
+  const analytics = studyAnalytics([
+    session(ago(0), 60, "physics", [chapter("c1", "3")]),
+    session(ago(1), 60, "physics", 0),
+  ], TODAY, 7);
+
+  assert.equal(analytics.minutes, 120);
+  assert.equal(analytics.topicMinutes, 60);
+  assert.equal(analytics.byTopic.length, 1);
+  assert.equal(analytics.byTopic[0].minutes, 60);
+  // Half the window, said plainly, rather than a claim on the hour the log was
+  // never told anything about.
+  assert.equal(analytics.byTopic[0].share, 50);
+});
+
+test("a topic's minutes are rounded once, not once a session", () => {
+  const thirds = [point("a", "1.1"), point("b", "1.2"), point("c", "1.3")];
+  const analytics = studyAnalytics([
+    session(ago(0), 50, "physics", thirds),
+    session(ago(1), 50, "physics", thirds),
+    session(ago(2), 50, "physics", thirds),
+  ], TODAY, 7);
+
+  // Sixteen and two thirds, three times over. Rounded a session at a time it
+  // would come to 51, and the three topics would come to 153 of a 150 minute
+  // window.
+  assert.equal(analytics.byTopic[0].minutes, 50);
+  assert.equal(analytics.byTopic.reduce((sum, entry) => sum + entry.minutes, 0), 150);
 });
 
 test("nothing logged reports nothing rather than dividing by zero", () => {
