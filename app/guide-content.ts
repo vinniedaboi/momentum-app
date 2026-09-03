@@ -199,6 +199,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     lead: "You have a result in hand. This is what the exam still to come has to do about it.",
     items: [
       { term: "Enter what you got", detail: "An AS result if you have sat one, or a mock if the course is sat in a single go. The grade and the mark — a percentage uniform mark, or a raw score out of its total." },
+      { term: "Paper by paper", detail: "Where we can read the syllabus, the form lists the real components and what each is worth — 46% of the AS for Physics Paper 2, 50% of the IGCSE for a Chemistry theory paper. Tick the ones you sit, and what is banked is counted from them rather than estimated." },
       { term: "AS counts, a mock does not", detail: "An AS result carries half the A Level whatever happens next, so A2 only has to make up the difference. A mock carries nothing, so what you need is simply the boundary — and the mock says how far off it you are." },
       { term: "Your own ladder", detail: "A Levels are priced A* to E, IGCSEs A* to G, and International GCSEs 9 to 1. The subject picks the ladder from its qualification, and you can change it." },
       { term: "Every grade is priced", detail: "Not just the one you picked: the ladder shows what each overall grade would now cost you, and which are already out of reach." },

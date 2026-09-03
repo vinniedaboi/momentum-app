@@ -27,6 +27,12 @@ Versions are `major.minor.patch`:
 - **Sitting it all in one go? Put in a mock instead.** An IGCSE has no AS half
   to bank, so the target is simply the boundary the grade needs — and the mock
   says how many points off it you currently are.
+- **Weighted the way your syllabus weights it.** Tick the papers you are
+  sitting and Momentum reads what each is worth out of the board's own syllabus
+  — Physics 9702's Paper 2 is 46% of the AS and 23% of the A Level, Chemistry
+  0620's theory paper is 50% of the IGCSE. Mark a paper *sat* and it leaves the
+  pot with its marks in it; mark it a *mock* and it forecasts without counting.
+  A subject whose syllabus we cannot read still takes a single mark, as before.
 - **Priced on your own ladder.** A* to E for an A Level, A* to G for an IGCSE,
   9 to 1 for an International GCSE. The subject picks it from its
   qualification, and you can change it.

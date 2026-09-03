@@ -82,6 +82,78 @@
 .grade-preview.secured { border-left-color: var(--c-blue); background: var(--c-blue-white); }
 .grade-preview.out-of-reach { border-left-color: var(--c-red); background: var(--c-red-soft); }
 
+/* ---------- the papers of the award ---------- */
+
+/* A syllabus lists every paper it offers and a candidate sits a subset, so the
+   row has to carry the choice as well as the mark: the tick is the route, the
+   percentage beside it is the board's, and the two together are what makes the
+   banked figure something counted rather than typed. */
+.grade-papers { grid-column: 1 / -1; display: grid; gap: var(--space-2); }
+.grade-papers-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.grade-papers-head span {
+  font-size: var(--text-3xs);
+  font-weight: 900;
+  color: var(--c-muted);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+.grade-papers-head b { font-size: var(--text-3xs); font-weight: 900; color: var(--c-brown-soft); }
+.grade-papers-head b.whole { color: var(--c-teal-deep); }
+.grade-papers-head b.over { color: var(--c-red); }
+.grade-papers-head b.under { color: var(--c-amber-ink); }
+
+.grade-papers ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.grade-papers li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 52px 150px minmax(120px, 150px);
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--c-surface-sunken);
+}
+.grade-papers li.in { border-color: var(--c-line-strong); background: var(--c-surface-raised); }
+
+.grade-paper-pick { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-2) var(--space-3); cursor: pointer; }
+.grade-paper-pick input { width: 18px; height: 18px; grid-row: 1 / 3; accent-color: var(--teal); }
+.grade-paper-pick strong { font-size: var(--text-2xs); font-weight: 900; }
+.grade-paper-pick small { font-size: var(--text-3xs); color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.grade-paper-weight { font-size: var(--text-2xs); font-weight: 900; color: var(--c-ink-soft); text-align: right; }
+.grade-papers li select {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-sunken);
+  color: var(--ink);
+  padding: 0 var(--space-2);
+  font-size: var(--text-3xs);
+}
+.grade-paper-mark { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-1) var(--space-2); }
+.grade-paper-mark input {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-sunken);
+  color: var(--ink);
+  padding: 0 var(--space-2);
+  font-size: var(--text-2xs);
+}
+.grade-paper-mark i { font-style: normal; font-size: var(--text-3xs); color: var(--muted); white-space: nowrap; }
+.grade-paper-mark em {
+  grid-column: 1 / -1;
+  font-style: normal;
+  font-size: var(--text-3xs);
+  font-weight: 900;
+  color: var(--c-teal-deep);
+}
+.grade-paper-blank { font-size: var(--text-3xs); color: var(--c-slate); text-align: center; }
+
+.grade-papers-note { margin: 0; font-size: var(--text-3xs); color: var(--muted); line-height: 1.5; }
+
 /* ---------- hero ---------- */
 
 .grade-hero { grid-template-columns: minmax(280px, 1fr) minmax(240px, 340px); }
@@ -283,6 +355,8 @@
 @media (max-width: 850px) {
   .grade-setup { grid-template-columns: 1fr; }
   .grade-form { grid-template-columns: 1fr; }
+  .grade-papers li { grid-template-columns: minmax(0, 1fr) 52px; row-gap: var(--space-2); }
+  .grade-papers li select, .grade-paper-mark, .grade-papers li > .grade-paper-blank { grid-column: 1 / -1; }
   .grade-ladder ul, .grade-ladder-note, .grade-paper-body { padding-left: var(--space-4); padding-right: var(--space-4); }
   .grade-ladder li > button {
     grid-template-columns: 52px minmax(0, 1fr) 72px;

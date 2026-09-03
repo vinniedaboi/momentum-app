@@ -148,6 +148,12 @@ has to average, because the AS half is banked whatever happens next.
 for nothing towards the real grade, so what you need is simply the boundary, and
 the mock says how far off it you are.
 
+- **Weighted by the real syllabus.** Tick the papers you sit and each carries
+  the share the board gives it — Physics 9702 is 15.5 / 23 / 11.5 / 38.5 / 11.5
+  across its five, not a flat half-and-half. Read from Cambridge's own PDFs for
+  131 syllabuses; anything else takes a single mark instead
+- A paper marked **sat** banks its marks and its weight; one marked **mock**
+  forecasts what it will do without counting towards anything
 - Enter the mark as a percentage uniform mark, or a raw score out of its total
 - Momentum prices **every** grade, not just the one you picked: what each would
   now cost you, and which are already beyond a perfect paper
