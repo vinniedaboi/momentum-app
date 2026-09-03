@@ -430,7 +430,13 @@ test("includes durable tracking, goals, grouped reviews, subject tasks, study ho
   // still splits into AS and A2 and an IB course into SL and HL.
   assert.match(client, /Track \{subject\.stages\.join\(" and "\)\} separately/);
   assert.match(hoursClient, /Add study time/);
-  assert.match(hoursClient, /Weekly total/);
+  // The study screen answers for a window rather than for a fixed week, and
+  // every figure on it is reported against the same one.
+  assert.match(hoursClient, /STUDY_RANGES/);
+  assert.match(hoursClient, /Consistency/);
+  assert.match(hoursClient, /Streak/);
+  assert.match(hoursClient, /Time by subject/);
+  assert.match(hoursClient, /When you actually study/);
   assert.match(hoursClient, /What did you study/);
   assert.match(hoursClient, /toggleWholeChapter/);
   assert.match(hoursClient, /None selected/);

@@ -5,6 +5,7 @@ import type { Topic } from "./study-tracker-app";
 import { subjectName, type Subject } from "./subjects";
 import { currentStage, getTopicStage, subjectHasStages, type SyllabusStage } from "./syllabus-stage";
 import Icon from "./icons";
+import { STUDY_RANGES, studyAnalytics, type RangeKey } from "./study-analytics";
 
 export type StudySession = {
   id: number;
@@ -44,6 +45,21 @@ function toneFor(lookup: Map<string, Subject>, id: string | null) {
   return id ? lookup.get(id)?.tone ?? "slate" : "slate";
 }
 
+const WEEKDAY = new Intl.DateTimeFormat("en-SG", { weekday: "short", timeZone: "UTC" });
+const DAY_MONTH = new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "short", timeZone: "UTC" });
+
+function asDate(date: string) {
+  return new Date(`${date}T00:00:00Z`);
+}
+
+/** Monday first, which is how a school week reads. */
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+/** A signed percentage, for a figure that is only interesting as a direction. */
+function signed(value: number) {
+  return `${value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(value)}%`;
+}
+
 export default function StudyHoursView({
   sessions,
   subjects,
@@ -73,6 +89,12 @@ export default function StudyHoursView({
   const [selectedTopicIds, setSelectedTopicIds] = useState<Set<string>>(new Set());
   const [openChapterIds, setOpenChapterIds] = useState<Set<string>>(new Set());
   const [note, setNote] = useState("");
+  /**
+   * Thirty days rather than seven. A week is enough to log against and not
+   * enough to learn anything from: it cannot tell a good week from a normal
+   * one, and it resets before a habit shows up in it.
+   */
+  const [range, setRange] = useState<RangeKey>("30");
 
   const chapters = useMemo(() => syllabusTopics.filter((topic) =>
     topic.kind === "chapter" && topic.subjectId === subject && getTopicStage(topic, syllabusTopics, chosen) === stage
@@ -88,22 +110,18 @@ export default function StudyHoursView({
     return groups;
   }, [subject, syllabusTopics]);
 
-  const dailyTotals = useMemo(() => {
-    const totals = new Map<string, number>();
-    sessions.forEach((session) => totals.set(session.studyDate, (totals.get(session.studyDate) ?? 0) + session.minutes));
-    return totals;
-  }, [sessions]);
-
-  const lastSeven = useMemo(() =>
-    Array.from({ length: 7 }, (_, index) => {
-      const studyDate = addDays(today, index - 6);
-      return { studyDate, minutes: dailyTotals.get(studyDate) ?? 0 };
-    }), [dailyTotals, today]);
-
-  const todayMinutes = dailyTotals.get(today) ?? 0;
-  const sevenDayMinutes = lastSeven.reduce((sum, day) => sum + day.minutes, 0);
-  const activeDays = lastSeven.filter((day) => day.minutes > 0).length;
-  const maxMinutes = Math.max(60, ...lastSeven.map((day) => day.minutes));
+  const window = STUDY_RANGES.find((option) => option.key === range) ?? STUDY_RANGES[1];
+  const stats = useMemo(
+    () => studyAnalytics(sessions, today, window.days),
+    [sessions, today, window.days],
+  );
+  const todayMinutes = useMemo(
+    () => sessions.filter((session) => session.studyDate === today).reduce((sum, session) => sum + session.minutes, 0),
+    [sessions, today],
+  );
+  const maxMinutes = Math.max(60, ...stats.buckets.map((bucket) => bucket.minutes));
+  const busiestWeekday = Math.max(0, ...stats.byWeekday);
+  const daily = stats.buckets.length > 0 && stats.buckets[0].start === stats.buckets[0].end;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -174,10 +192,45 @@ export default function StudyHoursView({
 
   return (
     <div className="hours-page">
+      <section className="hours-range" aria-label="How far back to look">
+        <div role="group">
+          {STUDY_RANGES.map((option) => <button
+            key={option.key}
+            type="button"
+            aria-pressed={range === option.key}
+            className={range === option.key ? "active" : ""}
+            onClick={() => setRange(option.key)}
+          >{option.label}</button>)}
+        </div>
+        <span>{DAY_MONTH.format(asDate(stats.from))} – {DAY_MONTH.format(asDate(stats.to))} · {stats.span} days</span>
+      </section>
+
       <section className="hours-summary">
-        <article><span>Today</span><strong>{formatStudyTime(todayMinutes)}</strong><small>{todayMinutes ? "Logged so far" : "No time logged yet"}</small></article>
-        <article><span>Last 7 days</span><strong>{formatStudyTime(sevenDayMinutes)}</strong><small>{activeDays} active {activeDays === 1 ? "day" : "days"}</small></article>
-        <article><span>Daily average</span><strong>{formatStudyTime(Math.round(sevenDayMinutes / 7))}</strong><small>Across this week</small></article>
+        <article><span>Today</span><strong>{formatStudyTime(todayMinutes)}</strong><small>{todayMinutes ? "Logged so far" : "Nothing yet"}</small></article>
+        <article className={stats.change != null && stats.change >= 0 ? "on-track" : ""}>
+          <span>{window.label}</span>
+          <strong>{formatStudyTime(stats.minutes)}</strong>
+          {/* A total on its own is a number; a total against the window before
+              it is the only version that says whether things are going well. */}
+          <small>{stats.change == null
+            ? `${stats.sessionCount} ${stats.sessionCount === 1 ? "session" : "sessions"}`
+            : `${signed(stats.change)} on the ${stats.span} days before`}</small>
+        </article>
+        <article>
+          <span>Daily average</span>
+          <strong>{formatStudyTime(stats.perDay)}</strong>
+          <small>{stats.perActiveDay ? `${formatStudyTime(stats.perActiveDay)} on the days you studied` : "across every day"}</small>
+        </article>
+        <article className={stats.consistency >= 70 ? "on-track" : stats.consistency < 30 ? "behind" : ""}>
+          <span>Consistency</span>
+          <strong>{stats.consistency}%</strong>
+          <small>{stats.activeDays} of {stats.span} days</small>
+        </article>
+        <article className={stats.streak.current > 0 ? "on-track" : ""}>
+          <span>Streak</span>
+          <strong>{stats.streak.current} {stats.streak.current === 1 ? "day" : "days"}</strong>
+          <small>{stats.streak.longest ? `best run ${stats.streak.longest}` : "start one today"}</small>
+        </article>
       </section>
 
       <section className="hours-layout">
@@ -226,19 +279,64 @@ export default function StudyHoursView({
         </form>
 
         <section className="hours-chart panel-card">
-          <div className="panel-heading"><p className="eyebrow">WEEKLY VIEW</p><h3>Your study rhythm</h3><p>Daily totals from the last seven days.</p></div>
-          <div className="bar-chart" aria-label="Study time over the last seven days">
-            {lastSeven.map((day) => (
-              <div className="bar-day" key={day.studyDate}>
-                <span className="bar-value">{day.minutes ? formatStudyTime(day.minutes) : "—"}</span>
-                <div className="bar-track"><i style={{ height: `${Math.max(day.minutes ? 8 : 2, day.minutes / maxMinutes * 100)}%` }} /></div>
-                <small>{new Intl.DateTimeFormat("en-SG", { weekday: "short" }).format(new Date(`${day.studyDate}T00:00:00Z`))}</small>
+          <div className="panel-heading">
+            <p className="eyebrow">{daily ? "DAY BY DAY" : "WEEK BY WEEK"}</p>
+            <h3>Your study rhythm</h3>
+            <p>{daily
+              ? "Totals for each day in the window."
+              : "Totals for each week, counted back from today."}</p>
+          </div>
+          <div className="bar-chart" aria-label={`Study time ${daily ? "each day" : "each week"} over the last ${stats.span} days`}>
+            {stats.buckets.map((bucket) => (
+              <div className={`bar-day ${bucket.end === today ? "current" : ""}`} key={bucket.key}>
+                <span className="bar-value">{bucket.minutes ? formatStudyTime(bucket.minutes) : "—"}</span>
+                <div className="bar-track"><i style={{ height: `${Math.max(bucket.minutes ? 8 : 2, bucket.minutes / maxMinutes * 100)}%` }} /></div>
+                <small>{daily ? WEEKDAY.format(asDate(bucket.start)) : DAY_MONTH.format(asDate(bucket.start))}</small>
               </div>
             ))}
           </div>
-          <div className="week-total"><span>Weekly total</span><strong>{formatStudyTime(sevenDayMinutes)}</strong></div>
+          <div className="week-total">
+            <span>{stats.best ? `Best day ${longDate(stats.best.date)}` : "Nothing logged yet"}</span>
+            <strong>{stats.best ? formatStudyTime(stats.best.minutes) : "—"}</strong>
+          </div>
         </section>
       </section>
+
+      {stats.minutes > 0 && <section className="hours-breakdown">
+        <article className="panel-card">
+          <div className="panel-heading"><p className="eyebrow">WHERE IT GOES</p><h3>Time by subject</h3><p>Which courses the {window.label.toLowerCase()} actually went on.</p></div>
+          <ul className="hours-subject-split">
+            {stats.bySubject.map((entry) => (
+              <li key={entry.subjectId ?? "general"}>
+                <i className={`subject-pin ${toneFor(lookup, entry.subjectId)}`} />
+                <span>{subjectName(lookup, entry.subjectId)}</span>
+                <div><i style={{ width: `${entry.share}%` }} /></div>
+                <b>{formatStudyTime(entry.minutes)}</b>
+                <small>{entry.share}%</small>
+              </li>
+            ))}
+          </ul>
+        </article>
+
+        <article className="panel-card">
+          <div className="panel-heading"><p className="eyebrow">YOUR WEEK</p><h3>When you actually study</h3><p>Average for each day of the week, across the window.</p></div>
+          <ul className="hours-weekday">
+            {WEEK_ORDER.map((weekday) => {
+              const average = stats.byWeekday[weekday];
+              return <li key={weekday} className={average === busiestWeekday && average > 0 ? "peak" : ""}>
+                <span>{WEEKDAY.format(asDate(addDays("2026-01-04", weekday)))}</span>
+                <div><i style={{ width: `${busiestWeekday ? (average / busiestWeekday) * 100 : 0}%` }} /></div>
+                <b>{average ? formatStudyTime(average) : "—"}</b>
+              </li>;
+            })}
+          </ul>
+          <dl className="hours-facts">
+            <div><dt>Sessions</dt><dd>{stats.sessionCount}</dd></div>
+            <div><dt>Longest sitting</dt><dd>{formatStudyTime(stats.longestSession)}</dd></div>
+            <div><dt>Topics reviewed</dt><dd>{stats.reviewed}</dd></div>
+          </dl>
+        </article>
+      </section>}
 
       <section className="hours-history review-panel">
         <div className="section-heading"><div><p className="eyebrow">HISTORY</p><h3>Recent study logs</h3></div><span className="history-count">{sessions.length} {sessions.length === 1 ? "entry" : "entries"}</span></div>

@@ -61,12 +61,19 @@ function average(values: number[]) {
 }
 
 /**
- * A paper of the course while the form is open. `included` is the route: a
- * syllabus offers more papers than any one candidate sits — 0620 lists six and
- * you take three — so the rows are all shown and only the ticked ones are
- * saved.
+ * A paper of the course while the form is open.
+ *
+ * `included` is the route: a syllabus offers more papers than any one candidate
+ * sits — 0620 lists six and you take three — so the rows are all shown and only
+ * the ticked ones are saved.
+ *
+ * `custom` is a paper the learner typed in themselves. The board's own table
+ * covers 131 Cambridge syllabuses and nothing else, so every other course — an
+ * Edexcel unit, an AQA A Level, a language nobody has parsed — is one where the
+ * weightings are on the page in front of the student and not in our data. Those
+ * rows are editable; the board's are not.
  */
-type DraftComponent = TargetComponent & { included: boolean };
+type DraftComponent = TargetComponent & { included: boolean; custom: boolean };
 
 type Draft = {
   subjectId: string;
@@ -90,7 +97,7 @@ function draftFor(target: GradeTarget): Draft {
     subjectId: target.subjectId,
     gradeScale: target.gradeScale,
     award: target.award,
-    components: target.components.map((component) => ({ ...component, included: true })),
+    components: target.components.map((component) => ({ ...component, included: true, custom: true })),
     completedStage: target.completedStage,
     remainingStage: target.remainingStage,
     completedGrade: target.completedGrade ?? "",
@@ -236,6 +243,7 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
           status: "todo" as ComponentStatus,
           position: index,
           included: false,
+          custom: false,
         })),
       }));
     }
@@ -459,6 +467,42 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
   }
 
   /**
+   * A paper the learner adds themselves.
+   *
+   * It opens on whatever is left of the award, because that is almost always
+   * the answer — someone adding the last of three papers has 20% to account
+   * for — and on the next unused paper number, because syllabuses number them
+   * in order and nobody wants to type "Paper 3".
+   */
+  function addPaper() {
+    const used = new Set(draft.components.map((component) => component.component.toLowerCase()));
+    let number = 1;
+    while (used.has(`paper ${number}`)) number += 1;
+    const left = Math.round((100 - covered) * 10) / 10;
+    onChange({
+      ...draft,
+      components: [...draft.components, {
+        component: `Paper ${number}`,
+        title: null,
+        weighting: left > 0 ? left : 50,
+        mark: null,
+        maxMark: null,
+        status: "todo" as ComponentStatus,
+        position: draft.components.length,
+        included: true,
+        custom: true,
+      }],
+    });
+  }
+
+  function removePaper(component: DraftComponent) {
+    onChange({
+      ...draft,
+      components: draft.components.filter((entry) => entry.component !== component.component),
+    });
+  }
+
+  /**
    * Swapping the award swaps the papers with it, because AS and A Level are
    * different qualifications made of different components — and on some
    * syllabuses the same paper is worth a different share of each.
@@ -477,6 +521,7 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
         status: "todo" as ComponentStatus,
         position: index,
         included: false,
+        custom: false,
       })),
     });
   }
@@ -551,7 +596,7 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
         </select>
       </label>}
 
-      {papers && <div className="grade-papers">
+      <div className="grade-papers">
         <div className="grade-papers-head">
           <span>Your papers</span>
           <b className={covered > 100.05 ? "over" : covered < 99.95 ? "under" : "whole"}>
@@ -572,10 +617,31 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
                   })}
                   aria-label={`Sitting ${component.component}`}
                 />
-                <strong>{component.component}</strong>
+                {component.custom
+                  ? <input
+                    className="grade-paper-name"
+                    value={component.component}
+                    maxLength={40}
+                    aria-label="Paper name"
+                    onChange={(event) => setComponent(component, { component: event.target.value })}
+                  />
+                  : <strong>{component.component}</strong>}
                 <small>{component.title ?? ""}</small>
               </label>
-              <b className="grade-paper-weight">{component.weighting}%</b>
+              {component.custom
+                ? <span className="grade-paper-weight editable">
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    step="0.5"
+                    value={component.weighting}
+                    aria-label={`What ${component.component} is worth`}
+                    onChange={(event) => setComponent(component, { weighting: Number(event.target.value) })}
+                  />
+                  <i>%</i>
+                </span>
+                : <b className="grade-paper-weight">{component.weighting}%</b>}
               {component.included ? <>
                 <select
                   aria-label={`${component.component} status`}
@@ -608,19 +674,30 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
                     <em>{percentage == null ? "" : `${percentage}%`}</em>
                   </span>}
               </> : <span className="grade-paper-blank" aria-hidden="true">not sitting</span>}
+              {component.custom && <button
+                type="button"
+                className="grade-paper-drop"
+                aria-label={`Remove ${component.component}`}
+                onClick={() => removePaper(component)}
+              ><Icon name="close" /></button>}
             </li>;
           })}
         </ul>
+        <button type="button" className="ghost-button grade-paper-add" onClick={addPaper}>
+          + Add a paper
+        </button>
         <p className="grade-papers-note">
-          {covered > 100.05
-            ? "That is more than a whole award. Most syllabuses list alternatives — a practical or its written stand-in, a Core route or an Extended one — so untick the papers you are not sitting."
-            : covered < 99.95 && covered > 0
-              ? `Those papers come to ${Math.round(covered * 10) / 10}% between them. A full route adds up to 100, so there is a paper missing.`
-              : settled.completedWeight > 0
-                ? `${Math.round(settled.completedWeight * 10) / 10}% of the grade is settled, averaging ${settled.completedPercent}% across it.`
-                : "Nothing banked yet, so what you need is simply what the grade needs."}
+          {!draft.components.length
+            ? "We have not read this syllabus's paper list, so add the papers yourself: their weightings are printed in the assessment overview at the front of the specification. Or leave this and enter one overall mark below."
+            : covered > 100.05
+              ? "That is more than a whole award. Most syllabuses list alternatives — a practical or its written stand-in, a Core route or an Extended one — so untick the papers you are not sitting."
+              : covered < 99.95 && covered > 0
+                ? `Those papers come to ${Math.round(covered * 10) / 10}% between them. A full route adds up to 100, so there is a paper missing.`
+                : settled.completedWeight > 0
+                  ? `${Math.round(settled.completedWeight * 10) / 10}% of the grade is settled, averaging ${settled.completedPercent}% across it.`
+                  : "Nothing banked yet, so what you need is simply what the grade needs."}
         </p>
-      </div>}
+      </div>
       {!papers && <div className="grade-mark-field">
         <span>Mark <small>{banked ? "or your percentage uniform mark" : "across the mock, or its percentage"}</small></span>
         <div>
@@ -660,7 +737,9 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
       </div>
       <div className="goal-form-actions">
         {onCancel && <button type="button" className="ghost-button" onClick={onCancel}>Cancel</button>}
-        <button className="primary-button" disabled={busy || !draft.subjectId}>{busy ? "Saving…" : existing ? "Save result" : "Set my target"}</button>
+        <button className="primary-button" disabled={busy || !draft.subjectId || (papers && !chosen.length)}>
+          {busy ? "Saving…" : papers && !chosen.length ? "Tick the papers you sit" : existing ? "Save result" : "Set my target"}
+        </button>
       </div>
     </form>
   </section>;

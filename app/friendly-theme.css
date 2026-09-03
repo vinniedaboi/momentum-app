@@ -243,6 +243,7 @@ input, select, textarea { color: var(--ink); }
 .task-summary article:nth-child(2), .hours-summary article:nth-child(2), .paper-summary article:nth-child(2) { background: var(--c-rose-soft); }
 .task-summary article:nth-child(3), .hours-summary article:nth-child(3), .paper-summary article:nth-child(3) { background: var(--c-violet-soft); }
 .task-summary article:nth-child(4), .hours-summary article:nth-child(4), .paper-summary article:nth-child(4) { background: var(--c-sage); }
+.hours-summary article:nth-child(5) { background: var(--c-blue-white); }
 .task-summary span, .hours-summary span, .paper-summary span, .goal-metrics span,
 .exam-metrics span { color: var(--c-muted); font-size: var(--text-2xs); letter-spacing: .025em; }
 .task-summary strong, .hours-summary strong, .paper-summary strong, .goal-metrics strong,

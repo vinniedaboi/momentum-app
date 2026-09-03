@@ -151,7 +151,10 @@ the mock says how far off it you are.
 - **Weighted by the real syllabus.** Tick the papers you sit and each carries
   the share the board gives it — Physics 9702 is 15.5 / 23 / 11.5 / 38.5 / 11.5
   across its five, not a flat half-and-half. Read from Cambridge's own PDFs for
-  131 syllabuses; anything else takes a single mark instead
+  131 syllabuses
+- **Any other course, entered by hand.** Add your own papers, name them and set
+  what each is worth. The weightings are printed at the front of every
+  specification, so a niche subject is a minute of typing rather than a dead end
 - A paper marked **sat** banks its marks and its weight; one marked **mock**
   forecasts what it will do without counting towards anything
 - Enter the mark as a percentage uniform mark, or a raw score out of its total
@@ -188,15 +191,26 @@ Recall practice tied to the syllabus.
 
 ### 9. Study hours
 
-Time logging that feeds the schedule.
+Time logging that feeds the schedule, and an honest account of what you have
+actually done.
 
 - Log minutes against a date, subject and optional note
 - Attach the syllabus topics you covered — **logging the session also marks
   those topics reviewed and reschedules them**
-- Weekly totals and a daily study rhythm
+- **Choose the window** — 7 days, 30, 90, or everything you have ever logged —
+  and every figure below answers for it
+- Total against the same length of time before it, daily average *and* the
+  average on the days you actually studied, consistency, and your streak beside
+  your best ever
+- A rhythm chart that reads as days over a fortnight and as weeks over longer
+- **Time by subject**, biggest share first, and **your week** — what you average
+  on each day of the week
+- Sessions, longest single sitting, and how many topic reviews logging drove
 
-**Why it matters:** one action instead of two. Log the session; the schedule
-updates itself.
+**Why it matters:** one action instead of two — log the session, and the
+schedule updates itself. And a week is enough to log against but not enough to
+learn from: the subject quietly getting none of your time only shows up over a
+month.
 
 ### 10. Tasks
 

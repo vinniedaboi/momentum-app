@@ -33,6 +33,11 @@ Versions are `major.minor.patch`:
   0620's theory paper is 50% of the IGCSE. Mark a paper *sat* and it leaves the
   pot with its marks in it; mark it a *mock* and it forecasts without counting.
   A subject whose syllabus we cannot read still takes a single mark, as before.
+- **Or type the papers in yourself.** The board's table covers 131 Cambridge
+  syllabuses; every other course — an Edexcel unit, an AQA A Level, a language
+  nobody has parsed — takes its papers by hand. Name them, say what each is
+  worth, and the arithmetic is the same. The weightings are printed in the
+  assessment overview at the front of any specification.
 - **Priced on your own ladder.** A* to E for an A Level, A* to G for an IGCSE,
   9 to 1 for an International GCSE. The subject picks it from its
   qualification, and you can change it.
@@ -48,6 +53,26 @@ Versions are `major.minor.patch`:
 
 Every figure is an estimate and the screens say so: real boundaries move a mark
 or two each session.
+
+### Study hours you can actually learn something from
+
+- **Pick your window: 7 days, 30, 90, or everything.** A week was enough to log
+  against and not enough to learn from — it could not tell a good week from an
+  ordinary one, and it reset before a habit showed up in it. Every figure on the
+  screen now answers for the window you pick, and the default is thirty days.
+- **Five figures instead of three.** Today, the window's total against the same
+  length of time before it, your daily average — *and* what you average on the
+  days you actually study, which are rarely the same number — how consistent you
+  have been, and your current streak beside your best ever.
+- **A rhythm chart that stretches.** A fortnight or less reads as days; anything
+  longer reads as weeks, counted back from today, because ninety daily bars is a
+  texture rather than a trend.
+- **Where the time goes.** Every subject's share of the window, biggest first,
+  so the course quietly getting none of it is impossible to miss.
+- **When you actually study.** Your average for each day of the week, so the
+  Sunday you always work and the Friday you never do both show up.
+- Plus the count of sessions, your longest single sitting, and how many topics
+  logging has marked reviewed.
 
 ### Already sat AS? Say so
 

@@ -176,8 +176,12 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     items: [
       { term: "Log the session", detail: "Minutes against a date and subject, with an optional note about what you did." },
       { term: "Tick what you covered", detail: "Attach the syllabus topics — they count as reviewed and are rescheduled, so logging the session is the only step." },
-      { term: "Rhythm", detail: "Daily and weekly totals show whether the week actually happened, next to your weekly target." },
+      { term: "Pick a window", detail: "7 days, 30, 90 or everything you have logged. Every figure on the screen answers for the one you pick — a week cannot tell a good week from an ordinary one, and it resets before a habit shows up in it." },
+      { term: "Two kinds of average", detail: "What you average across every day of the window, and what you average on the days you actually studied. The gap between them is the honest measure of consistency, and it sits beside your streak." },
+      { term: "Where the time goes", detail: "Each subject's share of the window, biggest first, so the course quietly getting none of it is impossible to miss." },
+      { term: "When you study", detail: "Your average for each day of the week — the Sunday you always work and the Friday you never do." },
     ],
+    tip: "The chart follows the window: a fortnight or less reads as days, anything longer as weeks counted back from today. Ninety daily bars is a texture rather than a trend.",
   },
   {
     id: "papers",
@@ -200,6 +204,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     items: [
       { term: "Enter what you got", detail: "An AS result if you have sat one, or a mock if the course is sat in a single go. The grade and the mark — a percentage uniform mark, or a raw score out of its total." },
       { term: "Paper by paper", detail: "Where we can read the syllabus, the form lists the real components and what each is worth — 46% of the AS for Physics Paper 2, 50% of the IGCSE for a Chemistry theory paper. Tick the ones you sit, and what is banked is counted from them rather than estimated." },
+      { term: "Or add your own", detail: "For a course we have not parsed, add the papers yourself: a name, what each is worth, and what it is marked out of. Every specification prints those in its assessment overview." },
       { term: "AS counts, a mock does not", detail: "An AS result carries half the A Level whatever happens next, so A2 only has to make up the difference. A mock carries nothing, so what you need is simply the boundary — and the mock says how far off it you are." },
       { term: "Your own ladder", detail: "A Levels are priced A* to E, IGCSEs A* to G, and International GCSEs 9 to 1. The subject picks the ladder from its qualification, and you can change it." },
       { term: "Every grade is priced", detail: "Not just the one you picked: the ladder shows what each overall grade would now cost you, and which are already out of reach." },
