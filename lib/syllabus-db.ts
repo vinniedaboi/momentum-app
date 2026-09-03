@@ -48,6 +48,27 @@ export type AssessmentComponent = {
   rule: string | null;
 };
 
+/**
+ * Where a syllabus's own figures came from.
+ *
+ * The weightings and mark totals on the grade planner are read out of a
+ * specific PDF, and a screen that quietly presents them as its own is asking to
+ * be believed on a number it cannot defend. This is the citation: which
+ * document, which exam window, and a link to the thing itself so a learner who
+ * doubts a figure can check it in one press rather than take our word for it.
+ */
+export type SyllabusSource = {
+  syllabusCode: string;
+  board: string;
+  qualification: string;
+  subject: string;
+  yearFrom: number | null;
+  yearTo: number | null;
+  isCurrent: boolean;
+  pdfUrl: string | null;
+  pageUrl: string | null;
+};
+
 export type SyllabusContentRow = {
   code: string;
   kind: "chapter" | "point";
@@ -147,4 +168,39 @@ export async function getSyllabusAssessment(syllabusCode: string): Promise<Asses
     weighting: Number(row.weighting_percent),
     rule: row.rule ? String(row.rule) : null,
   }));
+}
+
+/**
+ * The document a syllabus's assessment figures were read from.
+ *
+ * A code can be listed for more than one exam window — 9702 runs 2025–2027 and
+ * again 2028–2030 — and the one a candidate is sitting now is the one worth
+ * citing, so the session in force wins, then the newest published, then the
+ * latest window. Null for a code with no directory entry, which is the
+ * planner's cue to say nothing rather than to cite a document it cannot name.
+ */
+export async function getSyllabusSource(syllabusCode: string): Promise<SyllabusSource | null> {
+  const sql = getSql();
+  const rows = await sql<Record<string, unknown>[]>`
+    SELECT syllabus_code, board, qualification, subject,
+           year_from, year_to, is_current, pdf_url, page_url
+    FROM syllabus_versions
+    WHERE syllabus_code = ${syllabusCode}
+    ORDER BY is_current DESC, is_latest DESC, year_from DESC NULLS LAST
+    LIMIT 1
+  `;
+
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    syllabusCode: String(row.syllabus_code),
+    board: String(row.board),
+    qualification: String(row.qualification),
+    subject: String(row.subject),
+    yearFrom: row.year_from == null ? null : Number(row.year_from),
+    yearTo: row.year_to == null ? null : Number(row.year_to),
+    isCurrent: Boolean(row.is_current),
+    pdfUrl: row.pdf_url ? String(row.pdf_url) : null,
+    pageUrl: row.page_url ? String(row.page_url) : null,
+  };
 }

@@ -1032,6 +1032,46 @@ test("a course with every paper sat can actually be saved", async () => {
   assert.match(client, /of the grade banked at/);
 });
 
+test("a figure read out of a syllabus says so, and stays the learner's to change", async () => {
+  const [client, css, route, db] = await Promise.all([
+    read("app/grades.tsx"),
+    read("app/grades.css"),
+    read("app/api/syllabus/route.ts"),
+    read("lib/syllabus-db.ts"),
+  ]);
+
+  // The total a paper is marked out of used to be printed beside the mark box
+  // as settled fact. It is a figure like the weighting next to it — revised
+  // between sessions, different on a school's own mock paper — so it is a field
+  // wherever it came from, and one that offers the board's number back.
+  assert.match(client, /aria-label=\{`What \$\{component\.component\} is marked out of`\}/);
+  assert.match(client, /maxMark: event\.target\.value === "" \? null : Number\(event\.target\.value\)/);
+  assert.match(client, /sourceMax: component\.marks/);
+  assert.match(client, /syllabus says out of \{component\.sourceMax\}/);
+  assert.doesNotMatch(client, /<i>\/ \{component\.maxMark \?\? 100\}<\/i>/);
+
+  // And the screen says which document the figures came from, with the document
+  // itself one press away — a planner that asserts a weighting it cannot source
+  // is asking to be believed on a number the learner cannot check.
+  for (const strip of [/grade-papers-source/, /grade-source-strip/]) {
+    assert.match(client, strip);
+  }
+  assert.match(client, /syllabusName\(source\)/);
+  assert.match(client, /source\.pdfUrl && <a href=\{source\.pdfUrl\} target="_blank" rel="noreferrer noopener">/);
+  assert.match(route, /getSyllabusSource\(code\)/);
+  // A code listed for two exam windows cites the one being sat, not whichever
+  // row the database hands back first.
+  assert.match(db, /ORDER BY is_current DESC, is_latest DESC, year_from DESC NULLS LAST/);
+
+  // Six columns of numbers need headings, and headings that share the row's own
+  // template rather than a second copy of it that can drift off by a column.
+  assert.match(css, /\.grade-papers-legend \{[^}]*grid-template-columns: var\(--grade-paper-columns\)/);
+  assert.match(css, /\.grade-papers li \{[^}]*grid-template-columns: var\(--grade-paper-columns\)/);
+  // Below the full-width panel those columns cannot all fit, and the one that
+  // must never collapse is the paper's own name.
+  assert.match(css, /@media \(max-width: 1180px\) \{[^@]*--grade-paper-columns: minmax\(0, 1fr\)/);
+});
+
 test("one panel heading spaces itself like every other", async () => {
   const [theme, exams, features] = await Promise.all([
     read("app/friendly-theme.css"),

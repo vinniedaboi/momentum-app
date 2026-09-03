@@ -155,9 +155,13 @@ the mock says how far off it you are.
 - **Any other course, entered by hand.** Add your own papers, name them and set
   what each is worth. The weightings are printed at the front of every
   specification, so a niche subject is a minute of typing rather than a dead end
-- **Correct ours too.** Every name and weighting on the list is editable,
-  whether it came from the board's PDF or from you; a figure you have changed
-  offers the syllabus's own back in one press
+- **It says where the figures came from.** The list names the syllabus its
+  papers, weightings and mark totals were read out of — the qualification, the
+  code and the exam years — and links the board's own PDF, so a number you doubt
+  is one press from the document that states it
+- **Correct ours too.** Every name, weighting and mark total on the list is
+  editable, whether it came from the board's PDF or from you; a figure you have
+  changed offers the syllabus's own back in one press
 - A paper marked **sat** banks its marks and its weight; one marked **mock**
   forecasts what it will do without counting towards anything
 - Enter the mark as a percentage uniform mark, or a raw score out of its total

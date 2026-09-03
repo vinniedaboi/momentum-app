@@ -6,7 +6,7 @@ import { apiMessage } from "./data/api";
 import { studyApi } from "./data/endpoints";
 import type { PastPaper } from "./past-papers";
 import { subjectName, type Subject } from "./subjects";
-import type { AssessmentComponent } from "../lib/syllabus-db";
+import type { AssessmentComponent, SyllabusSource } from "../lib/syllabus-db";
 import {
   bankedFromComponents,
   componentPercent,
@@ -45,6 +45,19 @@ function formatPercent(value: number | null) {
   return `${Math.round(value * 10) / 10}%`;
 }
 
+/** "2025–2027", or a single year, for the window a syllabus is examined over. */
+function syllabusWindow(source: SyllabusSource) {
+  if (!source.yearFrom) return "";
+  return source.yearTo && source.yearTo !== source.yearFrom
+    ? `${source.yearFrom}–${source.yearTo}`
+    : `${source.yearFrom}`;
+}
+
+/** The document a figure came from, named the way a student would recognise it. */
+function syllabusName(source: SyllabusSource) {
+  return `${source.qualification} ${source.subject} (${source.syllabusCode})`;
+}
+
 /** "an A", "a B", and "a U" for the grade nobody targets. */
 function reachLabel(grade: string) {
   return grade === "U" ? "a U" : `${gradeArticle(grade)} ${grade}`;
@@ -75,17 +88,20 @@ function average(values: number[]) {
  * Edexcel unit, an AQA A Level, a language nobody has parsed — is one where the
  * weightings are on the page in front of the student and not in our data.
  *
- * Every row is editable either way. What we parsed is a good starting point,
- * not an authority: a syllabus is revised between sessions, a candidate can be
- * entered for a different combination than the one we assumed, and a parser can
- * simply be wrong. `source` is what the board's table said, kept so a row can
- * say it has been changed and offer the way back.
+ * Every row is editable either way — its name, its share of the award, and the
+ * total it is marked out of. What we parsed is a good starting point, not an
+ * authority: a syllabus is revised between sessions, a candidate can be entered
+ * for a different combination than the one we assumed, and a parser can simply
+ * be wrong. `source` and `sourceMax` are what the board's table said, kept so a
+ * row can say it has been changed and offer the way back.
  */
 type DraftComponent = TargetComponent & {
   included: boolean;
   custom: boolean;
-  /** The syllabus's own figure, or null for a paper the learner added. */
+  /** The syllabus's own weighting, or null for a paper the learner added. */
   source: number | null;
+  /** The syllabus's own mark total, on the same terms. */
+  sourceMax: number | null;
 };
 
 type Draft = {
@@ -110,7 +126,8 @@ function draftFor(target: GradeTarget): Draft {
     subjectId: target.subjectId,
     gradeScale: target.gradeScale,
     award: target.award,
-    components: target.components.map((component) => ({ ...component, included: true, custom: true, source: null })),
+    components: target.components.map((component) => (
+      { ...component, included: true, custom: true, source: null, sourceMax: null })),
     completedStage: target.completedStage,
     remainingStage: target.remainingStage,
     completedGrade: target.completedGrade ?? "",
@@ -186,9 +203,11 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
   const [draft, setDraft] = useState<Draft>(() => blankDraft(undefined));
   const [busy, setBusy] = useState(false);
   const [targetDraft, setTargetDraft] = useState<string | null>(null);
-  /** The board's own component table for the syllabus the form is open on. */
+  /** The board's own component table for the syllabus on screen. */
   const [assessment, setAssessment] = useState<AssessmentComponent[]>([]);
   const [assessmentCode, setAssessmentCode] = useState<string | null>(null);
+  /** The document those figures were read out of, so the screen can cite it. */
+  const [source, setSource] = useState<SyllabusSource | null>(null);
 
   const active = targets.find((target) => target.subjectId === chosenId) ?? targets[0] ?? null;
 
@@ -202,8 +221,14 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
     setDraft(blankDraft(untargeted[0]));
   }
 
-  const draftSubject = lookup.get(draft.subjectId);
-  const syllabusCode = draftSubject?.syllabusCode ?? null;
+  const showingForm = editing || !active;
+  /**
+   * The syllabus the screen is answering for: the one the form is open on, or
+   * the one behind the target being read. Both want it — the form to seed its
+   * papers, the detail to say where the papers it already has came from.
+   */
+  const shownSubject = lookup.get(showingForm ? draft.subjectId : active?.subjectId ?? "");
+  const syllabusCode = shownSubject?.syllabusCode ?? null;
 
   /**
    * What each paper of this syllabus is worth, read from the board's own PDF.
@@ -217,9 +242,13 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
     if (!syllabusCode || syllabusCode === assessmentCode) return;
     let live = true;
     studyApi.syllabus
-      .assessment<{ assessment: AssessmentComponent[] }>(syllabusCode)
-      .then((data) => { if (live) setAssessment(data.assessment); })
-      .catch(() => { if (live) setAssessment([]); })
+      .assessment<{ assessment: AssessmentComponent[]; source: SyllabusSource | null }>(syllabusCode)
+      .then((data) => {
+        if (!live) return;
+        setAssessment(data.assessment);
+        setSource(data.source ?? null);
+      })
+      .catch(() => { if (live) { setAssessment([]); setSource(null); } })
       .finally(() => { if (live) setAssessmentCode(syllabusCode); });
     return () => { live = false; };
   }, [syllabusCode, assessmentCode]);
@@ -258,6 +287,7 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
           included: false,
           custom: false,
           source: component.weighting,
+          sourceMax: component.marks,
         })),
       }));
     }
@@ -443,6 +473,7 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
         stages={stages}
         awards={awards}
         assessment={assessment}
+        source={syllabusCode && assessmentCode === syllabusCode && assessment.length ? source : null}
         subjects={editing && targets.some((target) => target.subjectId === draft.subjectId) ? eligible : untargeted}
         existing={targets.some((target) => target.subjectId === draft.subjectId)}
         percent={draftPercent}
@@ -459,6 +490,7 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
       <TargetDetail
         target={active}
         subject={lookup.get(active.subjectId) ?? null}
+        source={syllabusCode && assessmentCode === syllabusCode && assessment.length ? source : null}
         papers={papers}
         busy={busy}
         targetDraft={targetDraft}
@@ -471,11 +503,13 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
   </div>;
 }
 
-function ResultForm({ draft, stages, awards, assessment, subjects, existing, percent, preview, outcome, settledWeight, busy, onChange, onChooseSubject, onSubmit, onCancel }: {
+function ResultForm({ draft, stages, awards, assessment, source, subjects, existing, percent, preview, outcome, settledWeight, busy, onChange, onChooseSubject, onSubmit, onCancel }: {
   draft: Draft;
   stages: string[];
   awards: string[];
   assessment: AssessmentComponent[];
+  /** The syllabus the board's own figures were read from, where we have one. */
+  source: SyllabusSource | null;
   subjects: Subject[];
   existing: boolean;
   percent: number | null;
@@ -500,8 +534,9 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
   const covered = coveredWeight(chosen);
   const settled = bankedFromComponents(chosen);
   /** Whether anything on the form now disagrees with what the syllabus said. */
-  const edited = draft.components.some(
-    (component) => component.source != null && component.source !== component.weighting);
+  const edited = draft.components.some((component) =>
+    (component.source != null && component.source !== component.weighting)
+    || (component.sourceMax != null && component.sourceMax !== component.maxMark));
 
   /** Rewrites one paper of the route, leaving the rest of the draft alone. */
   function setComponent(component: DraftComponent, changes: Partial<DraftComponent>) {
@@ -538,6 +573,7 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
         included: true,
         custom: true,
         source: null,
+        sourceMax: null,
       }],
     });
   }
@@ -570,6 +606,7 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
         included: false,
         custom: false,
         source: component.weighting,
+        sourceMax: component.marks,
       })),
     });
   }
@@ -579,17 +616,33 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
       <p className="eyebrow">{existing ? "EDIT RESULT" : papers ? "WHICH PAPERS ARE YOURS?" : banked ? "ALREADY SAT ONE HALF?" : "GOT A MOCK BACK?"}</p>
       <h3>{papers ? "What have you sat so far?" : banked ? `What did you get in ${completed}?` : "What did your mock come to?"}</h3>
       <p>{papers
-        ? `Tick the papers you are sitting and fill in the ones that are behind you. What each is worth comes from the ${draft.award === "qualification" ? "syllabus" : `${draft.award} syllabus`} itself, so the target is the board's arithmetic rather than an assumption about halves.`
+        ? "Three things to fill in. Momentum does the arithmetic as you type."
         : banked
-          ? `Momentum works out what ${remaining} has to average for each overall grade, then measures every ${remaining} past paper you log against the one you pick.`
-          : "Momentum prices every grade against the boundary it needs, shows how far the mock is off each one, and measures every past paper you log against the one you pick."}</p>
+          ? `Two numbers and a grade. Momentum works out what ${remaining} has to average.`
+          : "Two numbers and a grade. Momentum works out what the exam has to average."}</p>
+      {/* The same three steps whichever shape the form takes, because the
+          question is the same one: what is behind you, what is ahead, what are
+          you aiming at. Spelling them out is cheaper than a paragraph that has
+          to be read twice. */}
+      <ol className="grade-steps">
+        {(papers
+          ? [
+            ["Tick the papers you sit", "A syllabus offers more papers than anyone takes. Tick only yours."],
+            ["Say how each one went", "Sat, a mock, or still to come — then type the mark. Only a paper marked sat counts towards the grade; a mock just forecasts."],
+            ["Pick the grade you want", "You get the percentage everything left has to average."],
+          ]
+          : [
+            [banked ? `Type your ${completed} mark` : "Type your mock mark", "The raw score and what it was out of, or a percentage out of 100."],
+            [banked ? `Say what ${completed} is worth` : "Nothing is banked yet", banked
+              ? "Half the grade on a normal A Level. Change it if your course differs."
+              : "A mock counts for nothing, so what you need is simply the boundary."],
+            ["Pick the grade you want", `You get the percentage ${banked ? remaining : "the exam"} has to average.`],
+          ]).map(([step, detail]) => <li key={step}><b>{step}</b><span>{detail}</span></li>)}
+      </ol>
       <p className="grade-setup-note">
-        {papers
-          ? "A paper marked sat leaves the pot and its marks go in. A mock counts for nothing towards the grade — it only forecasts what that paper will do. "
-          : banked
-            ? "The maths assumes the two halves are weighted as you set below. "
-            : "A mock counts for nothing towards the real grade, so it is read as a position rather than as marks in the bank. "}
-        Grades are priced against the standard {scale.detail} boundaries. Real boundaries shift a mark or two each session, so treat every number here as close rather than exact.
+        Grades are priced against the standard {scale.detail} boundaries. Real
+        boundaries shift a mark or two each session, so treat every number here
+        as close rather than exact.
       </p>
     </div>
     <form className="goal-form grade-form" onSubmit={onSubmit}>
@@ -651,6 +704,26 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
             {covered ? `${Math.round(covered * 10) / 10}% of the award` : "none picked yet"}
           </b>
         </div>
+        {source && draft.components.length > 0 && <p className="grade-papers-source">
+          <Icon name="book" />
+          <span>
+            The papers below, what each is worth and what each is marked out of
+            are read from the official <b>{syllabusName(source)}</b> syllabus
+            {syllabusWindow(source) ? ` for ${syllabusWindow(source)}` : ""}.
+            Every one of those numbers can be changed if your entry differs.
+          </span>
+          {source.pdfUrl && <a href={source.pdfUrl} target="_blank" rel="noreferrer noopener">
+            Open the PDF
+          </a>}
+        </p>}
+        <div className="grade-papers-legend" aria-hidden="true">
+          <span>Paper</span>
+          <span>Worth</span>
+          <span>Out of</span>
+          <span>Have you sat it?</span>
+          <span>Your mark</span>
+          <span />
+        </div>
         <ul>
           {draft.components.map((component) => {
             const percentage = componentPercent(component);
@@ -674,14 +747,19 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
                 />
                 <small>
                   <i>{component.title ?? ""}</i>
-                  {/* A weighting we supplied and the learner has since changed
-                      says so, and offers the way back — a syllabus is revised
-                      between sessions, and a parser can simply be wrong. */}
+                  {/* A figure we supplied and the learner has since changed says
+                      so, and offers the way back — a syllabus is revised between
+                      sessions, and a parser can simply be wrong. */}
                   {component.source != null && component.source !== component.weighting && <button
                     type="button"
                     className="grade-paper-reset"
                     onClick={() => setComponent(component, { weighting: component.source! })}
                   >syllabus says {component.source}%</button>}
+                  {component.sourceMax != null && component.sourceMax !== component.maxMark && <button
+                    type="button"
+                    className="grade-paper-reset"
+                    onClick={() => setComponent(component, { maxMark: component.sourceMax! })}
+                  >syllabus says out of {component.sourceMax}</button>}
                 </small>
               </label>
               <span className="grade-paper-weight">
@@ -695,6 +773,21 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
                   onChange={(event) => setComponent(component, { weighting: Number(event.target.value) })}
                 />
                 <i>%</i>
+              </span>
+              <span className="grade-paper-max">
+                <input
+                  type="number"
+                  min="1"
+                  max="1000"
+                  step="1"
+                  placeholder="100"
+                  value={component.maxMark ?? ""}
+                  aria-label={`What ${component.component} is marked out of`}
+                  onChange={(event) => setComponent(component, {
+                    maxMark: event.target.value === "" ? null : Number(event.target.value),
+                  })}
+                />
+                <i>marks</i>
               </span>
               {component.included ? <>
                 <select
@@ -724,10 +817,10 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
                         mark: event.target.value === "" ? null : Number(event.target.value),
                       })}
                     />
-                    <i>/ {component.maxMark ?? 100}</i>
+                    <i>{component.maxMark ? `/ ${component.maxMark}` : "as a %"}</i>
                     <em>{percentage == null ? "" : `${percentage}%`}</em>
                   </span>}
-              </> : <span className="grade-paper-blank" aria-hidden="true">not sitting</span>}
+              </> : <span className="grade-paper-blank grade-paper-out" aria-hidden="true">not sitting</span>}
               {component.custom && <button
                 type="button"
                 className="grade-paper-drop"
@@ -742,16 +835,16 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
         </button>
         <p className="grade-papers-note">
           {!draft.components.length
-            ? "We have not read this syllabus's paper list, so add the papers yourself: a name, what each is worth, and what it is marked out of. Every specification prints those in the assessment overview at the front. Or leave this and enter one overall mark below."
+            ? "We have not read this syllabus's papers, so add them yourself: a name, what each is worth, and what it is marked out of. Every specification prints all three at the front, in the assessment overview. Or skip this and enter one overall mark below."
             : covered > 100.05
-              ? "That is more than a whole award. Most syllabuses list alternatives — a practical or its written stand-in, a Core route or an Extended one — so untick the papers you are not sitting."
+              ? "Those papers come to more than a whole course between them. Syllabuses list alternatives nobody sits all of — a practical or its written stand-in, a Core route or an Extended one — so untick the ones that are not yours."
               : covered < 99.95 && covered > 0
-                ? `Those papers come to ${Math.round(covered * 10) / 10}% between them. A full route adds up to 100, so there is a paper missing.`
+                ? `Those papers come to ${Math.round(covered * 10) / 10}% between them. A full course adds up to 100%, so one is still missing.`
                 : edited
-                  ? "Your figures, not ours — the target is worked out from whatever is on the row. Press the reminder under a paper to put the syllabus's own number back."
+                  ? "Using your figures, not ours. Everything is worked out from whatever is on the row — press the reminder under a paper to put the syllabus's own number back."
                   : settled.completedWeight > 0
-                    ? `${Math.round(settled.completedWeight * 10) / 10}% of the grade is settled, averaging ${settled.completedPercent}% across it.`
-                    : "Every name and weighting here can be changed, so a syllabus we have read wrongly — or one revised since — is a number you correct rather than live with."}
+                    ? `${Math.round(settled.completedWeight * 10) / 10}% of the grade is settled so far, averaging ${settled.completedPercent}% across it.`
+                    : "Every figure here can be changed, ours included — so a syllabus we have read wrongly, or one revised since, is a number you correct rather than live with."}
         </p>
       </div>
       {!papers && <div className="grade-mark-field">
@@ -823,9 +916,11 @@ function ResultForm({ draft, stages, awards, assessment, subjects, existing, per
   </section>;
 }
 
-function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraft, onEdit, onRemove, onPatch }: {
+function TargetDetail({ target, subject, source, papers, busy, targetDraft, onTargetDraft, onEdit, onRemove, onPatch }: {
   target: GradeTarget;
   subject: Subject | null;
+  /** The syllabus these papers were weighted from, where we have one. */
+  source: SyllabusSource | null;
   papers: PastPaper[];
   busy: boolean;
   targetDraft: string | null;
@@ -976,6 +1071,19 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
         </div>}
     </section>
 
+    {source && target.components.length > 0 && <p className="grade-source-strip">
+      <Icon name="book" />
+      <span>
+        The papers, weightings and mark totals for this course are read from the
+        official <b>{syllabusName(source)}</b> syllabus
+        {syllabusWindow(source) ? ` for ${syllabusWindow(source)}` : ""}.
+        Press <em>Edit result</em> to change any of them.
+      </span>
+      {source.pdfUrl && <a href={source.pdfUrl} target="_blank" rel="noreferrer noopener">
+        Open the PDF
+      </a>}
+    </p>}
+
     <section className="goal-metrics grade-metrics">
       <article>
         <span>Your form</span>
@@ -994,7 +1102,7 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
           : `points under your ${Math.round(wanted)}% target`}</small>
       </article>
       <article>
-        <span>On this form</span>
+        <span>Projected grade</span>
         <strong>{projectedGrade ?? "—"}</strong>
         <small>{projected == null ? "log a paper to project a grade" : `${formatPercent(projected)} overall if ${ahead} matches`}</small>
       </article>
@@ -1061,7 +1169,7 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
 
     <section className="grade-ladder panel-card">
       <div className="section-heading">
-        <div><p className="eyebrow">EVERY GRADE, PRICED</p><h3>What each one costs you in {ahead}</h3></div>
+        <div><p className="eyebrow">EVERY GRADE, PRICED</p><h3>What you need in {ahead} for each grade</h3></div>
         <span>Pick one to make it your target</span>
       </div>
       <ul>

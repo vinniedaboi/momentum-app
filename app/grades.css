@@ -16,6 +16,39 @@
   line-height: 1.55;
 }
 
+/* The three things to do, numbered, in the dark copy column. A form whose
+   columns are all numbers needs its instructions as a list rather than as a
+   paragraph — a paragraph is read once and a list is read while typing. */
+.grade-steps {
+  list-style: none;
+  counter-reset: grade-step;
+  margin: var(--space-5) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.grade-steps li {
+  counter-increment: grade-step;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+}
+.grade-steps li::before {
+  content: counter(grade-step);
+  grid-row: 1 / 3;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--c-navy-slate);
+  color: var(--c-on-dark);
+  font: 800 var(--text-3xs) var(--font-display);
+}
+.grade-steps b { color: var(--c-on-dark); font-size: var(--text-2xs); font-weight: 800; }
+.grade-steps span { color: var(--c-on-panel-soft); font-size: var(--text-2xs); line-height: 1.5; }
+
 .grade-form { grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; }
 .grade-form > label { min-width: 0; }
 .grade-form label > span small { text-transform: none; letter-spacing: 0; color: var(--c-slate); font-weight: 700; }
@@ -109,7 +142,7 @@
 .grade-papers ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
 .grade-papers li {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) 72px 148px minmax(110px, 148px) 26px;
+  grid-template-columns: var(--grade-paper-columns);
   gap: var(--space-2);
   align-items: center;
   padding: var(--space-2) var(--space-3);
@@ -117,6 +150,59 @@
   border-radius: var(--radius-md);
   background: var(--c-surface-sunken);
 }
+.grade-papers { --grade-paper-columns: minmax(0, 1.2fr) 66px 76px 142px minmax(92px, 128px) 26px; }
+
+/* What each column is. Five unlabelled boxes of numbers is a puzzle, and the
+   labels have to sit on the row's own template or they drift off it. */
+.grade-papers-legend {
+  display: grid;
+  grid-template-columns: var(--grade-paper-columns);
+  gap: var(--space-2);
+  padding: 0 calc(var(--space-3) + 1px);
+  font-size: var(--text-3xs);
+  font-weight: 900;
+  color: var(--c-slate);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+/* The tick is 18px plus the label's own gap, so the first heading starts over
+   the paper name rather than over the checkbox. */
+.grade-papers-legend > span:first-child { padding-left: 30px; }
+
+/* Where the board's own figures came from, and the document itself. */
+.grade-papers-source, .grade-source-strip {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--c-blue-line);
+  border-radius: var(--radius-md);
+  background: var(--c-blue-white);
+  color: var(--muted);
+  font-size: var(--text-3xs);
+  line-height: 1.5;
+}
+.grade-papers-source svg, .grade-source-strip svg { width: 16px; height: 16px; color: var(--c-blue); }
+.grade-papers-source b, .grade-source-strip b { color: var(--ink); font-weight: 900; }
+.grade-papers-source em, .grade-source-strip em { font-style: normal; font-weight: 800; color: var(--ink); }
+.grade-papers-source a, .grade-source-strip a {
+  justify-self: end;
+  white-space: nowrap;
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-raised);
+  padding: var(--space-1) var(--space-3);
+  color: var(--ink);
+  font-size: var(--text-3xs);
+  font-weight: 800;
+  text-decoration: none;
+}
+.grade-papers-source a:hover, .grade-source-strip a:hover { background: var(--c-surface-sunken); }
+/* On the detail screen it is a line between two panels rather than a row inside
+   one, so it carries the page's own gap above it. */
+.grade-source-strip { margin-top: calc(var(--space-2) * -1); }
 .grade-papers li.in { border-color: var(--c-line-strong); background: var(--c-surface-raised); }
 
 .grade-paper-pick { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-2) var(--space-3); cursor: pointer; }
@@ -143,6 +229,23 @@
   text-align: right;
 }
 .grade-paper-weight i { font-style: normal; font-size: var(--text-3xs); color: var(--muted); }
+
+/* The total a paper is marked out of. Dashed like the weighting beside it,
+   because both are figures the learner may overwrite whatever we filled in. */
+.grade-paper-max { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 2px; }
+.grade-paper-max input {
+  width: 100%;
+  min-height: 30px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-raised);
+  color: var(--ink);
+  padding: 0 var(--space-1);
+  font-size: var(--text-2xs);
+  font-weight: 900;
+  text-align: right;
+}
+.grade-paper-max i { font-style: normal; font-size: var(--text-3xs); color: var(--muted); text-align: right; }
 .grade-papers li select {
   width: 100%;
   min-height: 36px;
@@ -173,6 +276,7 @@
   color: var(--c-teal-deep);
 }
 .grade-paper-blank { font-size: var(--text-3xs); color: var(--c-slate); text-align: center; }
+.grade-paper-out { grid-column: span 2; }
 
 .grade-papers-note { margin: 0; font-size: var(--text-3xs); color: var(--muted); line-height: 1.5; }
 
@@ -457,6 +561,17 @@
 
 @media (max-width: 1180px) {
   .grade-hero { grid-template-columns: 1fr; }
+  .grade-papers { --grade-paper-columns: minmax(0, 1fr) 62px 76px 26px; }
+  .grade-papers li { row-gap: var(--space-2); }
+  /* The labels belong to a row that no longer exists in that shape; the units
+     printed beside each box are what names them from here down. */
+  .grade-papers-legend { display: none; }
+  .grade-papers li select, .grade-paper-mark, .grade-papers li > .grade-paper-blank { grid-column: 1 / -1; }
+  /* Auto-placement puts it after a full-width cell, which is a new row of its
+     own at the far left. It belongs beside the name it removes. */
+  .grade-paper-drop { grid-row: 1; grid-column: 4; }
+  .grade-papers-source { grid-template-columns: 16px minmax(0, 1fr); }
+  .grade-papers-source a { grid-column: 2; justify-self: start; }
   .grade-ladder li > button { grid-template-columns: 52px 96px minmax(60px, 1fr) 64px 128px; gap: var(--space-2); }
 }
 
@@ -464,8 +579,8 @@
   .grade-outcome-rows, .grade-outcome-note { padding-left: var(--space-4); padding-right: var(--space-4); }
   .grade-setup { grid-template-columns: 1fr; }
   .grade-form { grid-template-columns: 1fr; }
-  .grade-papers li { grid-template-columns: minmax(0, 1fr) 62px 26px; row-gap: var(--space-2); }
-  .grade-papers li select, .grade-paper-mark, .grade-papers li > .grade-paper-blank { grid-column: 1 / -1; }
+  .grade-source-strip { grid-template-columns: 16px minmax(0, 1fr); }
+  .grade-source-strip a { grid-column: 2; justify-self: start; }
   .grade-ladder ul, .grade-ladder-note, .grade-paper-body { padding-left: var(--space-4); padding-right: var(--space-4); }
   .grade-ladder li > button {
     grid-template-columns: 52px minmax(0, 1fr) 72px;

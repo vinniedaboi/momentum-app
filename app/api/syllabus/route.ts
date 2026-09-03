@@ -1,4 +1,9 @@
-import { getSyllabusAssessment, getSyllabusContent, getSyllabusVersions } from "../../../lib/syllabus-db";
+import {
+  getSyllabusAssessment,
+  getSyllabusContent,
+  getSyllabusSource,
+  getSyllabusVersions,
+} from "../../../lib/syllabus-db";
 import { withWorkspace } from "../../../lib/auth";
 
 export const runtime = "nodejs";
@@ -13,10 +18,16 @@ export async function GET(request: Request) {
       if (recordId) {
         return Response.json({ content: await getSyllabusContent(recordId) });
       }
-      // What each paper of a syllabus is worth, for the grade planner.
+      // What each paper of a syllabus is worth, for the grade planner — and
+      // the document those figures were read out of, so the screen showing them
+      // can say where they came from and link the PDF rather than assert them.
       const code = params.get("assessment");
       if (code) {
-        return Response.json({ assessment: await getSyllabusAssessment(code) });
+        const [assessment, source] = await Promise.all([
+          getSyllabusAssessment(code),
+          getSyllabusSource(code),
+        ]);
+        return Response.json({ assessment, source });
       }
       return Response.json({ versions: await getSyllabusVersions() });
     } catch (error) {

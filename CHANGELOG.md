@@ -38,11 +38,21 @@ Versions are `major.minor.patch`:
   nobody has parsed — takes its papers by hand. Name them, say what each is
   worth, and the arithmetic is the same. The weightings are printed in the
   assessment overview at the front of any specification.
-- **Every name and weighting is editable, including ours.** A syllabus gets
-  revised between sessions, a candidate can be entered for a different
-  combination than we assumed, and a parser can simply be wrong — so nothing on
-  the row is fixed. Change one of our figures and the paper says what the
-  syllabus had, one press away, in case you want it back.
+- **Every name, weighting and mark total is editable, including ours.** A
+  syllabus gets revised between sessions, a candidate can be entered for a
+  different combination than we assumed, and a parser can simply be wrong — so
+  nothing on the row is fixed, the total a paper is marked out of included.
+  Change one of our figures and the paper says what the syllabus had, one press
+  away, in case you want it back.
+- **And it tells you where our figures came from.** The papers, the weightings
+  and the mark totals are read out of one specific document, and the screen now
+  names it — the qualification, the code and the exam years — with a link
+  straight to the board's own PDF. A number you doubt is one press from the page
+  that states it.
+- **Three steps instead of two paragraphs.** The form says what to do — tick
+  your papers, say how each one went, pick the grade you want — and the list of
+  papers has headings over its columns, so it reads as a form rather than as a
+  row of unlabelled boxes.
 - **Priced on your own ladder.** A* to E for an A Level, A* to G for an IGCSE,
   9 to 1 for an International GCSE. The subject picks it from its
   qualification, and you can change it.
