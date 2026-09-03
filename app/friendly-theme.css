@@ -207,8 +207,29 @@ button.summary-card:hover, button.summary-card.selected { transform: translateY(
 /* Points already worked today. Tied to the study-time palette so it reads as
    part of "what I've done", and marked done rather than as another queue
    asking to be cleared. */
-.studied-today .section-heading { background: var(--c-mint); }
+.studied-today { margin-top: var(--space-5); }
+.studied-today .section-heading { background: var(--c-mint); padding: 0; }
 .studied-today .eyebrow { color: var(--c-teal); }
+/* The whole heading folds the band away, the way the queue's own groups do. */
+.studied-today-toggle {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-5) var(--space-6) var(--space-4);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.studied-today-head { display: grid; gap: var(--space-1); min-width: 0; }
+.studied-today-head > * { margin: 0; }
+.studied-today-toggle strong { font: 700 var(--text-2xl) var(--font-display); letter-spacing: -.02em; color: var(--c-ink); }
+.studied-today.open .chevron { transform: rotate(90deg); }
+.studied-today:not(.open) .section-heading { border-bottom-color: transparent; }
 
 input, select, textarea { color: var(--ink); }
 .hours-form input, .hours-form select, .goal-form input, .goal-form select,

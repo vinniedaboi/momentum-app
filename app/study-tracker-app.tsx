@@ -170,6 +170,9 @@ export default function StudyTrackerApp() {
   // Null until the learner opens or closes a chapter on the board, which is
   // what lets the default below depend on a queue that has not loaded yet.
   const [openGroups, setOpenGroups] = useState<Set<string> | null>(null);
+  // The Studied today band opens by default so the day's work is in sight, and
+  // folds away like the queue's own groups once a learner wants it out of view.
+  const [studiedTodayOpen, setStudiedTodayOpen] = useState(true);
   const [updating, setUpdating] = useState<Set<string>>(new Set());
   const [selectedReviews, setSelectedReviews] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<StudyStatus>("Practising");
@@ -888,28 +891,6 @@ export default function StudyTrackerApp() {
               <button onClick={() => setActiveView("Hours")}>{todayStudyMinutes ? "Add more time" : "Log today’s study time"}</button>
             </section>
 
-            {studiedToday.length > 0 && (
-              <section className="review-panel studied-today">
-                <div className="section-heading">
-                  <div>
-                    <p className="eyebrow">STUDIED TODAY</p>
-                    <h3>
-                      Go again while it’s fresh
-                      {subjectFilter ? <span className="queue-subject">{subjectName(subjectLookup, subjectFilter)}</span> : null}
-                    </h3>
-                    <span className="queue-total">
-                      {studiedToday.length} point{studiedToday.length === 1 ? "" : "s"} worked today · the next spaced review is already set, and a repeat now keeps it here until tomorrow
-                    </span>
-                  </div>
-                </div>
-                <div className="review-list">
-                  {studiedToday.map((topic) => (
-                    <TopicRow key={topic.id} topic={topic} subjects={subjectLookup} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} onOpenTimeline={setTimelineTopicId} exam={examDue.get(topic.id)} primaryLabel="Review again" />
-                  ))}
-                </div>
-              </section>
-            )}
-
             <DueTasksPanel tasks={tasks} subjects={subjectLookup} today={today} busyIds={taskBusyIds} onUpdate={updateTask} onOpenTasks={() => setActiveView("Tasks")} />
 
             <section className="review-panel">
@@ -980,6 +961,38 @@ export default function StudyTrackerApp() {
                 </div>
               )}
             </section>
+
+            {studiedToday.length > 0 && (
+              <section className={`review-panel studied-today ${studiedTodayOpen ? "open" : ""}`}>
+                <div className="section-heading">
+                  <button
+                    type="button"
+                    className="studied-today-toggle"
+                    aria-expanded={studiedTodayOpen}
+                    onClick={() => setStudiedTodayOpen((open) => !open)}
+                  >
+                    <Icon name="chevron-right" className="chevron" />
+                    <span className="studied-today-head">
+                      <small className="eyebrow">STUDIED TODAY</small>
+                      <strong>
+                        Go again while it’s fresh
+                        {subjectFilter ? <span className="queue-subject">{subjectName(subjectLookup, subjectFilter)}</span> : null}
+                      </strong>
+                      <span className="queue-total">
+                        {studiedToday.length} point{studiedToday.length === 1 ? "" : "s"} worked today · the next spaced review is already set, and a repeat now keeps it here until tomorrow
+                      </span>
+                    </span>
+                  </button>
+                </div>
+                {studiedTodayOpen && (
+                  <div className="review-list">
+                    {studiedToday.map((topic) => (
+                      <TopicRow key={topic.id} topic={topic} subjects={subjectLookup} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} onOpenTimeline={setTimelineTopicId} exam={examDue.get(topic.id)} primaryLabel="Review again" />
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
           </>
         ) : activeView === "Subjects" ? (
           <SubjectSettings subjects={subjects} topics={topics} stageBusy={stageBusy} onStageDone={setStageDone} onMessage={setMessage} onChanged={(next) => { setSubjects(next); refreshTopics(); }} />
