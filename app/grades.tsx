@@ -8,20 +8,24 @@ import type { PastPaper } from "./past-papers";
 import { subjectName, type Subject } from "./subjects";
 import {
   DEFAULT_COMPLETED_WEIGHT,
+  defaultScale,
+  GRADE_SCALE_KEYS,
+  GRADE_SCALES,
   gradeArticle,
   gradeLadder,
   gradeRange,
+  gradesFor,
   gradeTargetSubjects,
+  isBanked,
   markPercent,
-  OVERALL_GRADES,
+  MOCK_WEIGHT,
   overallGrade,
   overallPercent,
   paperTarget,
-  STAGE_GRADES,
+  resultGrades,
   type GradeReach,
+  type GradeScale,
   type GradeTarget,
-  type OverallGrade,
-  type StageGrade,
 } from "./grade-targets";
 
 /** How many recent papers stand for "your current form". */
@@ -33,14 +37,15 @@ function formatPercent(value: number | null) {
 }
 
 /** "an A", "a B", and "a U" for the grade nobody targets. */
-function reachLabel(grade: OverallGrade | "U") {
+function reachLabel(grade: string) {
   return grade === "U" ? "a U" : `${gradeArticle(grade)} ${grade}`;
 }
 
+/** Four bands across three ladders, so a 7 reads the way a B does. */
 function gradeTone(grade: string | null) {
-  if (grade === "A*" || grade === "A") return "high";
-  if (grade === "B" || grade === "C") return "mid";
-  if (grade === "D" || grade === "E") return "low";
+  if (grade === "A*" || grade === "A" || grade === "9" || grade === "8") return "high";
+  if (grade === "B" || grade === "C" || grade === "7" || grade === "6") return "mid";
+  if (grade === "D" || grade === "E" || grade === "5" || grade === "4") return "low";
   return "fail";
 }
 
@@ -51,21 +56,24 @@ function average(values: number[]) {
 
 type Draft = {
   subjectId: string;
-  completedStage: string;
+  gradeScale: GradeScale;
+  /** Null when the result is a mock, which belongs to no stage of the course. */
+  completedStage: string | null;
   remainingStage: string;
-  completedGrade: "" | StageGrade;
+  completedGrade: string;
   mark: string;
   max: string;
   weight: string;
-  targetGrade: OverallGrade;
+  targetGrade: string;
 };
 
 function draftFor(target: GradeTarget): Draft {
   return {
     subjectId: target.subjectId,
+    gradeScale: target.gradeScale,
     completedStage: target.completedStage,
     remainingStage: target.remainingStage,
-    completedGrade: (target.completedGrade as StageGrade | null) ?? "",
+    completedGrade: target.completedGrade ?? "",
     mark: String(target.completedMark ?? target.completedPercent),
     max: String(target.completedMax ?? 100),
     weight: String(target.completedWeight),
@@ -86,17 +94,27 @@ function otherStage(subject: Subject | undefined, sat: string) {
   return subject?.stages.find((stage) => stage !== sat) ?? "A2";
 }
 
+/**
+ * A subject sat in two halves prices the second against the first. One sat in
+ * a single go has nothing banked, so it opens on a mock instead: weight zero,
+ * no stage behind it, and the target is simply the grade's own boundary.
+ */
 function blankDraft(subject: Subject | undefined): Draft {
-  const completedStage = satStage(subject);
+  const gradeScale = defaultScale(subject?.qualification);
+  const banked = (subject?.stages.length ?? 0) > 1;
+  const completedStage = banked ? satStage(subject) : null;
+  const grades = gradesFor(gradeScale);
   return {
     subjectId: subject?.id ?? "",
+    gradeScale,
     completedStage,
-    remainingStage: otherStage(subject, completedStage),
+    remainingStage: banked ? otherStage(subject, completedStage!) : subject?.stages[0] ?? "A2",
     completedGrade: "",
     mark: "",
     max: "100",
-    weight: String(DEFAULT_COMPLETED_WEIGHT),
-    targetGrade: "A",
+    weight: String(banked ? DEFAULT_COMPLETED_WEIGHT : MOCK_WEIGHT),
+    // The second rung: an A on both letter ladders, an 8 on the numeric one.
+    targetGrade: grades[1] ?? grades[0],
   };
 }
 
@@ -139,15 +157,18 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
     setDraft(blankDraft(untargeted[0]));
   }
 
-  const stages = lookup.get(draft.subjectId)?.stages ?? [draft.completedStage, draft.remainingStage];
+  // The subject's own split, or what the draft is holding while it loads. A
+  // mock names no completed stage, so only the one still ahead is certain.
+  const stages = lookup.get(draft.subjectId)?.stages
+    ?? [draft.completedStage, draft.remainingStage].filter((stage): stage is string => Boolean(stage));
   const draftPercent = markPercent(
     draft.mark === "" ? null : Number(draft.mark),
     draft.max === "" ? null : Number(draft.max),
   );
   const draftWeight = Number(draft.weight);
-  const draftPreview = draftPercent == null || !Number.isFinite(draftWeight) || draftWeight < 5 || draftWeight > 95
+  const draftPreview = draftPercent == null || !Number.isFinite(draftWeight) || draftWeight < 0 || draftWeight > 95
     ? null
-    : gradeLadder({ completedPercent: draftPercent, completedWeight: draftWeight })
+    : gradeLadder({ completedPercent: draftPercent, completedWeight: draftWeight, gradeScale: draft.gradeScale })
       .find((rung) => rung.grade === draft.targetGrade) ?? null;
 
   function beginNew() {
@@ -162,15 +183,14 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
     setEditing(true);
   }
 
+  /**
+   * A different subject can be a different shape of question — two halves or
+   * one sitting, and a different ladder — so everything but the marks already
+   * typed is re-derived rather than carried across.
+   */
   function chooseSubject(subjectId: string) {
     const subject = lookup.get(subjectId);
-    const completedStage = satStage(subject);
-    setDraft((current) => ({
-      ...current,
-      subjectId,
-      completedStage,
-      remainingStage: otherStage(subject, completedStage),
-    }));
+    setDraft((current) => ({ ...blankDraft(subject), mark: current.mark, max: current.max }));
   }
 
   async function save(event: FormEvent) {
@@ -180,6 +200,7 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
       const existing = targets.find((target) => target.subjectId === draft.subjectId);
       const { target } = await studyApi.gradeTargets.save<{ target: GradeTarget }>({
         subjectId: draft.subjectId,
+        gradeScale: draft.gradeScale,
         completedStage: draft.completedStage,
         remainingStage: draft.remainingStage,
         completedGrade: draft.completedGrade || null,
@@ -209,6 +230,7 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
     try {
       await studyApi.gradeTargets.save<{ target: GradeTarget }>({
         subjectId: next.subjectId,
+        gradeScale: next.gradeScale,
         completedStage: next.completedStage,
         remainingStage: next.remainingStage,
         completedGrade: next.completedGrade,
@@ -241,8 +263,8 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
 
   if (!eligible.length) {
     return <section className="empty-state">
-      <strong>No two-stage subjects yet</strong>
-      <p>This works for a course sat in two halves — an AS year followed by an A2 year. Add one in Subjects, or set its stage split there, and its grade target appears here.</p>
+      <strong>No subjects to aim at yet</strong>
+      <p>This works for any course graded A* to E, A* to G, or 9 to 1 — an A Level priced against the AS you have already sat, or an IGCSE priced against a mock. Add a subject in Subjects and its grade target appears here.</p>
     </section>;
   }
 
@@ -305,13 +327,23 @@ function ResultForm({ draft, stages, subjects, existing, percent, preview, busy,
 }) {
   const completed = draft.completedStage;
   const remaining = draft.remainingStage;
+  const banked = Number(draft.weight) > 0;
+  const scale = GRADE_SCALES[draft.gradeScale];
+  const splits = stages.length > 1;
 
   return <section className="goal-setup grade-setup panel-card">
     <div className="goal-setup-copy">
-      <p className="eyebrow">{existing ? "EDIT RESULT" : "ALREADY SAT ONE HALF?"}</p>
-      <h3>What did you get in {completed}?</h3>
-      <p>Momentum works out what {remaining} has to average for each overall grade, then measures every {remaining} past paper you log against the one you pick.</p>
-      <p className="grade-setup-note">The maths assumes the two halves are weighted as you set below, and uses the standard boundaries — 90, 80, 70, 60, 50 and 40 per cent. Real boundaries shift a mark or two each session, so treat every number here as close rather than exact.</p>
+      <p className="eyebrow">{existing ? "EDIT RESULT" : banked ? "ALREADY SAT ONE HALF?" : "GOT A MOCK BACK?"}</p>
+      <h3>{banked ? `What did you get in ${completed}?` : "What did your mock come to?"}</h3>
+      <p>{banked
+        ? `Momentum works out what ${remaining} has to average for each overall grade, then measures every ${remaining} past paper you log against the one you pick.`
+        : "Momentum prices every grade against the boundary it needs, shows how far the mock is off each one, and measures every past paper you log against the one you pick."}</p>
+      <p className="grade-setup-note">
+        {banked
+          ? "The maths assumes the two halves are weighted as you set below. "
+          : "A mock counts for nothing towards the real grade, so it is read as a position rather than as marks in the bank. "}
+        Grades are priced against the standard {scale.detail} boundaries. Real boundaries shift a mark or two each session, so treat every number here as close rather than exact.
+      </p>
     </div>
     <form className="goal-form grade-form" onSubmit={onSubmit}>
       <label><span>Subject</span>
@@ -320,38 +352,61 @@ function ResultForm({ draft, stages, subjects, existing, percent, preview, busy,
           {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
         </select>
       </label>
-      <label><span>Already sat</span>
-        <select value={draft.completedStage} onChange={(event) => {
-          const completedStage = event.target.value;
-          onChange({ ...draft, completedStage, remainingStage: stages.find((stage) => stage !== completedStage) ?? draft.remainingStage });
+      <label><span>Graded <small>{scale.detail}</small></span>
+        <select value={draft.gradeScale} onChange={(event) => {
+          const gradeScale = event.target.value as GradeScale;
+          const grades = gradesFor(gradeScale);
+          onChange({
+            ...draft,
+            gradeScale,
+            // A grade from the old ladder means nothing on the new one.
+            targetGrade: grades.includes(draft.targetGrade) ? draft.targetGrade : grades[1] ?? grades[0],
+            completedGrade: resultGrades(gradeScale, banked).includes(draft.completedGrade) ? draft.completedGrade : "",
+          });
         }}>
-          {stages.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
+          {GRADE_SCALE_KEYS.map((key) => <option key={key} value={key}>{GRADE_SCALES[key].label}</option>)}
         </select>
       </label>
+      {splits && <label><span>This result is</span>
+        <select value={draft.completedStage ?? ""} onChange={(event) => {
+          const completedStage = event.target.value || null;
+          onChange({
+            ...draft,
+            completedStage,
+            weight: String(completedStage ? DEFAULT_COMPLETED_WEIGHT : MOCK_WEIGHT),
+            remainingStage: completedStage
+              ? stages.find((stage) => stage !== completedStage) ?? draft.remainingStage
+              : draft.remainingStage,
+          });
+        }}>
+          {stages.map((stage) => <option key={stage} value={stage}>{stage}, already sat</option>)}
+          <option value="">A mock — nothing sat yet</option>
+        </select>
+      </label>}
       <label><span>Grade awarded <small>optional</small></span>
-        <select value={draft.completedGrade} onChange={(event) => onChange({ ...draft, completedGrade: event.target.value as "" | StageGrade })}>
+        <select value={draft.completedGrade} onChange={(event) => onChange({ ...draft, completedGrade: event.target.value })}>
           <option value="">Not saying</option>
-          {STAGE_GRADES.map((grade) => <option key={grade}>{grade}</option>)}
+          {resultGrades(draft.gradeScale, banked).map((grade) => <option key={grade}>{grade}</option>)}
         </select>
       </label>
       <div className="grade-mark-field">
-        <span>Mark <small>or your percentage uniform mark</small></span>
+        <span>Mark <small>{banked ? "or your percentage uniform mark" : "across the mock, or its percentage"}</small></span>
         <div>
-          <input type="number" min="0" max="1000" step="0.5" required placeholder="82" value={draft.mark} aria-label={`Mark scored in ${completed}`} onChange={(event) => onChange({ ...draft, mark: event.target.value })} />
+          <input type="number" min="0" max="1000" step="0.5" required placeholder="82" value={draft.mark} aria-label={banked ? `Mark scored in ${completed}` : "Mark scored in the mock"} onChange={(event) => onChange({ ...draft, mark: event.target.value })} />
           <b>out of</b>
           <input type="number" min="1" max="1000" step="0.5" required placeholder="100" value={draft.max} aria-label="Total marks available" onChange={(event) => onChange({ ...draft, max: event.target.value })} />
         </div>
       </div>
-      <label><span>{completed} counts for</span>
+      {banked && <label><span>{completed} counts for</span>
         <div className="hours-input">
           <input type="number" min="5" max="95" step="1" required value={draft.weight} onChange={(event) => onChange({ ...draft, weight: event.target.value })} />
           <b>% of the grade</b>
         </div>
-      </label>
+      </label>}
       <fieldset className="grade-target-picker">
         <legend>Overall grade you want</legend>
         <div>
-          {OVERALL_GRADES.map((grade) => <button
+          {gradesFor(draft.gradeScale).map((grade) => <button
             type="button"
             key={grade}
             aria-pressed={draft.targetGrade === grade}
@@ -362,12 +417,14 @@ function ResultForm({ draft, stages, subjects, existing, percent, preview, busy,
       </fieldset>
       <div className={`grade-preview ${preview?.reach ?? "empty"}`} aria-live="polite">
         {preview == null || percent == null
-          ? <><strong>—</strong><small>Enter your {completed} mark to see the target</small></>
+          ? <><strong>—</strong><small>Enter {banked ? `your ${completed} mark` : "your mock mark"} to see the target</small></>
           : preview.reach === "out-of-reach"
             ? <><strong>Out of reach</strong><small>{percent}% in {completed} puts {gradeArticle(draft.targetGrade)} {draft.targetGrade} beyond a perfect {remaining}</small></>
             : preview.reach === "secured"
               ? <><strong>Already yours</strong><small>{percent}% in {completed} secures {gradeArticle(draft.targetGrade)} {draft.targetGrade} whatever {remaining} does</small></>
-              : <><strong>{preview.required}%</strong><small>needed in {remaining} for {gradeArticle(draft.targetGrade)} {draft.targetGrade}</small></>}
+              : <><strong>{preview.required}%</strong><small>{banked
+                  ? `needed in ${remaining} for ${gradeArticle(draft.targetGrade)} ${draft.targetGrade}`
+                  : `needed for ${gradeArticle(draft.targetGrade)} ${draft.targetGrade} — your mock is on ${percent}%`}</small></>}
       </div>
       <div className="goal-form-actions">
         {onCancel && <button type="button" className="ghost-button" onClick={onCancel}>Cancel</button>}
@@ -392,6 +449,16 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
   const chosen = ladder.find((rung) => rung.grade === target.targetGrade)!;
   const range = gradeRange(target);
   const wanted = paperTarget(target);
+  const banked = isBanked(target);
+  /** What the exam still to come is called, for a course that has only one. */
+  const ahead = banked ? target.remainingStage : "the exam";
+  /**
+   * A one-stage course stores its single stage under the tracker's own
+   * shorthand, so naming it on screen would show an IGCSE student an "A2" they
+   * have never heard of. A stage label is only worth showing where there is a
+   * second one to tell it apart from.
+   */
+  const named = (subject?.stages.length ?? 0) > 1;
 
   // Only the stage still to sit, and only papers with a score on them: a
   // planned paper has nothing to say about form, and an AS paper is a record
@@ -408,23 +475,42 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
   const form = average(recent.map((paper) => paper.percentage!));
   const best = scored.length ? Math.max(...scored.map((paper) => paper.percentage!)) : null;
   const hits = scored.filter((paper) => paper.percentage! >= wanted).length;
-  const projected = form == null ? null : overallPercent(target, form);
-  const projectedGrade = projected == null ? null : overallGrade(projected);
-  const gap = form == null ? null : wanted - form;
+
+  /**
+   * Where the learner is standing right now. Logged papers say it best, but a
+   * mock is a reading too — and for a course sat in one go it is often the
+   * only one there is, so it stands in until papers arrive. A banked half is
+   * not a reading of the same thing: it is marks already in the bank, and the
+   * screen reports it separately.
+   */
+  const standing = form ?? (banked ? null : target.completedPercent);
+  const projected = standing == null ? null : overallPercent(target, standing);
+  const projectedGrade = projected == null ? null : overallGrade(target.gradeScale, projected);
+  const gap = standing == null ? null : wanted - standing;
 
   return <>
     <section className="goal-hero grade-hero">
       <div className="goal-hero-copy">
         <p className="eyebrow">GRADE TARGET</p>
-        <h3>{subject?.name ?? target.subjectId} <span>{target.remainingStage}</span></h3>
+        <h3>{subject?.name ?? target.subjectId} {named && <span>{target.remainingStage}</span>}</h3>
         <p>
-          <strong>{target.completedStage}</strong> banked at <strong>{formatPercent(target.completedPercent)}</strong>
+          {banked
+            ? <><strong>{target.completedStage}</strong> banked at <strong>{formatPercent(target.completedPercent)}</strong></>
+            : <><strong>Mock</strong> came to <strong>{formatPercent(target.completedPercent)}</strong></>}
           {target.completedGrade ? <> · grade <strong>{target.completedGrade}</strong></> : null}
         </p>
         <div className="goal-plan-tags">
-          <span>{target.completedStage} worth {target.completedWeight}%</span>
-          <span>Best possible {range.best}</span>
-          <span>Guaranteed {range.worst === "U" ? "nothing yet" : range.worst}</span>
+          {banked
+            ? <>
+              <span>{target.completedStage} worth {target.completedWeight}%</span>
+              <span>Best possible {range.best}</span>
+              <span>Guaranteed {range.worst === "U" ? "nothing yet" : range.worst}</span>
+            </>
+            : <>
+              <span>{GRADE_SCALES[target.gradeScale].label}</span>
+              <span>Sat in one go</span>
+              <span>The mock counts for nothing</span>
+            </>}
         </div>
         <div className="grade-hero-actions">
           <button onClick={onEdit}>Edit result</button>
@@ -434,18 +520,20 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
       <div className={`grade-headline ${chosen.reach}`}>
         <span className={`grade-badge ${gradeTone(target.targetGrade)}`}>{target.targetGrade}</span>
         {chosen.reach === "out-of-reach"
-          ? <><strong>Out of reach</strong><small>even a perfect {target.remainingStage} lands on {reachLabel(overallGrade(overallPercent(target, 100)))}</small></>
+          ? <><strong>Out of reach</strong><small>even a perfect {ahead} lands on {reachLabel(overallGrade(target.gradeScale, overallPercent(target, 100)))}</small></>
           : chosen.reach === "secured"
-            ? <><strong>Secured</strong><small>{gradeArticle(target.targetGrade)} {target.targetGrade} stands whatever {target.remainingStage} does</small></>
-            : <><strong>{chosen.required}%</strong><small>needed across {target.remainingStage} for {gradeArticle(target.targetGrade)} {target.targetGrade}</small></>}
+            ? <><strong>Secured</strong><small>{gradeArticle(target.targetGrade)} {target.targetGrade} stands whatever {ahead} does</small></>
+            : <><strong>{chosen.required}%</strong><small>needed across {ahead} for {gradeArticle(target.targetGrade)} {target.targetGrade}</small></>}
       </div>
     </section>
 
     <section className="goal-metrics grade-metrics">
       <article>
         <span>Your form</span>
-        <strong>{formatPercent(form)}</strong>
-        <small>{recent.length ? `last ${recent.length} ${target.remainingStage} ${recent.length === 1 ? "paper" : "papers"}` : "no scored papers yet"}</small>
+        <strong>{formatPercent(standing)}</strong>
+        <small>{recent.length
+          ? `last ${recent.length} ${named ? `${target.remainingStage} ` : ""}${recent.length === 1 ? "paper" : "papers"}`
+          : banked ? "no scored papers yet" : "your mock, until papers land"}</small>
       </article>
       <article className={gap == null ? "" : gap <= 0 ? "on-track" : "behind"}>
         <span>Against target</span>
@@ -455,7 +543,7 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
       <article>
         <span>On this form</span>
         <strong>{projectedGrade ?? "—"}</strong>
-        <small>{projected == null ? "log a paper to project a grade" : `${formatPercent(projected)} overall if ${target.remainingStage} matches`}</small>
+        <small>{projected == null ? "log a paper to project a grade" : `${formatPercent(projected)} overall if ${ahead} matches`}</small>
       </article>
       <article>
         <span>Papers on target</span>
@@ -466,7 +554,7 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
 
     <section className="grade-ladder panel-card">
       <div className="section-heading">
-        <div><p className="eyebrow">EVERY GRADE, PRICED</p><h3>What each one costs you in {target.remainingStage}</h3></div>
+        <div><p className="eyebrow">EVERY GRADE, PRICED</p><h3>What each one costs you in {ahead}</h3></div>
         <span>Pick one to make it your target</span>
       </div>
       <ul>
@@ -479,22 +567,22 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
           >
             <span className={`grade-badge ${gradeTone(rung.grade)}`}>{rung.grade}</span>
             <b>{rung.minimum}% overall</b>
-            <div className="grade-need-bar"><i style={{ width: `${rung.required}%` }} />{form != null && <em style={{ left: `${Math.min(100, form)}%` }} aria-hidden="true" />}</div>
+            <div className="grade-need-bar"><i style={{ width: `${rung.required}%` }} />{standing != null && <em style={{ left: `${Math.min(100, standing)}%` }} aria-hidden="true" />}</div>
             <strong>{rung.reach === "out-of-reach" ? "Gone" : rung.reach === "secured" ? "Secured" : `${rung.required}%`}</strong>
             <small>{rung.reach === "out-of-reach"
-              ? `needs ${Math.round(rung.raw)}% in ${target.remainingStage}`
+              ? `needs ${Math.round(rung.raw)}% in ${ahead}`
               : rung.reach === "secured" ? "already banked"
-              : form == null ? `in ${target.remainingStage}`
-              : rung.required <= form ? "you are there" : `${Math.ceil(rung.required - form)} points off your form`}</small>
+              : standing == null ? `in ${ahead}`
+              : rung.required <= standing ? "you are there" : `${Math.ceil(rung.required - standing)} points off your form`}</small>
           </button>
         </li>)}
       </ul>
-      <p className="grade-ladder-note">Boundaries move between sessions, so these are estimates. {chosen.reach === "reachable" && <>{gradeArticle(target.targetGrade) === "an" ? "An" : "A"} {target.targetGrade} needs {chosen.required}% across {target.remainingStage} — the whole stage, not one paper.</>}</p>
+      <p className="grade-ladder-note">Boundaries move between sessions, so these are estimates. {chosen.reach === "reachable" && <>{gradeArticle(target.targetGrade) === "an" ? "An" : "A"} {target.targetGrade} needs {chosen.required}% across {ahead} — every paper of it, not one.</>}</p>
     </section>
 
     <section className="grade-paper-target panel-card">
       <div className="section-heading">
-        <div><p className="eyebrow">PAST PAPER TARGET</p><h3>The number every {target.remainingStage} paper is marked against</h3></div>
+        <div><p className="eyebrow">PAST PAPER TARGET</p><h3>The number every {named ? `${target.remainingStage} ` : ""}paper is marked against</h3></div>
       </div>
       <div className="grade-paper-body">
         <div className="grade-paper-set">
@@ -531,7 +619,7 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
           {chosen.reach === "out-of-reach"
             ? `${gradeArticle(target.targetGrade) === "an" ? "An" : "A"} ${target.targetGrade} is no longer reachable from ${target.completedPercent}% in ${target.completedStage}. Pick a grade from the ladder above for a target you can actually hit, or set your own here.`
             : target.paperTargetPercent == null
-              ? `Following your ${target.targetGrade} target: ${chosen.required}% across ${target.remainingStage}. Change it to aim somewhere else — a cushion above the boundary is the usual reason.`
+              ? `Following your ${target.targetGrade} target: ${chosen.required}% across ${ahead}. Change it to aim somewhere else — a cushion above the boundary is the usual reason.`
               : `Set by you. Your ${target.targetGrade} target needs ${chosen.required}%.`}
         </p>
         {scored.length > 0 && <ul className="grade-paper-log">
@@ -545,7 +633,7 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
             </li>;
           })}
         </ul>}
-        {!scored.length && <p className="muted">Nothing logged for {target.remainingStage} yet. Log a paper in Past papers and it is measured against this number.</p>}
+        {!scored.length && <p className="muted">Nothing logged {named ? `for ${target.remainingStage} ` : ""}yet. Log a paper in Past papers — a school mock included — and it is measured against this number.</p>}
       </div>
     </section>
   </>;

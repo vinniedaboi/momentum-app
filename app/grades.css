@@ -51,7 +51,9 @@
   text-transform: uppercase;
   letter-spacing: .07em;
 }
-.grade-target-picker > div { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-1); }
+/* Six grades on an A Level, eight on an IGCSE, nine on the numeric scale — so
+   the row shares itself out rather than being cut into a fixed six. */
+.grade-target-picker > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); gap: var(--space-1); }
 .grade-target-picker button {
   min-height: 40px;
   border: 1px solid var(--line);

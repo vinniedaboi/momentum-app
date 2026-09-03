@@ -328,11 +328,14 @@ export default function PastPapersView({ papers, meta, subjects, targets, today,
     return {
       target,
       wanted,
+      // A course sat in one go keeps its single stage under the tracker's own
+      // shorthand, which means nothing to the learner, so it goes unnamed.
+      named: (subjects.find((subject) => subject.id === target.subjectId)?.stages.length ?? 0) > 1,
       count: scored.length,
       mean: average(scored.map((attempt) => attempt.percentage!)),
       hits: scored.filter((attempt) => attempt.percentage! >= wanted).length,
     };
-  }), [papers, targets]);
+  }), [papers, subjects, targets]);
   const weakTopicRanking = useMemo(() => {
     const counts = new Map<string, number>();
     papers.forEach((attempt) => attempt.weakTopics.forEach((topic) => counts.set(topic, (counts.get(topic) ?? 0) + 1)));
@@ -411,10 +414,10 @@ export default function PastPapersView({ papers, meta, subjects, targets, today,
     </section>
 
     {targetProgress.length > 0 && <section className="paper-target-strip" aria-label="Your paper targets">
-      {targetProgress.map(({ target, wanted, mean, count, hits }) => (
+      {targetProgress.map(({ target, wanted, mean, count, hits, named }) => (
         <article key={target.subjectId} className={mean == null ? "" : mean >= wanted ? "on-target" : "under"}>
           <div>
-            <strong>{subjectName(subjects, target.subjectId)} <b>{target.remainingStage}</b></strong>
+            <strong>{subjectName(subjects, target.subjectId)} {named && <b>{target.remainingStage}</b>}</strong>
             <span>aiming at {target.targetGrade} overall</span>
           </div>
           <div className="paper-target-bar">

@@ -3,19 +3,18 @@ import { getSubject } from "../../../lib/subjects-db";
 import { withWorkspace } from "../../../lib/auth";
 import {
   canTakeGradeTarget,
-  isOverallGrade,
+  isGradeOnScale,
+  isGradeScale,
   markPercent,
-  STAGE_GRADES,
-  type StageGrade,
+  resultGrades,
 } from "../../grade-targets";
 
 export const runtime = "nodejs";
 
-const GRADES = new Set<string>(STAGE_GRADES);
-
 type TargetBody = Partial<{
   subjectId: string;
-  completedStage: string;
+  gradeScale: string;
+  completedStage: string | null;
   completedGrade: string | null;
   completedMark: number | null;
   completedMax: number | null;
@@ -56,14 +55,33 @@ export async function POST(request: Request) {
       const body = await request.json() as TargetBody;
       const subject = body.subjectId ? await getSubject(workspaceId, body.subjectId) : null;
       if (!subject || !canTakeGradeTarget(subject)) {
-        return Response.json({ error: "Choose a subject that is sat in two stages." }, { status: 400 });
+        return Response.json({ error: "Choose a subject with a syllabus to aim at." }, { status: 400 });
+      }
+      if (!isGradeScale(body.gradeScale)) {
+        return Response.json({ error: "Choose how the course is graded." }, { status: 400 });
+      }
+      const scale = body.gradeScale;
+
+      const { remainingStage } = body;
+      if (!remainingStage || !subject.stages.includes(remainingStage)) {
+        return Response.json(
+          { error: `Choose which of ${subject.stages.join(" and ")} you are aiming at.` },
+          { status: 400 },
+        );
       }
 
-      const { completedStage, remainingStage } = body;
-      if (!completedStage || !remainingStage
+      // Zero is a mock: a result that says where the learner is without owning
+      // any of the grade. Anything above it is a stage of the course that has
+      // been sat, and a stage has to say which one it was.
+      const weight = cleanNumber(body.completedWeight);
+      if (weight == null || !Number.isInteger(weight) || weight < 0 || weight > 95) {
+        return Response.json({ error: "Enter a share of the grade between 0 and 95." }, { status: 400 });
+      }
+      const banked = weight > 0;
+      const completedStage = banked ? body.completedStage : null;
+      if (banked && (!completedStage
         || !subject.stages.includes(completedStage)
-        || !subject.stages.includes(remainingStage)
-        || completedStage === remainingStage) {
+        || completedStage === remainingStage)) {
         return Response.json(
           { error: `Choose which of ${subject.stages.join(" and ")} you have already sat.` },
           { status: 400 },
@@ -80,24 +98,19 @@ export async function POST(request: Request) {
       }
       const percent = markPercent(mark, max) ?? cleanPercent(body.completedPercent);
       if (percent == null) {
-        return Response.json({ error: `Enter what you scored in ${completedStage}.` }, { status: 400 });
-      }
-
-      const weight = cleanNumber(body.completedWeight);
-      if (weight == null || !Number.isInteger(weight) || weight < 5 || weight > 95) {
         return Response.json(
-          { error: `Enter what share of the grade ${completedStage} carries, between 5 and 95.` },
+          { error: banked ? `Enter what you scored in ${completedStage}.` : "Enter what your mock came to." },
           { status: 400 },
         );
       }
 
-      if (!isOverallGrade(body.targetGrade)) {
+      if (!isGradeOnScale(scale, body.targetGrade)) {
         return Response.json({ error: "Choose the overall grade you are aiming for." }, { status: 400 });
       }
 
       const grade = typeof body.completedGrade === "string" ? body.completedGrade.trim().toUpperCase() : null;
-      if (grade && !GRADES.has(grade)) {
-        return Response.json({ error: `Choose the grade you were awarded for ${completedStage}.` }, { status: 400 });
+      if (grade && !resultGrades(scale, banked).includes(grade)) {
+        return Response.json({ error: "Choose the grade that result was awarded." }, { status: 400 });
       }
 
       // Null is not a missing value here: it is the learner saying "whatever
@@ -111,8 +124,9 @@ export async function POST(request: Request) {
 
       const target = await saveGradeTarget(workspaceId, {
         subjectId: subject.id,
-        completedStage,
-        completedGrade: (grade as StageGrade | null) ?? null,
+        gradeScale: scale,
+        completedStage: completedStage ?? null,
+        completedGrade: grade,
         completedMark: max == null ? null : mark,
         completedMax: mark == null ? null : max,
         completedPercent: percent,

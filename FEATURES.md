@@ -138,28 +138,35 @@ A searchable directory of Cambridge past papers, built in.
 
 ### 7. Grade targets
 
-For anyone who has already sat AS and is now working out what A2 has to do
-about it.
+Two shapes of one question — *what do I need?* — and the same arithmetic answers
+both.
 
-- Enter the grade and the mark you were awarded — a percentage uniform mark, or
-  a raw score out of its total
-- Momentum prices **every** overall grade, not just the one you picked: what A*,
-  A, B, C, D and E would each now cost you across the second year, and which are
-  already beyond a perfect paper
+**Sat AS already?** Enter the grade and the mark and Momentum works out what A2
+has to average, because the AS half is banked whatever happens next.
+
+**Sat in one go — an IGCSE, a linear A Level?** Enter a mock instead. It counts
+for nothing towards the real grade, so what you need is simply the boundary, and
+the mock says how far off it you are.
+
+- Enter the mark as a percentage uniform mark, or a raw score out of its total
+- Momentum prices **every** grade, not just the one you picked: what each would
+  now cost you, and which are already beyond a perfect paper
+- **Priced on your own ladder** — A* to E for an A Level, A* to G for an IGCSE,
+  9 to 1 for an International GCSE, picked from the subject's qualification
 - Pick a grade from that ladder and its required percentage becomes the target
-  every A2 past paper is measured against — on this screen and on Past papers
-- Your recent A2 papers become a form figure, projected forward to the overall
-  grade that form would land
+  every past paper for that stage is measured against — on this screen and on
+  Past papers
+- Your recent papers become a form figure, projected forward to the grade that
+  form would land; a mock stands in until the first paper is logged
 - Override the paper target by hand to aim above the boundary
 
-The arithmetic is the boards' own: the two years are weighted shares of one
-percentage, against the standard 90 / 80 / 70 / 60 / 50 / 40 boundaries. The
-screens say plainly that real boundaries move each session, so the figures are
-close rather than exact.
+The arithmetic is the boards' own: weighted shares of one percentage against the
+standard boundaries. The screens say plainly that real boundaries move each
+session, so the figures are close rather than exact.
 
 **Why it matters:** "am I still in it for an A?" is the question behind every
-A2 revision session, and until now it was answered by guesswork on the back of
-a past paper.
+revision session, and until now it was answered by guesswork on the back of a
+past paper.
 
 ### 8. Flashcards
 

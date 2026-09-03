@@ -19,19 +19,26 @@ Versions are `major.minor.patch`:
 
 ## Unreleased
 
-### Grade targets — what A2 needs, now that AS is done
+### Grade targets — what you still need, whatever you are sitting
 
 - **Put in your AS grade and mark, and see what A2 has to average** for the
   overall grade you want. Enter a percentage uniform mark or a raw score out of
   its total.
-- **Every grade is priced, not just the one you picked.** A ladder shows what
-  A*, A, B, C, D and E would each cost you across the second year, and marks the
-  ones a perfect A2 can no longer reach.
-- **Pick a grade and it becomes your past-paper target.** Every A2 paper you log
+- **Sitting it all in one go? Put in a mock instead.** An IGCSE has no AS half
+  to bank, so the target is simply the boundary the grade needs — and the mock
+  says how many points off it you currently are.
+- **Priced on your own ladder.** A* to E for an A Level, A* to G for an IGCSE,
+  9 to 1 for an International GCSE. The subject picks it from its
+  qualification, and you can change it.
+- **Every grade is priced, not just the one you picked.** The ladder shows what
+  each one would cost you, and marks the ones a perfect paper can no longer
+  reach.
+- **Pick a grade and it becomes your past-paper target.** Every paper you log
   is scored against it — on the new screen and while you are typing the marks in
   on Past papers — or set your own number to aim above the boundary.
-- **Your recent papers project a grade.** The last five A2 attempts become a
-  form figure, carried through the same arithmetic to the grade that form lands.
+- **Your recent papers project a grade.** The last five attempts become a form
+  figure, carried through the same arithmetic to the grade that form lands, with
+  a mock standing in until the first paper is logged.
 
 Every figure is an estimate and the screens say so: real boundaries move a mark
 or two each session.
@@ -49,6 +56,9 @@ or two each session.
 
 ### Fixed
 
+- **"Your exams" no longer floats above the first exam card.** The panel heading
+  was spacing itself for a body that starts with its own padding; the exam list
+  does not, so the two lots of space were stacking.
 - **Logging a past paper works again.** Attempts were being filed under a
   subject's display name rather than its id, which the database rejected, so
   nothing saved. Papers are now logged against a subject you pick from your own
