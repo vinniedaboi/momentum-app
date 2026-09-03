@@ -110,10 +110,12 @@ export default function StudyHoursView({
     return groups;
   }, [subject, syllabusTopics]);
 
-  const window = STUDY_RANGES.find((option) => option.key === range) ?? STUDY_RANGES[1];
+  // Not `window`: naming it that shadows the global one for the whole component,
+  // which is a trap for the next person who reaches for a timer or a confirm.
+  const span = STUDY_RANGES.find((option) => option.key === range) ?? STUDY_RANGES[1];
   const stats = useMemo(
-    () => studyAnalytics(sessions, today, window.days),
-    [sessions, today, window.days],
+    () => studyAnalytics(sessions, today, span.days),
+    [sessions, today, span.days],
   );
   const todayMinutes = useMemo(
     () => sessions.filter((session) => session.studyDate === today).reduce((sum, session) => sum + session.minutes, 0),
@@ -208,7 +210,7 @@ export default function StudyHoursView({
       <section className="hours-summary">
         <article><span>Today</span><strong>{formatStudyTime(todayMinutes)}</strong><small>{todayMinutes ? "Logged so far" : "Nothing yet"}</small></article>
         <article className={stats.change != null && stats.change >= 0 ? "on-track" : ""}>
-          <span>{window.label}</span>
+          <span>{span.label}</span>
           <strong>{formatStudyTime(stats.minutes)}</strong>
           {/* A total on its own is a number; a total against the window before
               it is the only version that says whether things are going well. */}
@@ -304,7 +306,7 @@ export default function StudyHoursView({
 
       {stats.minutes > 0 && <section className="hours-breakdown">
         <article className="panel-card">
-          <div className="panel-heading"><p className="eyebrow">WHERE IT GOES</p><h3>Time by subject</h3><p>Which courses the {window.label.toLowerCase()} actually went on.</p></div>
+          <div className="panel-heading"><p className="eyebrow">WHERE IT GOES</p><h3>Time by subject</h3><p>Which courses the {span.label.toLowerCase()} actually went on.</p></div>
           <ul className="hours-subject-split">
             {stats.bySubject.map((entry) => (
               <li key={entry.subjectId ?? "general"}>

@@ -421,8 +421,15 @@ export function gradeRange(target: Weighed) {
 /**
  * The percentage past papers are measured against: the learner's own number
  * where they set one, and otherwise whatever the target grade needs.
+ *
+ * Null once nothing is left to sit. A past-paper target is practice for an
+ * exam that is still coming; on a finished course the ladder has no
+ * outstanding weight to price against, and the clamped answer it gives — zero
+ * for a grade already reached — would mark every paper ever logged as being
+ * on target.
  */
-export function paperTarget(target: GradeTarget) {
+export function paperTarget(target: GradeTarget): number | null {
+  if (target.completedWeight >= 99.95) return null;
   if (target.paperTargetPercent != null) return target.paperTargetPercent;
   const rung = gradeLadder(target).find((entry) => entry.grade === target.targetGrade);
   return rung ? rung.required : 0;

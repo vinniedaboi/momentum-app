@@ -863,7 +863,7 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
   const recent = scored.slice(0, FORM_WINDOW);
   const form = average(recent.map((paper) => paper.percentage!));
   const best = scored.length ? Math.max(...scored.map((paper) => paper.percentage!)) : null;
-  const hits = scored.filter((paper) => paper.percentage! >= wanted).length;
+  const hits = wanted == null ? 0 : scored.filter((paper) => paper.percentage! >= wanted).length;
 
   /**
    * What the papers still to come have come to, once their marks are filled
@@ -895,14 +895,22 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
    *
    * Marks entered against the papers themselves say it best — they are this
    * course, not practice for it. Logged past papers stand in until there are
-   * any, and for a one-sitting course a mock stands in until there are those.
-   * A banked half is not a reading of the same thing: it is marks already in
-   * the bank, and the screen reports it separately.
+   * any, and for a one-sitting course a single typed-in mock stands in until
+   * there are those. A banked half is not a reading of the same thing: it is
+   * marks already in the bank, and the screen reports it separately.
+   *
+   * A target built from papers never falls back to the typed figure, because
+   * for those rows it is not a reading at all: it is the sum of the marks, and
+   * with none entered that sum is zero. Reading it as a score turned an
+   * untouched course into one scoring nothing — the ladder offered "90 points
+   * off your form" against a form nobody had set.
    */
-  const standing = remaining?.percent ?? form ?? (banked ? null : target.completedPercent);
+  const standing = remaining?.percent
+    ?? form
+    ?? (banked || target.components.length ? null : target.completedPercent);
   const projected = standing == null ? null : overallPercent(target, standing);
   const projectedGrade = projected == null ? null : overallGrade(target.gradeScale, projected);
-  const gap = standing == null ? null : wanted - standing;
+  const gap = standing == null || wanted == null ? null : wanted - standing;
 
   return <>
     <section className="goal-hero grade-hero">
@@ -979,7 +987,11 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
       <article className={gap == null ? "" : gap <= 0 ? "on-track" : "behind"}>
         <span>Against target</span>
         <strong>{gap == null ? "—" : gap <= 0 ? `+${Math.round(Math.abs(gap))}` : `−${Math.round(gap)}`}</strong>
-        <small>{gap == null ? `target is ${Math.round(wanted)}%` : gap <= 0 ? `clear of your ${Math.round(wanted)}% target` : `points under your ${Math.round(wanted)}% target`}</small>
+        <small>{wanted == null
+          ? "every paper is in"
+          : gap == null ? `target is ${Math.round(wanted)}%`
+          : gap <= 0 ? `clear of your ${Math.round(wanted)}% target`
+          : `points under your ${Math.round(wanted)}% target`}</small>
       </article>
       <article>
         <span>On this form</span>
@@ -988,7 +1000,7 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
       </article>
       <article>
         <span>Papers on target</span>
-        <strong>{scored.length ? `${hits}/${scored.length}` : "—"}</strong>
+        <strong>{wanted != null && scored.length ? `${hits}/${scored.length}` : "—"}</strong>
         <small>{best == null ? "nothing logged yet" : `best ${formatPercent(best)}`}</small>
       </article>
     </section>
@@ -1080,6 +1092,16 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
         <div><p className="eyebrow">PAST PAPER TARGET</p><h3>The number every {named ? `${target.remainingStage} ` : ""}paper is marked against</h3></div>
       </div>
       <div className="grade-paper-body">
+        {/* A past-paper target is practice for an exam still to come. Once every
+            paper is in there is nothing to practise for, and offering a number
+            would be inviting the learner to keep chasing a course that is
+            already behind them. */}
+        {wanted == null ? <p className="muted">
+          Every paper of this award has a mark against it, so there is nothing
+          left to aim a past paper at. Papers you log from here are practice
+          rather than a target — reopen the result above if one of them was
+          entered too early.
+        </p> : <>
         <div className="grade-paper-set">
           <label>
             <span>Target</span>
@@ -1129,6 +1151,7 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
           })}
         </ul>}
         {!scored.length && <p className="muted">Nothing logged {named ? `for ${target.remainingStage} ` : ""}yet. Log a paper in Past papers — a school mock included — and it is measured against this number.</p>}
+        </>}
       </div>
     </section>
   </>;

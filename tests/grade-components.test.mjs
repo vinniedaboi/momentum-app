@@ -5,6 +5,7 @@ import {
   bankedFromComponents,
   courseOutcome,
   gradeBeats,
+  paperTarget,
   overallGrade,
   overallPercent,
   remainingFromComponents,
@@ -219,4 +220,26 @@ test("one grade beats another on its own ladder, and a U beats nothing", () => {
   assert.ok(gradeBeats("numeric", "9", "4"));
   assert.ok(!gradeBeats("a-level", "U", "E"));
   assert.ok(gradeBeats("a-level", "E", "U"));
+});
+
+test("a finished course has no past-paper target left to chase", () => {
+  const done = physics.map((component) => sat(component, 8, 10));
+  const banked = bankedFromComponents(done);
+  const target = { ...banked, gradeScale: "a-level", targetGrade: "A", paperTargetPercent: null, components: done };
+  assert.equal(banked.completedWeight, 100);
+  // The ladder has no outstanding weight to price against, so its clamped
+  // answer for a grade already reached is zero — which would have marked every
+  // paper ever logged as being on target.
+  assert.equal(paperTarget(target), null);
+
+  // Half way through, there is still something to aim at.
+  const partway = [sat(physics[0], 8, 10), sat(physics[1], 8, 10), sat(physics[2], 8, 10),
+    physics[3], physics[4]];
+  const open = { ...bankedFromComponents(partway), gradeScale: "a-level", targetGrade: "A", paperTargetPercent: null, components: partway };
+  // Half the A Level banked at 80% leaves the other half needing 80% for an A.
+  assert.equal(paperTarget(open), 80);
+  // And a number set by hand is still honoured while the course is open.
+  assert.equal(paperTarget({ ...open, paperTargetPercent: 85 }), 85);
+  // But not once it is over — there is nothing left to practise for.
+  assert.equal(paperTarget({ ...target, paperTargetPercent: 85 }), null);
 });

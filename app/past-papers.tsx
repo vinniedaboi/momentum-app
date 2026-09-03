@@ -319,13 +319,15 @@ export default function PastPapersView({ papers, meta, subjects, targets, today,
    * what it is actually averaging. Papers from the stage already sat are left
    * out — they are a record of a result that is now fixed.
    */
-  const targetProgress = useMemo(() => targets.map((target) => {
+  const targetProgress = useMemo(() => targets.flatMap((target) => {
     const scored = papers.filter((attempt) => attempt.subjectId === target.subjectId
       && attempt.stage === target.remainingStage
       && attempt.status === "done"
       && attempt.percentage != null);
+    // A finished course has no target to measure against, so it keeps no strip.
     const wanted = paperTarget(target);
-    return {
+    if (wanted == null) return [];
+    return [{
       target,
       wanted,
       // A course sat in one go keeps its single stage under the tracker's own
@@ -334,7 +336,7 @@ export default function PastPapersView({ papers, meta, subjects, targets, today,
       count: scored.length,
       mean: average(scored.map((attempt) => attempt.percentage!)),
       hits: scored.filter((attempt) => attempt.percentage! >= wanted).length,
-    };
+    }];
   }), [papers, subjects, targets]);
   const weakTopicRanking = useMemo(() => {
     const counts = new Map<string, number>();

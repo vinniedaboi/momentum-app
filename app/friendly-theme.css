@@ -150,7 +150,12 @@ button.summary-card:hover, button.summary-card.selected { transform: translateY(
   font-weight: 650;
   letter-spacing: -.02em;
 }
-.section-heading h3 { font-size: var(--text-3xl); }
+/* The padding under a heading was only ever half the gap. A 34px display face
+   left at its default line-height carries about eight pixels of slack above and
+   below the lettering *inside* its own box, so trimming the padding moved the
+   box and left the glyphs where they were. The hero headings have been set to
+   1.08 since they were written; this one never was. */
+.section-heading h3 { font-size: var(--text-3xl); line-height: 1.08; }
 .ghost-button, .primary-button, .danger-button, .hours-submit {
   min-height: 40px;
   border-radius: var(--radius-md);
