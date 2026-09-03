@@ -3,10 +3,12 @@ import { getSubject } from "../../../lib/subjects-db";
 import { withWorkspace } from "../../../lib/auth";
 import {
   canTakeGradeTarget,
+  isComponentStatus,
   isGradeOnScale,
   isGradeScale,
   markPercent,
   resultGrades,
+  type TargetComponent,
 } from "../../grade-targets";
 
 export const runtime = "nodejs";
@@ -23,7 +25,63 @@ type TargetBody = Partial<{
   remainingStage: string;
   targetGrade: string;
   paperTargetPercent: number | null;
+  award: string;
+  components: unknown;
 }>;
+
+/** How many papers one award of one syllabus can reasonably be made of. */
+const MAX_COMPONENTS = 12;
+
+/**
+ * The papers of the chosen route.
+ *
+ * The weighting is validated but not looked up: it comes from the board's own
+ * syllabus through `syllabus_assessment`, and a learner sitting a course the
+ * parser could not read types it in from the page in front of them. What is
+ * refused is a set that could not be a route — nothing, too many, or more than
+ * a whole award between them.
+ */
+function cleanComponents(value: unknown): TargetComponent[] | string {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) return "Choose the papers you are sitting.";
+  if (value.length > MAX_COMPONENTS) return `A route cannot have more than ${MAX_COMPONENTS} papers.`;
+
+  const components: TargetComponent[] = [];
+  const seen = new Set<string>();
+  for (const [index, entry] of value.entries()) {
+    const row = entry as Record<string, unknown>;
+    const component = typeof row.component === "string" ? row.component.trim().slice(0, 40) : "";
+    if (!component || seen.has(component)) return "Each paper can only be listed once.";
+    seen.add(component);
+
+    const weighting = cleanNumber(row.weighting);
+    if (weighting == null || weighting <= 0 || weighting > 100) {
+      return `Enter what ${component} is worth, between 1 and 100 per cent.`;
+    }
+    const status = isComponentStatus(row.status) ? row.status : "todo";
+    const mark = cleanNumber(row.mark);
+    const maxMark = cleanNumber(row.maxMark);
+    if (status !== "todo" && mark == null) return `Enter what you scored in ${component}.`;
+    if (maxMark != null && maxMark <= 0) return `Enter the total ${component} is marked out of.`;
+    if (mark != null && (mark < 0 || mark > (maxMark ?? 100))) {
+      return `Enter a ${component} mark between 0 and its total.`;
+    }
+
+    components.push({
+      component,
+      title: typeof row.title === "string" ? row.title.trim().slice(0, 80) || null : null,
+      weighting,
+      mark: status === "todo" ? null : mark,
+      maxMark,
+      status,
+      position: Number.isFinite(Number(row.position)) ? Number(row.position) : index,
+    });
+  }
+
+  const covered = components.reduce((sum, component) => sum + component.weighting, 0);
+  if (covered > 100.05) return "Those papers come to more than a whole award between them.";
+  return components;
+}
 
 function cleanNumber(value: unknown) {
   if (value === null || value === undefined || value === "") return null;
@@ -122,9 +180,22 @@ export async function POST(request: Request) {
         return Response.json({ error: "Enter a paper target between 0 and 100 per cent." }, { status: 400 });
       }
 
+      const components = cleanComponents(body.components);
+      if (typeof components === "string") {
+        return Response.json({ error: components }, { status: 400 });
+      }
+      // The award the papers are weighted against. Free text rather than a
+      // fixed set, because it is whatever `syllabus_assessment` says — and a
+      // learner typing their own route in names it themselves.
+      const award = typeof body.award === "string" && body.award.trim()
+        ? body.award.trim().slice(0, 24)
+        : banked ? "A Level" : "qualification";
+
       const target = await saveGradeTarget(workspaceId, {
         subjectId: subject.id,
         gradeScale: scale,
+        award,
+        components,
         completedStage: completedStage ?? null,
         completedGrade: grade,
         completedMark: max == null ? null : mark,

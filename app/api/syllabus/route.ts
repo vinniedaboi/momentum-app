@@ -1,4 +1,4 @@
-import { getSyllabusContent, getSyllabusVersions } from "../../../lib/syllabus-db";
+import { getSyllabusAssessment, getSyllabusContent, getSyllabusVersions } from "../../../lib/syllabus-db";
 import { withWorkspace } from "../../../lib/auth";
 
 export const runtime = "nodejs";
@@ -12,6 +12,11 @@ export async function GET(request: Request) {
       const recordId = params.get("content");
       if (recordId) {
         return Response.json({ content: await getSyllabusContent(recordId) });
+      }
+      // What each paper of a syllabus is worth, for the grade planner.
+      const code = params.get("assessment");
+      if (code) {
+        return Response.json({ assessment: await getSyllabusAssessment(code) });
       }
       return Response.json({ versions: await getSyllabusVersions() });
     } catch (error) {

@@ -131,6 +131,8 @@ export const studyApi = {
   syllabus: {
     versions: <T>() => api.get<T>(PATHS.syllabus),
     content: <T>(recordId: string) => api.get<T>(`${PATHS.syllabus}?content=${encodeURIComponent(recordId)}`),
+    /** What each paper of a syllabus is worth, read from the board's own PDF. */
+    assessment: <T>(code: string) => api.get<T>(`${PATHS.syllabus}?assessment=${encodeURIComponent(code)}`),
   },
 
   history: {

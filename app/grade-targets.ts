@@ -103,6 +103,12 @@ export const MOCK_WEIGHT = 0;
 export type GradeTarget = {
   subjectId: string;
   gradeScale: GradeScale;
+  /**
+   * Which award the papers are weighted against: "AS", "A Level", or
+   * "qualification" for a course sat in one go. Matches the award column of
+   * `syllabus_assessment`, because that is the table the weightings come from.
+   */
+  award: string;
   /** The stage the result came from, or null when it was a mock. */
   completedStage: string | null;
   completedGrade: string | null;
@@ -115,11 +121,132 @@ export type GradeTarget = {
   targetGrade: string;
   /** Null follows the target grade; a number is a learner aiming elsewhere. */
   paperTargetPercent: number | null;
+  /**
+   * The papers of the award, where the learner has chosen a route. Empty for a
+   * target typed in by hand, which is every subject whose syllabus the parser
+   * cannot read — those keep working exactly as they did.
+   */
+  components: TargetComponent[];
   createdAt: string;
   updatedAt: string;
 };
 
 export type GradeTargetInput = Omit<GradeTarget, "createdAt" | "updatedAt">;
+
+/**
+ * One paper of the course, and what the learner has done about it.
+ *
+ * A student does not sit an AS; they sit Paper 1, Paper 2 and Paper 3, each
+ * worth its own share of the award and each handed back at a different time.
+ * The weighting is the board's, read out of the syllabus PDF into
+ * `syllabus_assessment` — see scripts/parse_assessment.py — and copied onto
+ * the row so a syllabus revision cannot restate what a result already sat was
+ * worth.
+ */
+export type TargetComponent = {
+  component: string;
+  title: string | null;
+  weighting: number;
+  mark: number | null;
+  /** Null means the mark was typed as a percentage, which is how a slip reads. */
+  maxMark: number | null;
+  status: ComponentStatus;
+  position: number;
+};
+
+/**
+ * `sat` is a real result: its weighting leaves the pot and its marks go in.
+ * `mock` is a paper sat under exam conditions that counts for nothing — it
+ * forecasts what that component will do without banking any of it. `todo` is
+ * a paper still ahead, about which nothing is known.
+ */
+export const COMPONENT_STATUSES = ["sat", "mock", "todo"] as const;
+export type ComponentStatus = (typeof COMPONENT_STATUSES)[number];
+
+export function isComponentStatus(value: unknown): value is ComponentStatus {
+  return typeof value === "string" && (COMPONENT_STATUSES as readonly string[]).includes(value);
+}
+
+/** What a component came to, as a percentage of itself. */
+export function componentPercent(component: Pick<TargetComponent, "mark" | "maxMark">) {
+  if (component.mark == null) return null;
+  const max = component.maxMark ?? 100;
+  if (max <= 0) return null;
+  return Math.round((component.mark / max) * 1000) / 10;
+}
+
+/**
+ * The banked half of the question, counted rather than typed.
+ *
+ * Returns the pair the ladder already reads: the share of the award that is
+ * settled, and what was averaged across it. They multiply back to the marks
+ * actually earned, which is the only thing the arithmetic downstream needs —
+ * so a target built from papers and one typed in by hand are the same kind of
+ * thing to everything that reads them.
+ */
+export function bankedFromComponents(components: TargetComponent[]) {
+  let weight = 0;
+  let earned = 0;
+  for (const component of components) {
+    if (component.status !== "sat") continue;
+    const percent = componentPercent(component);
+    if (percent == null) continue;
+    weight += component.weighting;
+    earned += (percent / 100) * component.weighting;
+  }
+  return {
+    completedWeight: Math.round(weight * 10) / 10,
+    completedPercent: weight > 0 ? Math.round((earned / weight) * 1000) / 10 : 0,
+  };
+}
+
+/**
+ * Where the mocks say the course is heading.
+ *
+ * Sat papers and mocked ones together, averaged over the weight they cover —
+ * so a mock of the one paper left says as much as it can, and a course with
+ * nothing sat and nothing mocked says nothing at all rather than zero.
+ */
+export function forecastFromComponents(components: TargetComponent[]) {
+  let weight = 0;
+  let earned = 0;
+  for (const component of components) {
+    if (component.status === "todo") continue;
+    const percent = componentPercent(component);
+    if (percent == null) continue;
+    weight += component.weighting;
+    earned += (percent / 100) * component.weighting;
+  }
+  return weight > 0 ? Math.round((earned / weight) * 1000) / 10 : null;
+}
+
+/** How much of the award the chosen papers add up to. 100 means a full route. */
+export function coveredWeight(components: TargetComponent[]) {
+  return Math.round(components.reduce((sum, component) => sum + component.weighting, 0) * 10) / 10;
+}
+
+/**
+ * What one paper still to come has to score for the target, given everything
+ * else that is settled or forecast. The honest reading of "what do I need in
+ * Paper 4" when Paper 1 is already banked.
+ */
+export function componentRequirement(
+  target: Weighed,
+  components: TargetComponent[],
+  component: TargetComponent,
+  grade: string,
+) {
+  const others = components.filter((entry) => entry !== component);
+  const settled = bankedFromComponents(others);
+  const share = component.weighting;
+  if (share <= 0) return null;
+  const needed = gradeMinimum(target.gradeScale, grade) * 100
+    - settled.completedPercent * settled.completedWeight;
+  const rest = 100 - settled.completedWeight - share;
+  // Anything else still to come is assumed to match this paper, which is the
+  // only assumption that does not quietly favour one paper over another.
+  return rest + share > 0 ? needed / (rest + share) : null;
+}
 
 /** Weighing on the result: does it carry part of the grade, or only inform it? */
 export function isBanked(target: Pick<GradeTarget, "completedWeight">) {

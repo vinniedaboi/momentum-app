@@ -25,6 +25,29 @@ export type SyllabusVersion = {
   points: number;
 };
 
+/**
+ * What one component of a syllabus is worth, read from the board's own
+ * assessment overview rather than assumed. A paper counting towards both the
+ * AS and the full A Level appears once per award, because they are two
+ * different qualifications with two different totals.
+ */
+export type AssessmentComponent = {
+  syllabusCode: string;
+  /** "Paper 4". */
+  component: string;
+  number: number;
+  title: string | null;
+  /** The raw total the paper is marked out of, where the syllabus states it. */
+  marks: number | null;
+  /** "Core", "Extended", "Mechanics" — empty where the syllabus has no branches. */
+  route: string;
+  /** "AS", "A Level", or "qualification" for a course awarded in one go. */
+  award: string;
+  weighting: number;
+  /** "Compulsory for A Level", "Offered only as part of AS Level". */
+  rule: string | null;
+};
+
 export type SyllabusContentRow = {
   code: string;
   kind: "chapter" | "point";
@@ -91,5 +114,37 @@ export async function getSyllabusContent(recordId: string): Promise<SyllabusCont
     parentCode: row.parent_code ? String(row.parent_code) : null,
     title: String(row.title),
     academicLevel: row.academic_level ? String(row.academic_level) : null,
+  }));
+}
+
+
+/**
+ * Every component of a syllabus, best award first.
+ *
+ * Ordered so a planner can read the list straight down: the components of one
+ * award together, in paper order. Empty for a syllabus whose overview could
+ * not be read — every board but Cambridge, and a handful of Cambridge's own —
+ * which is the planner's cue to ask the learner rather than to guess.
+ */
+export async function getSyllabusAssessment(syllabusCode: string): Promise<AssessmentComponent[]> {
+  const sql = getSql();
+  const rows = await sql<Record<string, unknown>[]>`
+    SELECT syllabus_code, component, component_number, component_title, marks,
+           route, award, weighting_percent, rule
+    FROM syllabus_assessment
+    WHERE syllabus_code = ${syllabusCode}
+    ORDER BY award, component_number
+  `;
+
+  return rows.map((row) => ({
+    syllabusCode: String(row.syllabus_code),
+    component: String(row.component),
+    number: Number(row.component_number),
+    title: row.component_title ? String(row.component_title) : null,
+    marks: row.marks == null ? null : Number(row.marks),
+    route: String(row.route ?? ""),
+    award: String(row.award),
+    weighting: Number(row.weighting_percent),
+    rule: row.rule ? String(row.rule) : null,
   }));
 }

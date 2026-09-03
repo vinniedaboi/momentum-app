@@ -19,6 +19,7 @@ const DEFAULTS = {
   catalogue: "data/paper-catalogue.csv",
   versions: "data/syllabus-versions.csv",
   content: "data/syllabus-content.json",
+  assessment: "data/syllabus-assessment.csv",
 };
 
 const SEASON_CODES = {
@@ -228,6 +229,48 @@ function contentRecords(path) {
   return records;
 }
 
+/**
+ * The component weightings read out of the boards' own syllabus PDFs. Unlike
+ * the parsed spec points this is committed, because a paper being worth 46% of
+ * the AS Level is a fact about the qualification rather than the board's
+ * teaching material — the same kind of fact as a grade threshold.
+ */
+function assessmentRecords(path) {
+  const { column, lines } = loadCsv(path);
+  if (column.Weighting_Percent === undefined) {
+    throw new Error(`${path} is missing the Weighting_Percent column.`);
+  }
+
+  const records = [];
+  const seen = new Set();
+  for (const line of lines) {
+    if (line.length <= 1) continue;
+    const get = (name) => String(line[column[name]] ?? "").trim();
+    const weighting = number(get("Weighting_Percent"));
+    if (!get("Syllabus_Code") || !get("Component") || !get("Award")) continue;
+    // The table's key. A syllabus listed for two exam windows would otherwise
+    // offer the same paper twice and the insert would fail on the second.
+    const key = `${get("Syllabus_Code")}|${get("Component")}|${get("Award")}`;
+    if (!weighting || weighting <= 0 || weighting > 100 || seen.has(key)) continue;
+    seen.add(key);
+    records.push({
+      syllabus_code: get("Syllabus_Code"),
+      board: get("Exam_Board"),
+      qualification: get("Qualification"),
+      subject: get("Subject_Name"),
+      component: get("Component"),
+      component_number: number(get("Component_Number")) ?? 0,
+      component_title: text(get("Component_Title")),
+      marks: number(get("Marks")),
+      route: get("Route"),
+      award: get("Award"),
+      weighting_percent: weighting,
+      rule: text(get("Rule")),
+    });
+  }
+  return records;
+}
+
 async function replaceTable(sql, table, records, columns) {
   await sql.begin(async (tx) => {
     await tx`DELETE FROM ${tx(table)}`;
@@ -268,6 +311,14 @@ try {
     console.log(`syllabus_content: ${usable.length} rows`
       + (dropped ? ` (${dropped} skipped for versions not in the directory)` : ""));
   }
+
+  const assessment = assessmentRecords(readArg("assessment", DEFAULTS.assessment));
+  await replaceTable(sql, "syllabus_assessment", assessment, [
+    "syllabus_code", "board", "qualification", "subject", "component",
+    "component_number", "component_title", "marks", "route", "award",
+    "weighting_percent", "rule",
+  ]);
+  console.log(`syllabus_assessment: ${assessment.length} rows`);
 
   const { records, skipped } = catalogueRecords(readArg("catalogue", DEFAULTS.catalogue));
   await replaceTable(sql, "catalogue_papers", records, [

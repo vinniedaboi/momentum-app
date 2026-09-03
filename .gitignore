@@ -44,3 +44,6 @@ data/syllabus-content.json
 
 # IB subject briefs, saved by hand from ibo.org (see parse_syllabus_content.py)
 data/ib-briefs/
+
+# downloaded syllabus PDFs, cached so a re-parse does not re-fetch 150 of them
+.syllabus-cache/

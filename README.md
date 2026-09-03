@@ -88,6 +88,19 @@ environment:
 npm run import:shared
 ```
 
+`syllabus_assessment` — what each paper of a syllabus is worth — is parsed from
+the same PDFs and *is* committed, because a weighting is a fact about the
+qualification rather than the board's teaching material:
+
+```bash
+python scripts/parse_assessment_all.py
+```
+
+That reads the assessment overview out of every current Cambridge syllabus and
+writes `data/syllabus-assessment.csv`, which `npm run import:shared` loads. 131
+of the 152 Cambridge syllabuses give up their table; the rest, and every other
+board, are subjects the grade planner asks the learner about instead.
+
 `syllabus_content` (spec points parsed from the boards' own PDFs) is not produced
 by this importer — it comes from the Python PDF parser:
 
