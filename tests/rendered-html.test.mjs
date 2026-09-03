@@ -83,6 +83,12 @@ test("every API route requires a session and runs on Node", async () => {
     if (ownGuard) {
       // Exempt from the session, never from having a guard of its own.
       assert.match(source, ownGuard, `/api/${route} should authorise itself`);
+    } else if (route === "admin") {
+      // The operator console reads every workspace at once, so a session is not
+      // enough — it needs the narrower gate. tests/admin-access.test.mjs has
+      // the rest of what that gate owes.
+      assert.match(source, /withAdmin/, "/api/admin should be behind withAdmin");
+      assert.doesNotMatch(source, /withWorkspace/, "/api/admin is not workspace-scoped");
     } else {
       assert.match(source, /withWorkspace/, `/api/${route} should be behind withWorkspace`);
     }

@@ -1,0 +1,140 @@
+/* The operator console.
+
+   Deliberately plainer than the product: this is a tool for one person who
+   already knows what they are looking at, and dressing it like the app it
+   reports on would make the two easy to confuse in a screenshot. It borrows the
+   panel, the section heading and the history feed's own rows, because those are
+   already the right shapes and a second vocabulary for "a list of things that
+   happened" would be one too many. */
+
+.admin-page {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6) var(--space-10);
+}
+/* A grid item is min-width:auto, so the accounts table's own minimum would push
+   the whole page wider than the window instead of scrolling inside its panel —
+   and take the header and every other panel out of view with it. */
+.admin-page > * { min-width: 0; }
+
+.admin-topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-5); }
+.admin-topbar h1 { font: 650 var(--text-4xl)/1.05 var(--font-display); margin: var(--space-2) 0; }
+.admin-topbar p:last-child { margin: 0; color: var(--muted); font-size: var(--text-2xs); }
+.admin-topbar .ghost-button { flex: 0 0 auto; }
+
+.admin-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); }
+.admin-totals article {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--c-surface-raised);
+}
+.admin-totals span {
+  font-size: var(--text-3xs);
+  font-weight: 900;
+  color: var(--c-muted);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+.admin-totals strong { font: 700 var(--text-2xl) var(--font-display); }
+.admin-totals small { font-size: var(--text-3xs); color: var(--muted); }
+.admin-totals article.on-track strong { color: var(--c-teal-deep); }
+.admin-totals article.behind strong { color: var(--c-amber-ink); }
+
+.admin-accounts .section-heading input {
+  min-height: 36px;
+  width: min(260px, 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--c-surface-sunken);
+  color: var(--ink);
+  padding: 0 var(--space-3);
+  font-size: var(--text-2xs);
+}
+
+/* A table of eight columns has a width it cannot go below without lying about
+   the numbers, so it scrolls inside the panel rather than squeezing. */
+.admin-table-scroll { overflow-x: auto; padding: 0 var(--space-6) var(--space-6); }
+.admin-table { width: 100%; border-collapse: collapse; min-width: 720px; }
+.admin-table th, .admin-table td { text-align: left; padding: var(--space-3) var(--space-3) var(--space-3) 0; }
+.admin-table thead th {
+  font-size: var(--text-3xs);
+  font-weight: 900;
+  color: var(--c-muted);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.admin-table tbody tr { border-bottom: 1px solid var(--c-line-soft); }
+.admin-table tbody tr.chosen { background: var(--c-mint); }
+.admin-table tbody td { font-size: var(--text-2xs); font-weight: 700; white-space: nowrap; }
+.admin-table tbody th { padding-right: var(--space-5); }
+.admin-table tbody th button {
+  display: grid;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.admin-table tbody th strong { font-size: var(--text-2xs); font-weight: 900; }
+.admin-table tbody th small { font-size: var(--text-3xs); color: var(--muted); font-weight: 700; }
+.admin-table tbody th button:hover strong { color: var(--c-teal-deep); }
+/* How long ago is the column an operator actually scans, so it carries the one
+   piece of colour on the row. */
+.admin-table td.warm { color: var(--c-teal-deep); }
+.admin-table td.cold { color: var(--c-amber-ink); }
+.admin-table td.quiet { color: var(--c-slate); }
+
+.admin-filters { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0 var(--space-6) var(--space-4); }
+.admin-feed .history-days { padding: 0 var(--space-6); }
+.admin-feed .section-heading .ghost-button { flex: 0 0 auto; }
+
+/* Whose row it is, on a feed showing everybody's. Right-aligned so the column
+   of names reads down the edge instead of interrupting each row. */
+.admin-who {
+  justify-self: end;
+  align-self: center;
+  font-style: normal;
+  font-size: var(--text-3xs);
+  font-weight: 800;
+  color: var(--c-slate);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+/* The feed's own row plus a column for whose it is. The 56px/28px pair is the
+   history timeline's — the dot centres in the second column and the rule is
+   drawn down it, so only the trailing column is ours to add. */
+.admin-feed .history-day li { grid-template-columns: 56px 28px minmax(0, 1fr) auto; }
+
+.admin-more { margin: var(--space-4) var(--space-6) 0; justify-self: start; }
+.admin-empty, .admin-error { margin: 0; padding: 0 var(--space-6) var(--space-6); font-size: var(--text-2xs); color: var(--muted); }
+.admin-error { color: var(--c-red); font-weight: 800; }
+.admin-note {
+  margin: var(--space-5) 0 0;
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  border-top: 1px solid var(--line);
+  font-size: var(--text-3xs);
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+@media (max-width: 850px) {
+  .admin-page { padding: var(--space-6) var(--space-4) var(--space-10); }
+  .admin-topbar { flex-direction: column; }
+  .admin-table-scroll, .admin-filters, .admin-feed .history-days { padding-left: var(--space-4); padding-right: var(--space-4); }
+  .admin-more { margin-left: var(--space-4); }
+  .admin-empty, .admin-error, .admin-note { padding-left: var(--space-4); padding-right: var(--space-4); }
+  /* The name drops under the row rather than squeezing the detail beside it. */
+  .admin-feed .history-day li { grid-template-columns: 56px 28px minmax(0, 1fr); }
+  .admin-who { grid-column: 3; justify-self: start; max-width: none; }
+}

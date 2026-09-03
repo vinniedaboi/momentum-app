@@ -43,6 +43,10 @@ Three tables are deliberately **not** workspace-scoped — `catalogue_papers`,
 `syllabus_versions` and `syllabus_content` are shared reference data, readable
 by any signed-in user and writable only by the service role.
 
+`lib/admin-db.ts` is the one module that reads *every* workspace at once. It
+exists for the operator console below and is reachable only through
+`withAdmin()`; nothing else may call it.
+
 ---
 
 ## Local setup
@@ -67,6 +71,9 @@ Copy `.env.example` to `.env.local` and fill it in:
   back to `NEXT_PUBLIC_SITE_URL` and then to the production origin. It exists so
   that turning reminders on never means touching the variable Supabase's
   confirmation links depend on.
+- `ADMIN_EMAILS` — optional; comma-separated addresses allowed to open `/admin`.
+  See **Operator console** below. Leave it unset and the page does not exist for
+  anyone.
 
 Then:
 
@@ -293,17 +300,42 @@ is already there.
 
 ---
 
+## Operator console
+
+`/admin` reports on the service: every account with when it signed up and when
+it was last active, totals across all of them, and a feed of what everyone has
+been doing — reviews, status changes, logged time, papers sat, tasks completed.
+
+Set `ADMIN_EMAILS` to a comma-separated list of the addresses allowed to open
+it. **Unset means nobody**, in every environment, which is why a fresh deploy
+never accidentally exposes it. An account that is not on the list gets a 404
+rather than a 403, so the page's existence is not confirmed to whoever guessed
+the URL. Nothing links to it from inside the app.
+
+It is read-only: `/api/admin` has no POST, and the console cannot change
+anyone's data.
+
+It reports actions, not writing. Topic notes, session notes and task titles are
+never read out of the database for this page — a row says a note was added, not
+what it said. Those three redactions are marked `-- redacted` in
+`lib/admin-db.ts`; removing one is a decision about your users' privacy, not a
+bug fix, and `tests/admin-access.test.mjs` fails when one goes.
+
+---
+
 ## Repository layout
 
 ```
 app/                 App Router pages, API routes and the client UI
-  api/               12 workspace-scoped endpoints + /api/onboarding
+  api/               12 workspace-scoped endpoints + /api/onboarding, /api/admin
   login/ signup/     Auth screens
   onboarding/        Four-step account setup, ending on how the tracker works
+  admin/             Operator console, gated on ADMIN_EMAILS
 lib/                 Data access, one module per feature area
   supabase/          Server, browser and proxy Supabase clients
   db.ts              postgres.js pool
   auth.ts            Session resolution and the withWorkspace guard
+  admin.ts           The withAdmin guard; admin-db.ts reads every workspace
 supabase/migrations/ Schema, RLS policies and the storage bucket
 scripts/             Shared-data and legacy-D1 importers, syllabus PDF parser
 tests/               Source-level guardrails

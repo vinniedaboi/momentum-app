@@ -30,6 +30,7 @@ const PATHS = {
   history: "/api/history",
   syllabus: "/api/syllabus",
   onboarding: "/api/onboarding",
+  admin: "/api/admin",
 } as const;
 
 const id = (path: string, value: Identifier) => `${path}?id=${encodeURIComponent(value)}`;
@@ -143,6 +144,21 @@ export const studyApi = {
       if (options.before) query.set("before", options.before);
       const search = query.toString();
       return api.get<T>(search ? `${PATHS.history}?${search}` : PATHS.history);
+    },
+  },
+
+  /**
+   * The operator console. Answers 404 to any account not on the ADMIN_EMAILS
+   * list, so calling it from anywhere else is harmless rather than forbidden.
+   */
+  admin: {
+    activity: <T>(options: { kinds?: string[]; before?: string | null; account?: string | null } = {}) => {
+      const query = new URLSearchParams();
+      if (options.kinds?.length) query.set("kinds", options.kinds.join(","));
+      if (options.before) query.set("before", options.before);
+      if (options.account) query.set("account", options.account);
+      const search = query.toString();
+      return api.get<T>(search ? `${PATHS.admin}?${search}` : PATHS.admin);
     },
   },
   onboarding: {

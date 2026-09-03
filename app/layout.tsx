@@ -12,6 +12,7 @@ import "./guide.css";
 import "./auth.css";
 import "./brand.css";
 import "./landing.css";
+import "./admin.css";
 
 const nunito = Nunito_Sans({
   variable: "--font-friendly-sans",
