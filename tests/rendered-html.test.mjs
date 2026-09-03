@@ -1385,22 +1385,19 @@ test("the landing page leads with the six features the product is for", async ()
   const pillarBlock = landing.match(/const PILLARS = \[[\s\S]*?\n\];/)?.[0] ?? "";
   const shots = [...pillarBlock.matchAll(/shot: "([\w-]+)" as const/g)].map((match) => match[1]);
   assert.equal(shots.length, pillars.length, "every pillar needs its own screenshot");
-  // The board itself is in the hero, eagerly loaded, because opening it and
-  // already knowing what to do is the whole claim and it has to be made before
-  // anything is read. Its own section shows the queue those counters count.
-  assert.match(landing, /<Shot name="review-board" priority wide \/>/);
-  assert.equal(shots[0], "review-queue");
+  assert.equal(shots[0], "review-board");
   // Any pillar may claim the full width — the paper catalogue is a table, and a
   // table in half a column is unreadable.
   assert.match(landing, /index === 0 \|\| "wide" in pillar \? "lead"/);
   assert.match(landing, /shot2: "paper-catalogue" as const,\s*\n\s*wide: true,/);
 
-  // The two sections a single frame cannot make the case for: a goal's summary
-  // is a summary of a chapter timeline the first shot stops above, and a paper
-  // catalogue says nothing about the marks your own attempts lost. Both get a
-  // second frame, and both therefore have to run full width.
+  // The three a single frame cannot make the case for: the board's counters
+  // mean nothing without the queue they are counting, a goal's summary is a
+  // summary of a chapter timeline the first shot stops above, and a paper
+  // catalogue says nothing about the marks your own attempts lost. Each gets a
+  // second frame, and each therefore has to run full width.
   const paired = [...pillarBlock.matchAll(/shot2: "([\w-]+)" as const/g)].map((match) => match[1]);
-  assert.deepEqual(paired, ["goal-detail", "paper-catalogue"]);
+  assert.deepEqual(paired, ["review-queue", "goal-detail", "paper-catalogue"]);
   for (const name of paired) {
     assert.ok(names.includes(name), `${name} needs an entry in SHOTS`);
   }

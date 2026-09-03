@@ -149,21 +149,6 @@ function Shot({ name, priority = false, wide = false, caption, sizes }: {
 }
 
 /**
- * Labels laid over the hero screenshot.
- *
- * The promise of the product is that you open it and already know what to do,
- * and a paragraph is the wrong way to make that argument: the picture has to
- * make it to somebody who reads nothing else. Each one names something that is
- * actually in the frame, and they sit over the app's own chrome and the empty
- * corner at the foot of it rather than over the numbers they point at.
- */
-const CALLOUTS = [
-  { spot: "overdue", text: "Overdue leads the list" },
-  { spot: "syllabus", text: "58% of the real syllabus" },
-  { spot: "dated", text: "Today's list, already built" },
-];
-
-/**
  * What a learner actually does, in the order they actually do it.
  *
  * It used to open on logging time, which is nobody's first move: you cannot log
@@ -212,11 +197,10 @@ const LOOP = [
  */
 const PILLARS = [
   {
-    // The counters are in the hero now, so this one shows what they are
-    // counting: the queue underneath them, which is the half a single frame
-    // could never argue for and the half the hero has no room for.
-    shot: "review-queue" as const,
-    caption: "The queue itself — every point with its date, what it is worth, and how hard you find it.",
+    shot: "review-board" as const,
+    shot2: "review-queue" as const,
+    caption: "What is overdue, what is due today, how much you have covered.",
+    caption2: "And the queue itself — every point with its date, what it is worth, and how hard you find it.",
     eyebrow: "REVIEW BOARD",
     title: "Stop deciding what to study",
     body: "Every spec point already has a date, so the day's list is worked out before you open it. Nothing falls off the syllabus because you forgot it was there.",
@@ -420,17 +404,6 @@ export default function Landing({ stats }: { stats: LandingStats }) {
             <Link href="/login" className="landing-ghost large">I already have one</Link>
           </div>
           <p className="landing-hero-note">Free, no limits, syllabus loaded at sign-up.</p>
-          {/* The board itself, above the fold. The whole claim is that opening
-              it is the entire decision, and that only lands if the thing you
-              open is the first thing on the page. */}
-          <div className="landing-hero-figure">
-            <Shot name="review-board" priority wide />
-            <ul className="landing-callouts" aria-label="What the board already knows">
-              {CALLOUTS.map((callout) => (
-                <li key={callout.spot} data-spot={callout.spot}>{callout.text}</li>
-              ))}
-            </ul>
-          </div>
           <ul className="landing-pillar-strip" aria-label="What Momentum does">
             {PILLARS.map((pillar) => (
               <li key={pillar.eyebrow}>{pillar.eyebrow.toLowerCase().replace(/^./, (c) => c.toUpperCase())}</li>
@@ -464,7 +437,11 @@ export default function Landing({ stats }: { stats: LandingStats }) {
                   <strong>{step.title}</strong>
                   <p>{step.body}</p>
                 </div>
-                <Shot name={step.shot} sizes="(max-width: 900px) 100vw, 620px" />
+                <Shot
+                  name={step.shot}
+                  priority={index === 0}
+                  sizes="(max-width: 900px) 100vw, 620px"
+                />
               </li>
             ))}
           </ol>
@@ -489,9 +466,9 @@ export default function Landing({ stats }: { stats: LandingStats }) {
               </ul>
             </div>
             <div className="landing-shot-stack">
-              {/* Not the eager one: the hero's board is the first picture in
-                  the document and the only one on screen at load, and two of
-                  these racing each other only slows that one down. */}
+              {/* Not the eager one: the loop's first frame is the first picture
+                  in the document, and two of these racing each other only slows
+                  the one that is actually on screen. */}
               <Shot
                 name={pillar.shot}
                 wide={LAYOUTS[index] === "lead"}
