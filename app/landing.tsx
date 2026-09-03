@@ -27,7 +27,7 @@ const SHOTS = [
     file: "review-board",
     width: 1440,
     height: 900,
-    alt: "The Momentum review board, showing five overdue topics, nine due today and sixteen in the next seven days, above a queue of syllabus points grouped by chapter, each row naming the plan that scheduled it and how long it is worth.",
+    alt: "The Momentum review board, showing six overdue topics, eleven due today, twenty in the next seven days and 58% of the syllabus covered, above a queue of syllabus points grouped by chapter, each row naming the plan that scheduled it and how long it is worth.",
   },
   {
     file: "review-queue",
@@ -72,11 +72,25 @@ const SHOTS = [
     alt: "Momentum's study hours screen, showing 1h 35m logged today and 13h 15m across the week, a quick-log form, and a bar chart of daily study totals for the last seven days.",
   },
   /*
-   * The four the loop runs on. Each is a crop of one of the screens above,
-   * taken at the same 2.26:1 so the steps sit in bands of one height, and cut
-   * close enough that the numbers in it are still readable beside the copy —
-   * a whole 1440px screen shrunk into half a column shows nothing.
+   * Crops of the screens above, cut by scripts/crop-landing-shots.py. A whole
+   * 1440px screen shrunk into part of a column shows nothing, so where the
+   * argument rests on a figure being read, the figure gets cut out and shown
+   * at a size it can be read at.
    */
+  {
+    file: "paper-figures",
+    width: 1055,
+    height: 140,
+    alt: "Momentum's past-paper summary cards: five papers attempted, a 78.8% average across the five scored, a best paper of 90.7% on Mathematics Paper 2, and a catalogue of 9,393 papers with mark schemes.",
+  },
+  {
+    file: "paper-catalogue",
+    width: 1055,
+    height: 940,
+    alt: "Momentum's past paper catalogue, filtered by year, season, paper, variant and difficulty across 412 Physics papers, each row showing its stage, its difficulty, its A, B and C grade thresholds, and links to the question paper, mark scheme and examiner report.",
+  },
+  /* The four the loop runs on, all at 2.26:1 so its steps sit in bands of one
+     height however wide the column gets. */
   {
     file: "loop-subjects",
     width: 810,
@@ -135,6 +149,21 @@ function Shot({ name, priority = false, wide = false, caption, sizes }: {
 }
 
 /**
+ * Labels laid over the hero screenshot.
+ *
+ * The promise of the product is that you open it and already know what to do,
+ * and a paragraph is the wrong way to make that argument: the picture has to
+ * make it to somebody who reads nothing else. Each one names something that is
+ * actually in the frame, and they sit over the app's own chrome and the empty
+ * corner at the foot of it rather than over the numbers they point at.
+ */
+const CALLOUTS = [
+  { spot: "overdue", text: "Overdue leads the list" },
+  { spot: "syllabus", text: "58% of the real syllabus" },
+  { spot: "dated", text: "Today's list, already built" },
+];
+
+/**
  * What a learner actually does, in the order they actually do it.
  *
  * It used to open on logging time, which is nobody's first move: you cannot log
@@ -183,10 +212,11 @@ const LOOP = [
  */
 const PILLARS = [
   {
-    shot: "review-board" as const,
-    shot2: "review-queue" as const,
-    caption: "What is overdue, what is due today, how much you have covered.",
-    caption2: "And the queue itself — every point with its date, what it is worth, and how hard you find it.",
+    // The counters are in the hero now, so this one shows what they are
+    // counting: the queue underneath them, which is the half a single frame
+    // could never argue for and the half the hero has no room for.
+    shot: "review-queue" as const,
+    caption: "The queue itself — every point with its date, what it is worth, and how hard you find it.",
     eyebrow: "REVIEW BOARD",
     title: "Stop deciding what to study",
     body: "Every spec point already has a date, so the day's list is worked out before you open it. Nothing falls off the syllabus because you forgot it was there.",
@@ -234,11 +264,17 @@ const PILLARS = [
     ],
   },
   {
-    shot: "past-papers" as const,
+    // The figures lead, at a size they can be read at, because the argument
+    // here is about a number. The catalogue under them is cut below those same
+    // cards, so the two frames are not the same picture twice.
+    shot: "paper-figures" as const,
+    shot2: "paper-catalogue" as const,
     wide: true,
+    caption: "What your own attempts come to — and the catalogue they came out of.",
+    caption2: "Every Cambridge paper, with the thresholds it was marked against and the files to sit it.",
     eyebrow: "PAST PAPERS",
-    title: "Find the three topics costing you the marks",
-    body: "It is usually the same three. Log an attempt against the points that lost the marks and they go straight back on the review board. Every Cambridge paper is here, each rated by where its grade boundaries actually landed — a hard paper is one the examiners had to drop the A threshold for.",
+    title: "Stop recording the score. Find out where the marks went.",
+    body: "78.8% is the number every tracker will give you, and there is nothing you can do with it. Log the attempt against the spec points that lost the marks and they are ranked by how many papers they have cost you — usually the same three — then go straight back on the review board. Every Cambridge paper is here too, each rated by where its grade boundaries actually landed: a hard paper is one the examiners had to drop the A threshold for.",
     ticks: [
       "Weak topics tagged to the syllabus point that lost them",
       "Difficulty read from the paper's own grade thresholds",
@@ -384,6 +420,17 @@ export default function Landing({ stats }: { stats: LandingStats }) {
             <Link href="/login" className="landing-ghost large">I already have one</Link>
           </div>
           <p className="landing-hero-note">Free, no limits, syllabus loaded at sign-up.</p>
+          {/* The board itself, above the fold. The whole claim is that opening
+              it is the entire decision, and that only lands if the thing you
+              open is the first thing on the page. */}
+          <div className="landing-hero-figure">
+            <Shot name="review-board" priority wide />
+            <ul className="landing-callouts" aria-label="What the board already knows">
+              {CALLOUTS.map((callout) => (
+                <li key={callout.spot} data-spot={callout.spot}>{callout.text}</li>
+              ))}
+            </ul>
+          </div>
           <ul className="landing-pillar-strip" aria-label="What Momentum does">
             {PILLARS.map((pillar) => (
               <li key={pillar.eyebrow}>{pillar.eyebrow.toLowerCase().replace(/^./, (c) => c.toUpperCase())}</li>
@@ -417,11 +464,7 @@ export default function Landing({ stats }: { stats: LandingStats }) {
                   <strong>{step.title}</strong>
                   <p>{step.body}</p>
                 </div>
-                <Shot
-                  name={step.shot}
-                  priority={index === 0}
-                  sizes="(max-width: 900px) 100vw, 620px"
-                />
+                <Shot name={step.shot} sizes="(max-width: 900px) 100vw, 620px" />
               </li>
             ))}
           </ol>
@@ -446,9 +489,9 @@ export default function Landing({ stats }: { stats: LandingStats }) {
               </ul>
             </div>
             <div className="landing-shot-stack">
-              {/* Not the eager one any more: the loop's first frame is now the
-                  first picture in the document, and two of these racing each
-                  other only slows the one that is actually on screen. */}
+              {/* Not the eager one: the hero's board is the first picture in
+                  the document and the only one on screen at load, and two of
+                  these racing each other only slows that one down. */}
               <Shot
                 name={pillar.shot}
                 wide={LAYOUTS[index] === "lead"}

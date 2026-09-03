@@ -2,7 +2,14 @@ import MomentumMark from "./momentum-mark";
 import ThemeToggle from "./theme-toggle";
 import Icon from "./icons";
 
-/** Marketing panel shared by the sign-in and sign-up screens. */
+/**
+ * Marketing panel shared by the sign-in and sign-up screens.
+ *
+ * It says the same things the landing page says, in the same terms. It used to
+ * say narrower ones — Cambridge only, and free "while Momentum is in early
+ * access" — which read, one click after a page promising five exam boards and
+ * no limits, as two different products, or as a price about to arrive.
+ */
 export default function AuthAside() {
   return (
     <aside className="auth-aside">
@@ -18,8 +25,7 @@ export default function AuthAside() {
       <div className="auth-pitch">
         <h2>Know exactly what to review next.</h2>
         <p>
-          Momentum turns your syllabus into a schedule, then keeps it honest as
-          your exam date gets closer.
+          Momentum does the planning. Open it, and you know what to review next.
         </p>
 
         <ul className="auth-highlights">
@@ -29,7 +35,7 @@ export default function AuthAside() {
           </li>
           <li>
             <i aria-hidden="true"><Icon name="book" /></i>
-            <span><strong>Full CAIE syllabus</strong> — chapters and spec points loaded on day one.</span>
+            <span><strong>Official syllabuses</strong> — Cambridge, Edexcel, AQA, OCR and IB, loaded on day one.</span>
           </li>
           <li>
             <i aria-hidden="true"><Icon name="chart" /></i>
@@ -43,7 +49,7 @@ export default function AuthAside() {
       </div>
 
       <p className="eyebrow light" style={{ margin: 0 }}>
-        Built for Cambridge AS &amp; A Level
+        For A Level, IGCSE and IB students
       </p>
     </aside>
   );

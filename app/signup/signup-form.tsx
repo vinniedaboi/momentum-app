@@ -61,7 +61,7 @@ export default function SignupForm() {
   return (
     <form className="auth-card" onSubmit={handleSubmit}>
       <h2>Start your revision plan</h2>
-      <p className="muted">Free while Momentum is in early access.</p>
+      <p className="muted">Free, with no limits on subjects, topics or papers.</p>
 
       {error ? <p className="auth-alert error">{error}</p> : null}
 
