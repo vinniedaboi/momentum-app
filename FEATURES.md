@@ -168,7 +168,10 @@ the mock says how far off it you are.
 - Pick a grade from that ladder and its required percentage becomes the target
   every past paper for that stage is measured against — on this screen and on
   Past papers
-- **Three readings of the same marks** once the remaining papers are filled in:
+- **A final grade once every paper is marked.** With nothing outstanding there
+  is nothing to target, so the screen reports the result instead: the
+  percentage, the grade, and whether it cleared the one you were aiming at
+- **Three readings of the same marks** while some papers are still ahead:
   what the banked half came to, what those papers came to *on their own*, and
   where the two land together. A2 is not certificated separately, so the middle
   figure is one no board gives you

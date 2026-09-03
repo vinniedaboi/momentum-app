@@ -46,6 +46,10 @@ Versions are `major.minor.patch`:
 - **Priced on your own ladder.** A* to E for an A Level, A* to G for an IGCSE,
   9 to 1 for an International GCSE. The subject picks it from its
   qualification, and you can change it.
+- **Fill in every paper and get the grade.** Once each paper of the award has a
+  mark against it there is nothing left to target, so the screen stops asking
+  for a percentage and reports the result: what it came to, what grade that is,
+  and whether it cleared the grade you were aiming at.
 - **See what A2 itself came to.** Fill in the marks for the papers still to
   come and the screen reads them three ways: what AS banked, what those papers
   came to on their own, and where the two land together. A2 is not certificated

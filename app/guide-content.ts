@@ -210,6 +210,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       { term: "Your own ladder", detail: "A Levels are priced A* to E, IGCSEs A* to G, and International GCSEs 9 to 1. The subject picks the ladder from its qualification, and you can change it." },
       { term: "Every grade is priced", detail: "Not just the one you picked: the ladder shows what each overall grade would now cost you, and which are already out of reach." },
       { term: "Pick a target", detail: "Choose a grade from the ladder and its required percentage becomes the target every past paper for that stage is measured against." },
+      { term: "A final grade at the end", detail: "Once every paper of the award has a mark, there is nothing left to target — so the screen reports what it came to, what grade that is, and whether it cleared the one you were aiming at." },
       { term: "What the second half came to", detail: "Fill in the marks for the papers still ahead and the screen reads them three ways: the half already banked, those papers on their own, and the two together. A2 is not certificated separately, so the middle one is a figure no board hands you." },
       { term: "Watch the projection", detail: "Your recent papers become a form figure, and the screen shows the overall grade that form would land. Until a paper is logged, a mock stands in for it." },
     ],

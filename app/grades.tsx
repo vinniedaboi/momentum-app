@@ -16,6 +16,7 @@ import {
   GRADE_SCALE_KEYS,
   GRADE_SCALES,
   gradeArticle,
+  gradeBeats,
   gradeLadder,
   gradeRange,
   gradesFor,
@@ -25,6 +26,7 @@ import {
   MOCK_WEIGHT,
   overallGrade,
   overallPercent,
+  courseOutcome,
   paperTarget,
   remainingFromComponents,
   resultGrades,
@@ -821,7 +823,20 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
    */
   const remaining = remainingFromComponents(target.components);
   const remainingGrade = remaining ? overallGrade(target.gradeScale, remaining.percent) : null;
-  /** Every paper of the award now has a mark against it, so nothing is a guess. */
+  /**
+   * Every paper of the award has a mark against it, so the course is over and
+   * the screen owes a grade rather than a target. Nothing else on this page
+   * can say it: the ladder prices what is still to come, and at the end of a
+   * course there is nothing still to come.
+   */
+  const outcome = courseOutcome(target);
+  /**
+   * The course is genuinely over — every paper sat, not merely marked. Only
+   * then does the breakdown collapse to one figure: while any of it is still a
+   * mock, what the halves came to separately is the more useful reading.
+   */
+  const finished = Boolean(outcome?.settled);
+  /** The stage still ahead is fully marked, even if the course is not. */
   const complete = Boolean(remaining && remaining.known >= remaining.weight - 0.05);
 
   /**
@@ -844,13 +859,23 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
         <p className="eyebrow">GRADE TARGET</p>
         <h3>{subject?.name ?? target.subjectId} {named && <span>{target.remainingStage}</span>}</h3>
         <p>
-          {banked
-            ? <><strong>{target.completedStage}</strong> banked at <strong>{formatPercent(target.completedPercent)}</strong></>
-            : <><strong>Mock</strong> came to <strong>{formatPercent(target.completedPercent)}</strong></>}
+          {finished
+            ? <>Every paper in, and <strong>{formatPercent(outcome!.percent)}</strong> across the lot</>
+            : banked
+              ? <><strong>{target.completedStage}</strong> banked at <strong>{formatPercent(target.completedPercent)}</strong></>
+              : <><strong>Mock</strong> came to <strong>{formatPercent(target.completedPercent)}</strong></>}
           {target.completedGrade ? <> · grade <strong>{target.completedGrade}</strong></> : null}
         </p>
         <div className="goal-plan-tags">
-          {banked
+          {/* "Best possible" and "guaranteed" are forward-looking, and a course
+              with every paper sat has no forward left to look at. */}
+          {finished
+            ? <>
+              <span>{GRADE_SCALES[target.gradeScale].label}</span>
+              <span>{target.components.length} papers, all sat</span>
+              <span>Weighted by the syllabus</span>
+            </>
+            : banked
             ? <>
               <span>{target.completedStage} worth {target.completedWeight}%</span>
               <span>Best possible {range.best}</span>
@@ -867,14 +892,25 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
           <button className="delete-goal" onClick={onRemove}>Remove</button>
         </div>
       </div>
-      <div className={`grade-headline ${chosen.reach}`}>
-        <span className={`grade-badge ${gradeTone(target.targetGrade)}`}>{target.targetGrade}</span>
-        {chosen.reach === "out-of-reach"
-          ? <><strong>Out of reach</strong><small>even a perfect {ahead} lands on {reachLabel(overallGrade(target.gradeScale, overallPercent(target, 100)))}</small></>
-          : chosen.reach === "secured"
-            ? <><strong>Secured</strong><small>{gradeArticle(target.targetGrade)} {target.targetGrade} stands whatever {ahead} does</small></>
-            : <><strong>{chosen.required}%</strong><small>needed across {ahead} for {gradeArticle(target.targetGrade)} {target.targetGrade}</small></>}
-      </div>
+      {/* A course with every paper marked has a result, and a result outranks a
+          target: "you need 98%" is the wrong sentence to read after the last
+          paper has been sat. */}
+      {outcome
+        ? <div className={`grade-headline final ${outcome.grade === target.targetGrade || gradeBeats(target.gradeScale, outcome.grade, target.targetGrade) ? "hit" : "missed"}`}>
+          <span className={`grade-badge ${gradeTone(outcome.grade)}`}>{outcome.grade}</span>
+          <strong>{formatPercent(outcome.percent)}</strong>
+          <small>{outcome.settled
+            ? `across every paper — ${gradeBeats(target.gradeScale, outcome.grade, target.targetGrade) ? "above" : outcome.grade === target.targetGrade ? "exactly" : "short of"} your ${target.targetGrade} target`
+            : `on these marks, with some of them mocks — your target was ${gradeArticle(target.targetGrade)} ${target.targetGrade}`}</small>
+        </div>
+        : <div className={`grade-headline ${chosen.reach}`}>
+          <span className={`grade-badge ${gradeTone(target.targetGrade)}`}>{target.targetGrade}</span>
+          {chosen.reach === "out-of-reach"
+            ? <><strong>Out of reach</strong><small>even a perfect {ahead} lands on {reachLabel(overallGrade(target.gradeScale, overallPercent(target, 100)))}</small></>
+            : chosen.reach === "secured"
+              ? <><strong>Secured</strong><small>{gradeArticle(target.targetGrade)} {target.targetGrade} stands whatever {ahead} does</small></>
+              : <><strong>{chosen.required}%</strong><small>needed across {ahead} for {gradeArticle(target.targetGrade)} {target.targetGrade}</small></>}
+        </div>}
     </section>
 
     <section className="goal-metrics grade-metrics">
@@ -902,18 +938,23 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
       </article>
     </section>
 
-    {remaining && <section className="grade-outcome panel-card">
+    {(remaining || outcome) && <section className="grade-outcome panel-card">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">{complete ? "EVERY PAPER IN" : "ON THE MARKS SO FAR"}</p>
-          <h3>Where this lands</h3>
+          <p className="eyebrow">{outcome ? (outcome.settled ? "THE RESULT" : "ON THESE MARKS") : complete ? "EVERY PAPER IN" : "ON THE MARKS SO FAR"}</p>
+          <h3>{outcome && outcome.settled ? "What you got" : "Where this lands"}</h3>
         </div>
-        <span>{complete
-          ? "Every paper has a mark against it."
-          : `${remaining.known}% of the ${remaining.weight}% still to come has a mark.`}</span>
+        <span>{outcome
+          ? (outcome.settled ? "Every paper sat and marked." : "Every paper marked, some of them mocks.")
+          : complete
+            ? "Every paper has a mark against it."
+            : `${remaining!.known}% of the ${remaining!.weight}% still to come has a mark.`}</span>
       </div>
       <div className="grade-outcome-rows">
-        {banked && <article>
+        {/* A banked half only earns a row of its own while there is another
+            half to tell it apart from. Once everything is in, the course has
+            one figure and splitting it would be inventing a distinction. */}
+        {banked && !finished && <article>
           <span>{target.completedStage ?? "Banked"}</span>
           <strong>{formatPercent(target.completedPercent)}</strong>
           <b className={`grade-badge ${gradeTone(overallGrade(target.gradeScale, target.completedPercent))}`}>
@@ -921,27 +962,33 @@ function TargetDetail({ target, subject, papers, busy, targetDraft, onTargetDraf
           </b>
           <small>{Math.round(target.completedWeight * 10) / 10}% of the grade, already sat</small>
         </article>}
-        <article className="highlight">
+        {remaining && !finished && <article className="highlight">
           <span>{named ? target.remainingStage : "These papers"}</span>
           <strong>{formatPercent(remaining.percent)}</strong>
           <b className={`grade-badge ${gradeTone(remainingGrade)}`}>{remainingGrade}</b>
           <small>{complete
             ? `across all ${remaining.weight}% of it`
             : `across the ${remaining.known}% marked so far`}</small>
-        </article>
-        <article>
-          <span>Overall</span>
-          <strong>{formatPercent(projected)}</strong>
-          <b className={`grade-badge ${gradeTone(projectedGrade)}`}>{projectedGrade}</b>
-          <small>{complete ? "the two halves together" : "if the rest matches"}</small>
+        </article>}
+        <article className={finished ? "highlight" : ""}>
+          <span>{finished ? "Final grade" : "Overall"}</span>
+          <strong>{formatPercent(outcome ? outcome.percent : projected)}</strong>
+          <b className={`grade-badge ${gradeTone(outcome ? outcome.grade : projectedGrade)}`}>
+            {outcome ? outcome.grade : projectedGrade}
+          </b>
+          <small>{outcome
+            ? (outcome.settled ? "every paper, weighted as the syllabus weights them" : "with some marks still only mocks")
+            : complete ? "the two halves together" : "if the rest matches"}</small>
         </article>
       </div>
       {/* A grade for one half of a course is not a grade the board awards, and
           saying so is the difference between a useful figure and a wrong one. */}
       <p className="grade-outcome-note">
-        {named
-          ? `${target.remainingStage} is not certificated on its own — the board awards the ${target.award === "qualification" ? "qualification" : target.award}. This is what those papers came to, read against the same boundaries.`
-          : "Read against the standard boundaries, which move a mark or two each session."}
+        {outcome
+          ? `Every paper's mark, weighted the way the syllabus weights it, read against the standard boundaries. Real boundaries move a mark or two each session, so a result this close to one could land either side of it.`
+          : named
+            ? `${target.remainingStage} is not certificated on its own — the board awards the ${target.award === "qualification" ? "qualification" : target.award}. This is what those papers came to, read against the same boundaries.`
+            : "Read against the standard boundaries, which move a mark or two each session."}
       </p>
     </section>}
 

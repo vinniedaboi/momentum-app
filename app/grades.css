@@ -255,6 +255,12 @@
 .grade-headline strong { color: var(--c-on-dark); font: 700 var(--text-4xl) var(--font-display); line-height: 1; }
 .grade-headline small { color: var(--c-on-panel); font-size: var(--text-2xs); line-height: 1.45; }
 .grade-headline.out-of-reach strong { font-size: var(--text-2xl); color: var(--c-peach-strong); }
+/* A course that is over reports a result rather than a target, so the grade
+   takes the size the required percentage had. */
+.grade-headline.final { border-color: rgba(188, 220, 208, .45); background: rgba(255, 255, 255, .11); }
+.grade-headline.final .grade-badge { font-size: var(--text-md); padding: var(--space-2) var(--space-4); }
+.grade-headline.final.hit { box-shadow: inset 3px 0 0 var(--c-mint-strong); }
+.grade-headline.final.missed { box-shadow: inset 3px 0 0 var(--c-peach-strong); }
 .grade-headline.secured strong { font-size: var(--text-2xl); }
 
 /* ---------- where the marks land ---------- */

@@ -254,6 +254,43 @@ export function remainingFromComponents(components: TargetComponent[]) {
   };
 }
 
+/**
+ * A course that is over.
+ *
+ * Once every paper of the award carries a mark there is nothing left to
+ * target: the arithmetic stops being "what do I still need" and becomes "this
+ * is what it came to". The planner has to notice, because the question it was
+ * built to answer divides by the weight still outstanding — and at the end of
+ * a course that weight is zero.
+ *
+ * `settled` separates the two ways of getting here. Every paper sat is a
+ * result. Every paper marked but some of them mocks is a forecast of the same
+ * shape, and worth showing, as long as it is not called a grade.
+ *
+ * Null while any paper is still blank, or while the chosen papers do not add
+ * up to a whole award — a half-picked route has no total to report.
+ */
+export function courseOutcome(target: Weighed & { components: TargetComponent[] }) {
+  const components = target.components;
+  if (!components.length) return null;
+  if (coveredWeight(components) < 99.95) return null;
+
+  let weight = 0;
+  let earned = 0;
+  let settled = true;
+  for (const component of components) {
+    const percent = componentPercent(component);
+    if (component.status === "todo" || percent == null) return null;
+    if (component.status !== "sat") settled = false;
+    weight += component.weighting;
+    earned += (percent / 100) * component.weighting;
+  }
+  if (weight <= 0) return null;
+
+  const percent = Math.round((earned / weight) * 1000) / 10;
+  return { percent, grade: overallGrade(target.gradeScale, percent), settled };
+}
+
 /** How much of the award the chosen papers add up to. 100 means a full route. */
 export function coveredWeight(components: TargetComponent[]) {
   return Math.round(components.reduce((sum, component) => sum + component.weighting, 0) * 10) / 10;
@@ -335,8 +372,13 @@ export function overallGrade(scale: GradeScale, percent: number): string {
  */
 export function requiredPercent(target: Weighed, grade: string) {
   const remainingWeight = 100 - target.completedWeight;
-  return (gradeMinimum(target.gradeScale, grade) * 100 - target.completedPercent * target.completedWeight)
-    / remainingWeight;
+  const outstanding = gradeMinimum(target.gradeScale, grade) * 100
+    - target.completedPercent * target.completedWeight;
+  // Nothing left to sit. The grade is either already earned or already missed,
+  // and there is no percentage that would change it — which the infinities say
+  // correctly, but 0/0 would not.
+  if (remainingWeight <= 0) return outstanding > 0 ? Infinity : -Infinity;
+  return outstanding / remainingWeight;
 }
 
 export type GradeReach = "secured" | "reachable" | "out-of-reach";
@@ -384,6 +426,19 @@ export function paperTarget(target: GradeTarget) {
   if (target.paperTargetPercent != null) return target.paperTargetPercent;
   const rung = gradeLadder(target).find((entry) => entry.grade === target.targetGrade);
   return rung ? rung.required : 0;
+}
+
+/**
+ * Whether one grade is better than another on its own ladder. Off the ladder —
+ * a U — is worse than everything on it.
+ */
+export function gradeBeats(scale: GradeScale, grade: string, other: string) {
+  const grades = gradesFor(scale);
+  const rank = (name: string) => {
+    const index = grades.indexOf(name);
+    return index === -1 ? grades.length : index;
+  };
+  return rank(grade) < rank(other);
 }
 
 /** "an A*" and "an E", but "a B". Grades are read aloud, so the article shows. */

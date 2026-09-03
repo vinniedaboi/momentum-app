@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   bankedFromComponents,
+  courseOutcome,
+  gradeBeats,
   overallGrade,
   overallPercent,
   remainingFromComponents,
@@ -155,4 +157,66 @@ test("a course sat in one go reads its remaining papers as the whole thing", () 
   // Nothing banked, so the two readings agree — which is the right answer.
   const banked = bankedFromComponents(mocked);
   assert.equal(overallPercent({ ...banked, gradeScale: "igcse" }, remaining.percent), 75);
+});
+
+test("a course with every paper marked reports a grade, not a target", () => {
+  // The state the old screen fell through: nothing is outstanding, so there is
+  // nothing to price — and the panel that reads the remaining papers had
+  // nothing to read.
+  const done = [
+    sat(physics[0], 38, 40), sat(physics[1], 54, 60), sat(physics[2], 34, 40),
+    sat(physics[3], 78, 100), sat(physics[4], 20, 30),
+  ];
+  assert.equal(remainingFromComponents(done), null, "nothing is still to come");
+
+  const outcome = courseOutcome({ ...bankedFromComponents(done), gradeScale: "a-level", components: done });
+  assert.ok(outcome, "but the course still has a result");
+  assert.ok(Math.abs(outcome.percent - 82.9) < 0.2);
+  assert.equal(outcome.grade, "A");
+  assert.equal(outcome.settled, true, "every paper was sat");
+});
+
+test("a mock among the marks makes the result a forecast", () => {
+  const mixed = [
+    sat(physics[0], 38, 40), sat(physics[1], 54, 60), sat(physics[2], 34, 40),
+    mock(physics[3], 78, 100), sat(physics[4], 20, 30),
+  ];
+  const outcome = courseOutcome({ ...bankedFromComponents(mixed), gradeScale: "a-level", components: mixed });
+  assert.ok(outcome);
+  assert.equal(outcome.settled, false, "one of them has not really been sat");
+});
+
+test("a course still missing a mark has no result to report", () => {
+  const partway = [
+    sat(physics[0], 38, 40), sat(physics[1], 54, 60), sat(physics[2], 34, 40),
+    sat(physics[3], 78, 100), physics[4],
+  ];
+  assert.equal(courseOutcome({ ...bankedFromComponents(partway), gradeScale: "a-level", components: partway }), null);
+  // Nor does a half-picked route, which has no whole award to be a result of.
+  const halfRoute = igcse.slice(0, 2).map((component) => sat(component, 30, 40));
+  assert.equal(courseOutcome({ completedPercent: 75, completedWeight: 80, gradeScale: "igcse", components: halfRoute }), null);
+});
+
+test("the ladder survives a course with nothing left to sit", () => {
+  // Dividing by the outstanding weight is the whole method, and at the end of
+  // a course that weight is zero.
+  const settled = { completedPercent: 82.9, completedWeight: 100, gradeScale: "a-level" };
+  const rungs = gradeLadder(settled);
+  assert.equal(rungs.find((rung) => rung.grade === "A").reach, "secured");
+  assert.equal(rungs.find((rung) => rung.grade === "A*").reach, "out-of-reach");
+  for (const rung of rungs) assert.ok(!Number.isNaN(rung.required), `${rung.grade} priced as NaN`);
+
+  // And a result sitting exactly on a boundary counts as having reached it.
+  const exact = { completedPercent: 80, completedWeight: 100, gradeScale: "a-level" };
+  assert.equal(gradeLadder(exact).find((rung) => rung.grade === "A").reach, "secured");
+});
+
+test("one grade beats another on its own ladder, and a U beats nothing", () => {
+  assert.ok(gradeBeats("a-level", "A", "B"));
+  assert.ok(!gradeBeats("a-level", "B", "A"));
+  assert.ok(!gradeBeats("a-level", "A", "A"), "a tie is not a win");
+  assert.ok(gradeBeats("igcse", "C", "G"));
+  assert.ok(gradeBeats("numeric", "9", "4"));
+  assert.ok(!gradeBeats("a-level", "U", "E"));
+  assert.ok(gradeBeats("a-level", "E", "U"));
 });
