@@ -143,7 +143,14 @@ export type StudyAnalytics = {
   /** Per cent up or down on that window, or null when there is nothing to compare. */
   change: number | null;
   streak: { current: number; longest: number };
-  bySubject: Array<{ subjectId: string | null; minutes: number; share: number; sessions: number }>;
+  bySubject: Array<{
+    subjectId: string | null;
+    minutes: number;
+    share: number;
+    sessions: number;
+    /** How many of that subject's minutes named a topic, for a filtered split. */
+    topicMinutes: number;
+  }>;
   /** What each topic got, biggest first. See the split below for what that means. */
   byTopic: TopicSplit[];
   /**
@@ -218,14 +225,22 @@ export function studyAnalytics(
     : null;
 
   const bySubject = [...inRange.reduce((groups, session) => {
-    const current = groups.get(session.subjectId) ?? { minutes: 0, sessions: 0 };
-    groups.set(session.subjectId, { minutes: current.minutes + session.minutes, sessions: current.sessions + 1 });
+    const current = groups.get(session.subjectId) ?? { minutes: 0, sessions: 0, topicMinutes: 0 };
+    groups.set(session.subjectId, {
+      minutes: current.minutes + session.minutes,
+      sessions: current.sessions + 1,
+      // The same distinction the window draws, drawn again per subject: a
+      // split filtered to one course has to say what it is accounting for
+      // there, not what the whole window came to.
+      topicMinutes: current.topicMinutes + (session.topics.length ? session.minutes : 0),
+    });
     return groups;
-  }, new Map<string | null, { minutes: number; sessions: number }>()).entries()]
+  }, new Map<string | null, { minutes: number; sessions: number; topicMinutes: number }>()).entries()]
     .map(([subjectId, entry]) => ({
       subjectId,
       minutes: entry.minutes,
       sessions: entry.sessions,
+      topicMinutes: entry.topicMinutes,
       share: minutes ? Math.round((entry.minutes / minutes) * 1000) / 10 : 0,
     }))
     .sort((a, b) => b.minutes - a.minutes);

@@ -225,6 +225,8 @@ actually done.
   its chapter and how many sittings it came from. A session's minutes are split
   evenly between the topics it names, and time logged without one is left out of
   the split rather than shared between them
+- **Filter that split by subject**, and the figure above it answers for that
+  course rather than for the whole window
 - Sessions, longest single sitting, and how many topic reviews logging drove
 
 **Why it matters:** one action instead of two — log the session, and the

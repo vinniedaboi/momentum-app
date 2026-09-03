@@ -106,6 +106,8 @@ export default function StudyHoursView({
   const [range, setRange] = useState<RangeKey>("30");
   /** Whether the topic split is showing everything or just its top rows. */
   const [allTopics, setAllTopics] = useState(false);
+  /** Which subject the topic split is narrowed to, or "" for all of them. */
+  const [topicSubject, setTopicSubject] = useState("");
 
   const chapters = useMemo(() => syllabusTopics.filter((topic) =>
     topic.kind === "chapter" && topic.subjectId === subject && getTopicStage(topic, syllabusTopics, chosen) === stage
@@ -134,12 +136,30 @@ export default function StudyHoursView({
   );
   const maxMinutes = Math.max(60, ...stats.buckets.map((bucket) => bucket.minutes));
   const busiestWeekday = Math.max(0, ...stats.byWeekday);
-  // Bars are drawn against the biggest topic rather than against the window,
-  // because a topic's honest share of a whole month is a sliver — the number
-  // beside the bar is the share, and the bar is there to be compared with the
-  // rows above and below it.
-  const busiestTopic = Math.max(0, ...stats.byTopic.map((entry) => entry.minutes));
-  const shownTopics = allTopics ? stats.byTopic : stats.byTopic.slice(0, TOPIC_ROWS);
+  /**
+   * The subjects the topic split can be narrowed to: the ones that actually
+   * have a topic in this window, biggest first, because a filter offering a
+   * course with nothing behind it is a button that answers "nothing".
+   */
+  const topicSubjects = useMemo(() => {
+    const withTopics = new Set(stats.byTopic.map((entry) => entry.subjectId));
+    return stats.bySubject.filter((entry) => entry.subjectId && withTopics.has(entry.subjectId));
+  }, [stats.byTopic, stats.bySubject]);
+  // A window can change under a chosen subject — narrow the range far enough and
+  // the course drops out of it — so the filter falls back rather than showing an
+  // empty panel with a button pressed against nothing.
+  const filter = topicSubjects.some((entry) => entry.subjectId === topicSubject) ? topicSubject : "";
+  const filtered = filter ? stats.byTopic.filter((entry) => entry.subjectId === filter) : stats.byTopic;
+  // Bars are drawn against the biggest topic on screen rather than against the
+  // window, because a topic's honest share of a whole month is a sliver — the
+  // number beside the bar is the share, and the bar is there to be compared
+  // with the rows above and below it.
+  const busiestTopic = Math.max(0, ...filtered.map((entry) => entry.minutes));
+  const shownTopics = allTopics ? filtered : filtered.slice(0, TOPIC_ROWS);
+  /** What the split is accounting for: one subject's time, or the window's. */
+  const filteredTotals = filter
+    ? topicSubjects.find((entry) => entry.subjectId === filter)!
+    : { minutes: stats.minutes, topicMinutes: stats.topicMinutes };
   /** A point says which chapter it belongs to; a chapter says it is the whole one. */
   const topicLookup = useMemo(
     () => new Map(syllabusTopics.map((topic) => [topic.id, topic])),
@@ -371,12 +391,33 @@ export default function StudyHoursView({
           <p className="eyebrow">INSIDE EACH SUBJECT</p>
           <h3>Time by topic</h3>
           <p>
-            {formatStudyTime(stats.topicMinutes)} of the {span.label.toLowerCase()} was
-            logged against a topic{stats.topicMinutes < stats.minutes
-              ? `, out of ${formatStudyTime(stats.minutes)} in total.`
+            {formatStudyTime(filteredTotals.topicMinutes)} of
+            {filter ? ` your ${subjectName(lookup, filter)} time` : ` the ${span.label.toLowerCase()}`} was
+            logged against a topic{filteredTotals.topicMinutes < filteredTotals.minutes
+              ? `, out of ${formatStudyTime(filteredTotals.minutes)} in total.`
               : "."} A session&rsquo;s time is split evenly between the topics it names.
           </p>
         </div>
+        {/* Only worth offering where there is a choice to make: one subject with
+            topics in the window is already the whole answer. */}
+        {topicSubjects.length > 1 && <div className="hours-topic-filter" role="group" aria-label="Narrow the topic split to one subject">
+          <button
+            type="button"
+            aria-pressed={!filter}
+            className={!filter ? "active" : ""}
+            onClick={() => { setTopicSubject(""); setAllTopics(false); }}
+          >All subjects</button>
+          {topicSubjects.map((entry) => <button
+            key={entry.subjectId}
+            type="button"
+            aria-pressed={filter === entry.subjectId}
+            className={filter === entry.subjectId ? "active" : ""}
+            onClick={() => { setTopicSubject(entry.subjectId!); setAllTopics(false); }}
+          >
+            <i className={`subject-pin ${toneFor(lookup, entry.subjectId)}`} />
+            {subjectName(lookup, entry.subjectId)}
+          </button>)}
+        </div>}
         <ul className="hours-topic-split">
           {shownTopics.map((entry) => {
             const parent = entry.parentId ? topicLookup.get(entry.parentId) : null;
@@ -398,13 +439,13 @@ export default function StudyHoursView({
             </li>;
           })}
         </ul>
-        {stats.byTopic.length > TOPIC_ROWS && <button
+        {filtered.length > TOPIC_ROWS && <button
           type="button"
           className="ghost-button hours-topic-more"
           onClick={() => setAllTopics(!allTopics)}
         >{allTopics
           ? `Show the top ${TOPIC_ROWS}`
-          : `Show all ${stats.byTopic.length} topics`}</button>}
+          : `Show all ${filtered.length} topics`}</button>}
       </section>}
 
       <section className="hours-history review-panel">

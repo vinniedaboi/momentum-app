@@ -167,6 +167,24 @@ test("time logged without a topic is left out rather than shared between them", 
   assert.equal(analytics.byTopic[0].share, 50);
 });
 
+test("each subject says how much of its own time named a topic", () => {
+  const analytics = studyAnalytics([
+    session(ago(0), 60, "physics", [chapter("c1", "3")]),
+    session(ago(1), 30, "physics", 0),
+    session(ago(2), 45, "chem", [point("p1", "2.1")]),
+  ], TODAY, 7);
+
+  const byId = new Map(analytics.bySubject.map((entry) => [entry.subjectId, entry]));
+  // The window's own figure is the sum of these, and the split filtered to one
+  // course has to report that course's rather than the whole window's — or a
+  // subject with every hour accounted for reads as though half of it is missing.
+  assert.equal(analytics.topicMinutes, 105);
+  assert.equal(byId.get("physics").minutes, 90);
+  assert.equal(byId.get("physics").topicMinutes, 60);
+  assert.equal(byId.get("chem").minutes, 45);
+  assert.equal(byId.get("chem").topicMinutes, 45);
+});
+
 test("a topic's minutes are rounded once, not once a session", () => {
   const thirds = [point("a", "1.1"), point("b", "1.2"), point("c", "1.3")];
   const analytics = studyAnalytics([

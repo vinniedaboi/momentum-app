@@ -103,6 +103,10 @@ or two each session.
   between the topics it names — it records how long it ran, never how the time
   inside it divided — and hours logged without a topic are left out of the split
   rather than shared between them, which the panel says on its face.
+- **Narrow it to one subject.** Where more than one course has topics in the
+  window, the split takes a subject filter, and the line above it then answers
+  for that course: how much of your Chemistry time named a topic, out of how
+  much Chemistry there was.
 - **When you actually study.** Your average for each day of the week, so the
   Sunday you always work and the Friday you never do both show up.
 - Plus the count of sessions, your longest single sitting, and how many topics

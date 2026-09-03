@@ -214,6 +214,11 @@ button.summary-card.selected{outline:2px solid currentColor;outline-offset:-2px}
 .hours-topic-split>li>div>i{display:block;height:100%;border-radius:inherit;background:var(--c-blue)}
 .hours-topic-split b{font-size:var(--text-2xs);font-weight:900;white-space:nowrap}
 .hours-topic-split>li>small{font-size:var(--text-3xs);color:var(--muted);text-align:right}
+/* The same segmented control the window picker uses, one panel down: it is the
+   same kind of choice, so it should not be a second kind of control. */
+.hours-topic-filter{display:flex;flex-wrap:wrap;gap:var(--space-1);justify-self:start;max-width:100%;margin:0 0 var(--space-4);padding:var(--space-1);background:var(--c-surface-muted);border-radius:var(--radius-md)}
+.hours-topic-filter button{display:flex;align-items:center;gap:var(--space-2);min-height:32px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--c-muted);padding:0 var(--space-3);font-size:var(--text-3xs);font-weight:900;white-space:nowrap}
+.hours-topic-filter button.active{background:var(--c-surface-raised);color:var(--c-ink);box-shadow:0 2px 8px #10223d14}
 .hours-topic-more{margin-top:var(--space-4);justify-self:start;min-height:36px;font-size:var(--text-3xs)}
 /* A label stack, a bar and two figures do not fit one phone row: the bar drops
    under the label and keeps the whole width it needs to mean anything. */
