@@ -17,10 +17,11 @@ export async function GET() {
 }
 
 /**
- * Saving a pace also re-dates the points already scheduled, so the response
- * carries the pace that was stored rather than the one that was asked for:
+ * Saving a pace also re-plans the points already scheduled, so the response
+ * carries the pace that was stored rather than the one that was asked for —
  * `normalisePace` rounds and clamps, and the board should show what the
- * scheduler is actually using.
+ * scheduler is actually using — along with how much work the change handed
+ * back and how many days it was spread over.
  */
 export async function PATCH(request: Request) {
   return withWorkspace(async (workspaceId) => {
@@ -29,7 +30,7 @@ export async function PATCH(request: Request) {
       if (!body.pace || typeof body.pace !== "object") {
         return Response.json({ error: "Choose a review pace." }, { status: 400 });
       }
-      return Response.json({ pace: await setReviewPace(workspaceId, normalisePace(body.pace)) });
+      return Response.json(await setReviewPace(workspaceId, normalisePace(body.pace)));
     } catch (error) {
       console.error(error);
       return Response.json({ error: "Your review pace could not be saved." }, { status: 500 });

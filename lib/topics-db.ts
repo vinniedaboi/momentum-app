@@ -1,5 +1,5 @@
 import { getSql, nowIso, type SqlClient } from "./db";
-import { DIFFICULTIES, reviewInterval, type ReviewPace, type TopicDifficulty } from "../app/topics";
+import { DIFFICULTIES, repaceOffsets, reviewInterval, type ReviewPace, type TopicDifficulty } from "../app/topics";
 import { getReviewPace, writeReviewPace } from "./profile-db";
 import { seedTopics } from "./seed-data";
 import { recordTopicActivities } from "./topic-activity-db";
@@ -67,6 +67,11 @@ function addDays(date: string, days: number) {
   const value = new Date(`${date}T00:00:00Z`);
   value.setUTCDate(value.getUTCDate() + days);
   return value.toISOString().slice(0, 10);
+}
+
+/** Whole days from `from` to `to`; negative once `to` is behind it. */
+function daysBetween(from: string, to: string) {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
 }
 
 /** Unrated or unrecognised reads as normal, which bends nothing. */
@@ -647,31 +652,48 @@ export async function reviewStudyTopics(
  * not a review of six hundred points, and writing it as the latter would bury
  * the history of the work itself.
  */
-export async function setReviewPace(workspaceId: string, pace: ReviewPace) {
+export async function setReviewPace(workspaceId: string, pace: ReviewPace, timeZone?: string) {
   const sql = getSql();
 
   return sql.begin(async (tx) => {
     const saved = await writeReviewPace(workspaceId, pace, tx);
+    const today = localDate(timeZone);
     const now = nowIso();
 
-    for (const difficulty of DIFFICULTIES) {
-      await tx`
-        UPDATE topics SET
-          review_due = to_char(reviewed_on::date + (CASE
-            WHEN status = 'Exam Ready' THEN ${reviewInterval("Exam Ready", difficulty, saved)}
-            WHEN covered THEN ${reviewInterval("Covered", difficulty, saved)}
-            WHEN status = 'Learning' THEN ${reviewInterval("Learning", difficulty, saved)}
-            ELSE ${reviewInterval("Practising", difficulty, saved)} END)::int, 'YYYY-MM-DD'),
-          updated_at = ${now}
-        WHERE workspace_id = ${workspaceId}
-          AND difficulty = ${difficulty}
-          AND status <> 'Not Started'
-          AND reviewed_on IS NOT NULL
-          AND reviewed_on <> ''
-      `;
-    }
+    const rows = await tx<{
+      id: string; status: StoredStatus; covered: boolean;
+      difficulty: string | null; reviewed_on: string;
+    }[]>`
+      SELECT id, status, covered, difficulty, reviewed_on FROM topics
+      WHERE workspace_id = ${workspaceId}
+        AND status <> 'Not Started'
+        AND reviewed_on IS NOT NULL
+        AND reviewed_on <> ''
+    `;
+    if (!rows.length) return { pace: saved, caughtUp: 0, spreadDays: 0 };
 
-    return saved;
+    // What the new pace makes of each point, as days from today. `repaceOffsets`
+    // then decides where it may actually land.
+    const points = rows.map((row) => {
+      const interval = reviewInterval(displayStatus(row.status, row.covered), difficultyOf(row.difficulty), saved);
+      return { id: row.id, interval, dueIn: daysBetween(today, addDays(row.reviewed_on, interval)) };
+    });
+
+    const placed = repaceOffsets(points);
+    await tx`
+      UPDATE topics SET review_due = placed.due, updated_at = ${now}
+      FROM unnest(
+        ${placed.map((point) => point.id)}::text[],
+        ${placed.map((point) => addDays(today, point.dueIn))}::text[]
+      ) AS placed(id, due)
+      WHERE topics.workspace_id = ${workspaceId} AND topics.id = placed.id
+    `;
+
+    // What the learner is owed and how far it now reaches, so the screen can say
+    // so rather than leaving them to work out why the board barely moved.
+    const behind = new Set(points.filter((point) => point.dueIn < 0).map((point) => point.id));
+    const reach = placed.filter((point) => behind.has(point.id)).map((point) => point.dueIn);
+    return { pace: saved, caughtUp: behind.size, spreadDays: reach.length ? Math.max(...reach) + 1 : 0 };
   });
 }
 

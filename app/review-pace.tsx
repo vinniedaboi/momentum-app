@@ -8,6 +8,15 @@ import {
   matchingPreset, normalisePace, type PacedStatus, type ReviewPace,
 } from "./topics";
 
+/** What the save reports back, beyond the gaps themselves. */
+type PaceSaved = {
+  pace: ReviewPace;
+  /** Points the new pace had already passed, and so handed back. */
+  caughtUp: number;
+  /** Days that catch-up was dealt over, starting today. */
+  spreadDays: number;
+};
+
 /**
  * What each status means, in the order work moves through them. The wording is
  * the guide's own, so a learner setting a gap here reads the same description
@@ -49,9 +58,11 @@ export default function ReviewPacePanel({ pace, onSaved, onMessage }: {
   async function save() {
     setSaving(true);
     try {
-      const data = await studyApi.reviewPace.save<{ pace: ReviewPace }>({ pace: normalisePace(draft) });
+      const data = await studyApi.reviewPace.save<PaceSaved>({ pace: normalisePace(draft) });
       onSaved(data.pace);
-      onMessage("Review pace saved — everything you have studied has been re-dated");
+      onMessage(data.caughtUp
+        ? `Pace saved — ${data.caughtUp} point${data.caughtUp === 1 ? "" : "s"} to catch up, spread over ${data.spreadDays === 1 ? "today" : `the next ${data.spreadDays} days`}`
+        : "Pace saved — your reviews have been re-planned");
     } catch (error) {
       onMessage(apiMessage(error, "Your review pace could not be saved."));
     } finally {
@@ -112,8 +123,9 @@ export default function ReviewPacePanel({ pace, onSaved, onMessage }: {
       <div className="pace-actions">
         <p>
           {preset ? `${PACE_PRESETS.find((option) => option.id === preset)?.label} pace.` : "Custom pace."}{" "}
-          Saving re-dates every point you have already studied, counting from the day you last studied
-          it — so tighter gaps can bring work back straight away. Points you have not started stay due now.
+          Saving re-plans everything you have already studied. Nothing turns overdue: work the new pace
+          has already passed comes back from today, the most overdue first, about a day&rsquo;s worth at a
+          time. Points you have not started stay due now.
         </p>
         <button className="primary-button" disabled={!dirty || saving} onClick={save}>
           {saving ? "Saving…" : dirty ? "Save pace" : "Saved"}

@@ -820,16 +820,18 @@ test("a learner sets their own review gaps, and the board is re-dated to match",
   // Every scheduling path reads the learner's own gaps. A call that computed an
   // interval without them would quietly put that account back on the defaults.
   const scheduling = scheduler.split("\n").filter((line) => line.includes("reviewInterval("));
-  assert.ok(scheduling.length >= 4, "the scheduler should be computing intervals");
+  assert.ok(scheduling.length >= 3, "the scheduler should be computing intervals");
   for (const line of scheduling) {
     assert.match(line, /pace|saved/, `schedules without the learner's pace: ${line.trim()}`);
   }
 
-  // A pace change re-dates each point from the day it was last studied, never
+  // A pace change measures each point from the day it was last studied, never
   // from today: asking for tighter gaps is not a claim to have just revised.
-  assert.match(scheduler, /reviewed_on::date \+ \(CASE/);
-  assert.match(scheduler, /WHEN status = 'Exam Ready' THEN/, "Exam Ready must outrank the covered flag");
-  assert.ok(!/localDate\([^)]*\)::date/.test(scheduler), "a re-date must not count from today");
+  assert.match(scheduler, /addDays\(row\.reviewed_on, interval\)/);
+  // Where it may actually land is a policy decision, and it is taken in one
+  // tested place rather than in SQL nobody can exercise.
+  assert.match(scheduler, /repaceOffsets\(points\)/);
+  assert.match(scheduler, /FROM unnest\(/, "the re-date should be one statement, not one per row");
 
   // What the scheduler stored is what comes back, so the panel cannot show a
   // number the board is not using.

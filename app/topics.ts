@@ -158,8 +158,63 @@ export type Topic = {
   updatedAt: string;
 };
 
+/**
+ * The fewest points a day a catch-up will deal out, so a small syllabus does
+ * not trickle back over a fortnight. Roughly one sitting's worth.
+ */
+const MIN_CATCH_UP_PER_DAY = 10;
+
+/**
+ * Reviews a day this pace asks for once it has settled.
+ *
+ * A point on a seven-day gap is a seventh of a review a day, so the whole
+ * syllabus comes to the sum of those fractions. That is the load the learner
+ * has just chosen, which makes it the honest rate to hand back work they are
+ * suddenly behind on: no day of the catch-up is heavier than an ordinary day
+ * will be once the new pace is running.
+ */
+function catchUpPerDay(intervals: number[]) {
+  const rate = intervals.reduce((sum, days) => sum + 1 / Math.max(1, days), 0);
+  return Math.max(MIN_CATCH_UP_PER_DAY, Math.ceil(rate));
+}
+
+/**
+ * Where each point lands when the pace changes, as days from today.
+ *
+ * Re-dating every point from the day it was last studied is arithmetically
+ * right and, on a tighter pace, useless: a whole syllabus turns overdue at
+ * once, and a board reporting two hundred late reviews is telling a learner
+ * nothing they can act on. Overdue should mean they fell behind, not that they
+ * changed their mind about spacing.
+ *
+ * So nothing is allowed to land in the past. A point the new pace would have
+ * put behind today is dealt back from today forward, the ones furthest past
+ * their date first, at the rate above. Points the new pace leaves in the future
+ * keep the date it gives them.
+ *
+ * The catch-up is self-limiting: dealing N points at a rate of at least
+ * N / longest-gap a day empties the backlog inside one of those gaps, so a
+ * learner is never handed a queue longer than the pace they asked for. Working
+ * in offsets rather than dates keeps this pure integer arithmetic, and leaves
+ * every calendar question with the caller.
+ */
+function repaceOffsets(points: Array<{ id: string; interval: number; dueIn: number }>) {
+  const perDay = catchUpPerDay(points.map((point) => point.interval));
+  const behind = points
+    .filter((point) => point.dueIn < 0)
+    // Furthest past its date first, and among equals the tightest gap, which is
+    // the point the learner asked to see most often.
+    .sort((a, b) => a.dueIn - b.dueIn || a.interval - b.interval);
+
+  return [
+    ...points.filter((point) => point.dueIn >= 0).map((point) => ({ id: point.id, dueIn: point.dueIn })),
+    ...behind.map((point, index) => ({ id: point.id, dueIn: Math.floor(index / perDay) })),
+  ];
+}
+
 export {
-  DEFAULT_REVIEW_PACE, DIFFICULTIES, DIFFICULTY_PACE, MAX_REVIEW_DAYS, MIN_REVIEW_DAYS,
-  PACED_STATUSES, PACE_PRESETS, REVIEW_INTERVALS, STATUSES, matchingPreset, normalisePace, reviewInterval,
+  DEFAULT_REVIEW_PACE, DIFFICULTIES, DIFFICULTY_PACE, MAX_REVIEW_DAYS, MIN_CATCH_UP_PER_DAY, MIN_REVIEW_DAYS,
+  PACED_STATUSES, PACE_PRESETS, REVIEW_INTERVALS, STATUSES, catchUpPerDay, matchingPreset, normalisePace,
+  repaceOffsets, reviewInterval,
 };
 export type { PacedStatus, ReviewPace, StudyStatus, TopicDifficulty };
