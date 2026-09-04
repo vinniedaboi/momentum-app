@@ -1,5 +1,5 @@
 import type { IconName } from "./icons";
-import { DIFFICULTIES, REVIEW_INTERVALS, STATUSES, reviewInterval, type StudyStatus, type TopicDifficulty } from "./topics";
+import { DIFFICULTIES, REVIEW_INTERVALS, STATUSES, reviewInterval, type ReviewPace, type StudyStatus, type TopicDifficulty } from "./topics";
 import { DIFFICULTY_EFFORT } from "./study-time";
 
 /**
@@ -77,6 +77,24 @@ export const STATUS_GUIDE: Array<{ status: StudyStatus; meaning: string; days: n
   { status: "Covered", meaning: "Content complete", days: REVIEW_INTERVALS.Covered },
   { status: "Exam Ready", meaning: "Confident under exam conditions", days: REVIEW_INTERVALS["Exam Ready"] },
 ];
+
+/**
+ * The same table at the gaps this learner actually set.
+ *
+ * The guide's whole claim is that what it quotes is what the scheduler does, so
+ * once the gaps are the learner's to change the guide has to read theirs. It
+ * runs every row back through `reviewInterval`, which is the function the
+ * scheduler itself calls — "Not Started" still comes back as zero, because no
+ * pace is allowed to schedule a point nobody has opened.
+ */
+export function statusGuide(pace: ReviewPace) {
+  return STATUS_GUIDE.map((row) => ({ ...row, days: reviewInterval(row.status, "normal", pace) }));
+}
+
+/** Likewise for what a rating does, quoted at the learner's own Practising gap. */
+export function difficultyGuide(pace: ReviewPace) {
+  return DIFFICULTY_GUIDE.map((row) => ({ ...row, days: reviewInterval("Practising", row.difficulty, pace) }));
+}
 
 // A guard, not decoration: a status added to the tracker without a line here
 // would ship a guide that quietly omits it.

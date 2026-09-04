@@ -30,6 +30,7 @@ const PATHS = {
   history: "/api/history",
   syllabus: "/api/syllabus",
   onboarding: "/api/onboarding",
+  reviewPace: "/api/review-pace",
   admin: "/api/admin",
 } as const;
 
@@ -127,6 +128,12 @@ export const studyApi = {
     /** Scoped to one topic, or to a chapter and everything under it. */
     list: <T>(query: string) => api.get<T>(`${PATHS.topicActivity}${query}`),
     addNote: <T>(body: unknown) => api.post<T>(PATHS.topicActivity, body),
+  },
+
+  reviewPace: {
+    path: PATHS.reviewPace,
+    /** Saves the gaps and re-dates what is already scheduled, so topics reload after. */
+    save: <T>(body: unknown) => api.patch<T>(PATHS.reviewPace, body),
   },
 
   syllabus: {

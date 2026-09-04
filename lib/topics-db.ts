@@ -1,5 +1,6 @@
 import { getSql, nowIso, type SqlClient } from "./db";
-import { DIFFICULTIES, reviewInterval, type TopicDifficulty } from "../app/topics";
+import { DIFFICULTIES, reviewInterval, type ReviewPace, type TopicDifficulty } from "../app/topics";
+import { getReviewPace, writeReviewPace } from "./profile-db";
 import { seedTopics } from "./seed-data";
 import { recordTopicActivities } from "./topic-activity-db";
 import { subjectSlug } from "./subjects-db";
@@ -79,9 +80,9 @@ function difficultyOf(value: unknown): TopicDifficulty {
  * instead of restarting its clock: calling a chapter hard is an opinion about
  * the work, not a claim to have just done it.
  */
-function nextReviewDue(reviewedOn: string | null, status: StudyStatus, difficulty: TopicDifficulty) {
+function nextReviewDue(reviewedOn: string | null, status: StudyStatus, difficulty: TopicDifficulty, pace: ReviewPace) {
   if (!reviewedOn || status === "Not Started") return null;
-  return addDays(reviewedOn, reviewInterval(status, difficulty));
+  return addDays(reviewedOn, reviewInterval(status, difficulty, pace));
 }
 
 /**
@@ -366,9 +367,10 @@ export async function updateStudyTracking(workspaceId: string, input: {
     const spreadToChapter = Boolean(input.wholeChapter) && current.kind === "chapter";
     const today = localDate(input.timeZone);
     const now = nowIso();
+    const pace = await getReviewPace(workspaceId, tx);
     const reviewedOn = rateOnly ? current.reviewed_on : status === "Not Started" ? null : today;
     const reviewedAt = rateOnly ? current.reviewed_at : status === "Not Started" ? null : now;
-    const scheduled = nextReviewDue(reviewedOn, status, difficulty);
+    const scheduled = nextReviewDue(reviewedOn, status, difficulty, pace);
     const reviewDue = rateOnly ? ratedReviewDue(current.review_due, scheduled) : scheduled;
 
     const previous = spreadToChapter
@@ -476,6 +478,7 @@ export async function updateSelectedStudyTracking(workspaceId: string, input: {
 
     const today = localDate(input.timeZone);
     const now = nowIso();
+    const pace = await getReviewPace(workspaceId, tx);
     const activityEntries: Array<{
       topicId: string;
       eventType: "status" | "review";
@@ -492,7 +495,7 @@ export async function updateSelectedStudyTracking(workspaceId: string, input: {
         : input.status ?? (currentStatus === "Not Started" ? "Learning" : currentStatus);
       const reviewedOn = rateOnly ? topic.reviewed_on : status === "Not Started" ? null : today;
       const reviewedAt = rateOnly ? topic.reviewed_at : status === "Not Started" ? null : now;
-      const scheduled = nextReviewDue(reviewedOn, status, difficulty);
+      const scheduled = nextReviewDue(reviewedOn, status, difficulty, pace);
       const reviewDue = rateOnly ? ratedReviewDue(topic.review_due, scheduled) : scheduled;
 
       if (input.reviewedNow || currentStatus !== status) {
@@ -575,6 +578,7 @@ export async function reviewStudyTopics(
     `;
 
     const now = nowIso();
+    const pace = await getReviewPace(workspaceId, tx);
     const occurredAt = input.reviewedOn === localDate(input.timeZone) ? now : `${input.reviewedOn}T12:00:00+08:00`;
     const activities: Array<{
       topicId: string;
@@ -595,7 +599,7 @@ export async function reviewStudyTopics(
           covered = ${status === "Covered"},
           reviewed_on = ${input.reviewedOn},
           reviewed_at = ${occurredAt},
-          review_due = ${addDays(input.reviewedOn, reviewInterval(status, difficultyOf(topic.difficulty)))},
+          review_due = ${addDays(input.reviewedOn, reviewInterval(status, difficultyOf(topic.difficulty), pace))},
           goal_due = NULL,
           in_scope = true,
           updated_at = ${now}
@@ -620,6 +624,55 @@ export async function reviewStudyTopics(
   // Reused inside addStudySession's transaction so the session and the reviews
   // it triggers commit together.
   return executor ? run(executor) : getSql().begin(run);
+}
+
+/**
+ * Sets the learner's own gaps, and re-dates every point already carrying a
+ * review so the board shows the new pace at once rather than drifting into it
+ * one review at a time.
+ *
+ * Each point counts from the day it was last studied, never from today: asking
+ * for a tighter pace is an opinion about spacing, not a claim to have just
+ * revised anything. Tightening therefore surfaces work as due or overdue
+ * straight away, which is exactly what asking for tighter gaps means, and
+ * loosening pushes the same points out.
+ *
+ * The interval depends only on a point's status and its difficulty, so this is
+ * one statement per difficulty with the four day counts inlined rather than one
+ * per syllabus point. The CASE follows `displayStatus`'s own precedence — "Exam
+ * Ready" outranks the covered flag — so every point is re-dated on the status
+ * the board actually shows for it.
+ *
+ * No activity is recorded: changing a pace is one decision about the account,
+ * not a review of six hundred points, and writing it as the latter would bury
+ * the history of the work itself.
+ */
+export async function setReviewPace(workspaceId: string, pace: ReviewPace) {
+  const sql = getSql();
+
+  return sql.begin(async (tx) => {
+    const saved = await writeReviewPace(workspaceId, pace, tx);
+    const now = nowIso();
+
+    for (const difficulty of DIFFICULTIES) {
+      await tx`
+        UPDATE topics SET
+          review_due = to_char(reviewed_on::date + (CASE
+            WHEN status = 'Exam Ready' THEN ${reviewInterval("Exam Ready", difficulty, saved)}
+            WHEN covered THEN ${reviewInterval("Covered", difficulty, saved)}
+            WHEN status = 'Learning' THEN ${reviewInterval("Learning", difficulty, saved)}
+            ELSE ${reviewInterval("Practising", difficulty, saved)} END)::int, 'YYYY-MM-DD'),
+          updated_at = ${now}
+        WHERE workspace_id = ${workspaceId}
+          AND difficulty = ${difficulty}
+          AND status <> 'Not Started'
+          AND reviewed_on IS NOT NULL
+          AND reviewed_on <> ''
+      `;
+    }
+
+    return saved;
+  });
 }
 
 /** How many syllabus rows the bundled template holds for a starter subject. */

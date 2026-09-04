@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Icon from "./icons";
-import { CORE_LOOP, DIFFICULTY_GUIDE, GUIDE_SECTIONS, STATUS_GUIDE } from "./guide-content";
+import { CORE_LOOP, GUIDE_SECTIONS, difficultyGuide, statusGuide } from "./guide-content";
+import type { ReviewPace } from "./topics";
 
 /**
  * The knowledge section: what every part of the app does, and the handful of
@@ -12,7 +13,11 @@ import { CORE_LOOP, DIFFICULTY_GUIDE, GUIDE_SECTIONS, STATUS_GUIDE } from "./gui
  * Onboarding shows the loop once. This is where a learner comes back to it,
  * which is why it reads the same content rather than a second copy of it.
  */
-export default function GuideView({ onOpenView }: { onOpenView: (view: string) => void }) {
+export default function GuideView({ onOpenView, pace }: {
+  onOpenView: (view: string) => void;
+  /** The learner's own gaps, so the tables quote theirs rather than the defaults. */
+  pace: ReviewPace;
+}) {
   const [open, setOpen] = useState<string | null>(GUIDE_SECTIONS[0]?.id ?? null);
 
   return (
@@ -51,7 +56,9 @@ export default function GuideView({ onOpenView }: { onOpenView: (view: string) =
           <p className="eyebrow">STATUSES</p>
           <h3>What each one means, and when it comes back</h3>
           <p className="muted">
-            Set a status on a syllabus point and the review is scheduled from it. Nothing to configure.
+            Set a status on a syllabus point and the review is scheduled from it. These are your own
+            gaps — change any of them under Subjects, and every point you have already studied is
+            re-dated to match.
           </p>
         </div>
         <table>
@@ -59,7 +66,7 @@ export default function GuideView({ onOpenView }: { onOpenView: (view: string) =
             <tr><th scope="col">Status</th><th scope="col">Means</th><th scope="col">Comes back in</th></tr>
           </thead>
           <tbody>
-            {STATUS_GUIDE.map((row) => (
+            {statusGuide(pace).map((row) => (
               <tr key={row.status}>
                 <th scope="row"><span className={`guide-status ${row.status.toLowerCase().replaceAll(" ", "-")}`}>{row.status}</span></th>
                 <td>{row.meaning}</td>
@@ -86,7 +93,7 @@ export default function GuideView({ onOpenView }: { onOpenView: (view: string) =
             </tr>
           </thead>
           <tbody>
-            {DIFFICULTY_GUIDE.map((row) => (
+            {difficultyGuide(pace).map((row) => (
               <tr key={row.difficulty}>
                 <th scope="row"><span className={`guide-status difficulty-${row.difficulty}`}>{row.label}</span></th>
                 <td>{row.meaning}</td>

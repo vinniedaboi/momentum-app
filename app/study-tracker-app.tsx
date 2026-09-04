@@ -184,6 +184,7 @@ export default function StudyTrackerApp() {
   const { value: pastPapers, setValue: setPastPapers, failed: papersError } = workspace.papers;
   const { value: paperMeta, setValue: setPaperMeta } = workspace.paperMeta;
   const { value: gradeTargets, reload: refreshGradeTargets } = workspace.gradeTargets;
+  const { value: reviewPace, setValue: setReviewPace } = workspace.reviewPace;
   const { value: exams } = workspace.exams;
   const { value: goals, loading: goalsLoading, reload: refreshGoals } = workspace.goals;
   const [activeView, setActiveView] = useState<ActiveView>("Today");
@@ -883,7 +884,7 @@ export default function StudyTrackerApp() {
         {activeView === "History" ? (
           <HistoryView today={today} onMessage={setMessage} />
         ) : activeView === "Guide" ? (
-          <GuideView onOpenView={(view) => selectView(view as ActiveView)} />
+          <GuideView onOpenView={(view) => selectView(view as ActiveView)} pace={reviewPace} />
         ) : activeView === "Tasks" ? (
           <TasksView tasks={tasks} subjects={subjects} today={today} adding={taskAdding} busyIds={taskBusyIds} onAdd={addTask} onUpdate={updateTask} onDelete={deleteTask} />
         ) : activeView === "Flashcards" ? (
@@ -1073,7 +1074,18 @@ export default function StudyTrackerApp() {
             )}
           </>
         ) : activeView === "Subjects" ? (
-          <SubjectSettings subjects={subjects} topics={topics} stageBusy={stageBusy} onStageDone={setStageDone} onMessage={setMessage} onChanged={(next) => { setSubjects(next); refreshTopics(); }} />
+          <SubjectSettings
+            subjects={subjects}
+            topics={topics}
+            stageBusy={stageBusy}
+            reviewPace={reviewPace}
+            onStageDone={setStageDone}
+            onMessage={setMessage}
+            onChanged={(next) => { setSubjects(next); refreshTopics(); }}
+            // A new pace re-dates every point that was already scheduled, so the
+            // board has to be re-read rather than patched from the response.
+            onPaceSaved={(next) => { setReviewPace(next); refreshTopics(); }}
+          />
         ) : (
           <SubjectView
             subject={subjectLookup.get(viewSubjectId(activeView) ?? "") ?? null}

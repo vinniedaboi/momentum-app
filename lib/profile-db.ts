@@ -1,4 +1,5 @@
-import { getSql } from "./db";
+import { getSql, type SqlClient } from "./db";
+import { normalisePace, type ReviewPace } from "../app/topics";
 
 export type Profile = {
   id: string;
@@ -9,6 +10,8 @@ export type Profile = {
   targetYear: number | null;
   weeklyHoursTarget: number;
   timezone: string;
+  /** The learner's own gaps between reviews, in days. */
+  reviewPace: ReviewPace;
   onboardedAt: string | null;
 };
 
@@ -21,6 +24,21 @@ export type OnboardingInput = {
   timezone: string;
 };
 
+/**
+ * The pace columns as the app's own table. `normalisePace` fills in anything
+ * missing, which is what keeps a profile row read before the pace migration
+ * landed — or one column somehow null — scheduling on the defaults rather than
+ * on NaN.
+ */
+function readPace(row: Record<string, unknown>): ReviewPace {
+  return normalisePace({
+    Learning: row.review_days_learning,
+    Practising: row.review_days_practising,
+    Covered: row.review_days_covered,
+    "Exam Ready": row.review_days_exam_ready,
+  });
+}
+
 function mapProfile(row: Record<string, unknown>): Profile {
   return {
     id: String(row.id),
@@ -31,6 +49,7 @@ function mapProfile(row: Record<string, unknown>): Profile {
     targetYear: row.target_year == null ? null : Number(row.target_year),
     weeklyHoursTarget: Number(row.weekly_hours_target ?? 10),
     timezone: String(row.timezone ?? "Asia/Singapore"),
+    reviewPace: readPace(row),
     onboardedAt:
       row.onboarded_at instanceof Date
         ? row.onboarded_at.toISOString()
@@ -62,6 +81,41 @@ export async function ensureProfile(workspaceId: string, email: string | null) {
     RETURNING *
   `;
   return mapProfile(rows[0]);
+}
+
+/**
+ * The learner's own gaps, read inside whatever transaction is scheduling.
+ *
+ * Every scheduler path reads this for itself rather than taking it as an
+ * argument, so no caller can forget one and quietly reschedule an account back
+ * onto the defaults. An account with no profile row yet gets the defaults.
+ */
+export async function getReviewPace(workspaceId: string, executor: SqlClient = getSql()): Promise<ReviewPace> {
+  const rows = await executor<Record<string, unknown>[]>`
+    SELECT review_days_learning, review_days_practising, review_days_covered, review_days_exam_ready
+    FROM profiles WHERE id = ${workspaceId}
+  `;
+  return rows.length ? readPace(rows[0]) : normalisePace(null);
+}
+
+/**
+ * Writes the four gaps and nothing else. Rescheduling the points that already
+ * carry a date is the scheduler's job, so this stays a column write and
+ * `setReviewPace` in topics-db drives the two together.
+ */
+export async function writeReviewPace(workspaceId: string, pace: ReviewPace, executor: SqlClient = getSql()) {
+  const rows = await executor<Record<string, unknown>[]>`
+    UPDATE profiles SET
+      review_days_learning = ${pace.Learning},
+      review_days_practising = ${pace.Practising},
+      review_days_covered = ${pace.Covered},
+      review_days_exam_ready = ${pace["Exam Ready"]},
+      updated_at = now()
+    WHERE id = ${workspaceId}
+    RETURNING review_days_learning, review_days_practising, review_days_covered, review_days_exam_ready
+  `;
+  if (!rows.length) throw new Error("Profile not found.");
+  return readPace(rows[0]);
 }
 
 export async function completeOnboarding(workspaceId: string, input: OnboardingInput) {

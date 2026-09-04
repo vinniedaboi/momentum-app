@@ -207,6 +207,24 @@ button.summary-card:hover, button.summary-card.selected { transform: translateY(
 /* Points already worked today. Tied to the study-time palette so it reads as
    part of "what I've done", and marked done rather than as another queue
    asking to be cleared. */
+/* The gaps between reviews, set by the learner. The preset cards reuse the
+   goal planner's own picker; only the four day fields are new. */
+.review-pace { display: grid; gap: var(--space-5); padding: var(--space-6); }
+.review-pace .panel-heading p:last-child { margin: var(--space-2) 0 0; color: var(--c-muted); font-size: var(--text-2xs); line-height: 1.6; max-width: 68ch; }
+.pace-days { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); }
+.pace-days label { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--c-line); border-radius: var(--radius-md); background: var(--c-surface-sunken); }
+.pace-days label > span { display: grid; gap: var(--space-1); min-width: 0; font-size: var(--text-3xs); font-weight: 900; color: var(--c-ink); }
+.pace-days label > span small { font-weight: 700; color: var(--c-muted); line-height: 1.35; }
+.pace-days input { width: 58px; height: 40px; border: 1px solid var(--c-line); border-radius: var(--radius-sm); background: var(--c-page); color: var(--ink); padding: 0 var(--space-1); font-size: var(--text-sm); font-weight: 800; text-align: center; }
+.pace-days b { font-size: var(--text-3xs); color: var(--c-muted); font-weight: 800; }
+.pace-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); }
+.pace-actions p { margin: 0; color: var(--c-muted); font-size: var(--text-3xs); line-height: 1.6; max-width: 76ch; }
+.pace-actions .primary-button { flex: 0 0 auto; }
+@media (max-width: 760px) {
+  .pace-days { grid-template-columns: 1fr 1fr; }
+  .pace-actions { display: grid; }
+}
+
 /* The same review board over the day's finished work: chapter groups that
    fold, checkboxes that select by subject or topic. The mint heading is all
    that sets it apart, marking it done rather than still to do. A stacked review

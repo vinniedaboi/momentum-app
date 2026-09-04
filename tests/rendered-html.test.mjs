@@ -785,11 +785,64 @@ test("teaches the loop at sign-up, and keeps a guide to come back to", async () 
   assert.match(topics, /DIFFICULTY_PACE/);
   assert.match(content, /reviewInterval\("Practising", difficulty\)/);
   assert.match(content, /share: DIFFICULTY_EFFORT\[difficulty\]/);
-  assert.match(await read("app/guide.tsx"), /DIFFICULTY_GUIDE\.map/);
+  // Both tables are read back through the scheduler at the learner's own gaps,
+  // so a guide open beside a changed pace quotes theirs and not the defaults.
+  assert.match(await read("app/guide.tsx"), /difficultyGuide\(pace\)\.map/);
+  assert.match(await read("app/guide.tsx"), /statusGuide\(pace\)\.map/);
 
   // And it is a place in the app, not one screen at sign-up.
   assert.match(shell, /activeView === "Guide"/);
   assert.match(shell, /<GuideView/);
+});
+
+test("a learner sets their own review gaps, and the board is re-dated to match", async () => {
+  const [topics, scheduler, profile, route, panel, settings, shell, migration] = await Promise.all([
+    read("app/topics.ts"),
+    read("lib/topics-db.ts"),
+    read("lib/profile-db.ts"),
+    read("app/api/review-pace/route.ts"),
+    read("app/review-pace.tsx"),
+    read("app/subject-settings.tsx"),
+    read("app/study-tracker-app.tsx"),
+    read("supabase/migrations/0018_review_pace.sql"),
+  ]);
+
+  // A column per gap, each with its own bound: a zero would schedule a point to
+  // come back the day it was studied, for ever.
+  for (const column of ["learning", "practising", "covered", "exam_ready"]) {
+    assert.match(migration, new RegExp(`review_days_${column} integer not null default \\d+`));
+    assert.match(migration, new RegExp(`check \\(review_days_${column} between 1 and 180\\)`));
+  }
+  // "Not Started" has no gap to offer: a point nobody has opened is due now.
+  assert.ok(!/review_days_not_started/.test(migration), "Not Started must not be paceable");
+  assert.match(topics, /PACED_STATUSES = \["Learning", "Practising", "Covered", "Exam Ready"\]/);
+
+  // Every scheduling path reads the learner's own gaps. A call that computed an
+  // interval without them would quietly put that account back on the defaults.
+  const scheduling = scheduler.split("\n").filter((line) => line.includes("reviewInterval("));
+  assert.ok(scheduling.length >= 4, "the scheduler should be computing intervals");
+  for (const line of scheduling) {
+    assert.match(line, /pace|saved/, `schedules without the learner's pace: ${line.trim()}`);
+  }
+
+  // A pace change re-dates each point from the day it was last studied, never
+  // from today: asking for tighter gaps is not a claim to have just revised.
+  assert.match(scheduler, /reviewed_on::date \+ \(CASE/);
+  assert.match(scheduler, /WHEN status = 'Exam Ready' THEN/, "Exam Ready must outrank the covered flag");
+  assert.ok(!/localDate\([^)]*\)::date/.test(scheduler), "a re-date must not count from today");
+
+  // What the scheduler stored is what comes back, so the panel cannot show a
+  // number the board is not using.
+  assert.match(route, /normalisePace\(body\.pace\)/);
+  assert.match(profile, /normalisePace/);
+
+  // Presets carry most people; the four fields are there for everyone else.
+  assert.match(panel, /PACE_PRESETS\.map/);
+  assert.match(panel, /PACE_FIELDS\.map/);
+  assert.match(settings, /<ReviewPacePanel/);
+  // The re-dating happens server side, so the board is re-read rather than patched.
+  assert.match(shell, /onPaceSaved=/);
+  assert.match(shell, /refreshTopics\(\); \}\}/);
 });
 
 test("offers the IB Diploma, split by level rather than by year", async () => {

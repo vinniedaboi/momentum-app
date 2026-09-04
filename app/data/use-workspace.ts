@@ -8,7 +8,7 @@ import type { GradeTarget } from "../grade-targets";
 import type { StudySession } from "../study-hours";
 import type { Subject } from "../subjects";
 import type { StudyTask } from "../tasks";
-import type { Topic } from "../topics";
+import { DEFAULT_REVIEW_PACE, type ReviewPace, type Topic } from "../topics";
 import { api } from "./api";
 import { studyApi } from "./endpoints";
 import { useResource } from "./use-resource";
@@ -38,6 +38,10 @@ export function useStudyWorkspace(onError: (message: string) => void) {
   // Read alongside the papers rather than only by the grade planner: the target
   // a paper is measured against belongs on the paper, wherever it is shown.
   const gradeTargets = useResource(studyApi.gradeTargets.path, "targets", [] as GradeTarget[]);
+  // The learner's own gaps between reviews. Failing to read them is not fatal —
+  // the settings panel simply opens on the defaults, which is what the scheduler
+  // falls back to as well.
+  const reviewPace = useResource(studyApi.reviewPace.path, "pace", DEFAULT_REVIEW_PACE as ReviewPace);
 
   // Topics cannot use useResource: reading the goals route is what applies any
   // pending schedule to the topic rows, so it has to complete first or the
@@ -86,6 +90,7 @@ export function useStudyWorkspace(onError: (message: string) => void) {
     papers,
     paperMeta,
     gradeTargets,
+    reviewPace,
     topics: { value: topics, setValue: setTopics, failed: topicsFailed, reload: reloadTopics },
     goals: { value: goals, loading: goalsLoading, reload: reloadGoals },
   };

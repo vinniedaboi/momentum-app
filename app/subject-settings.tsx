@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { Topic } from "./study-tracker-app";
 import { SUBJECT_TONES, stageIsDone, type Subject, type SubjectInput, type SubjectTone } from "./subjects";
 import Icon from "./icons";
+import ReviewPacePanel from "./review-pace";
 import { api, apiMessage } from "./data/api";
 import { studyApi } from "./data/endpoints";
 import { stagesForQualification } from "./syllabus-stage";
+import type { ReviewPace } from "./topics";
 
 type CatalogueSubject = { qualification: string; board: string; subject: string; code: string; papers: number; hasStages: boolean; stages: string[] | null };
 
@@ -208,14 +210,17 @@ function ImportPreview({ text, mode }: { text: string; mode: "text" | "csv" }) {
   </p>;
 }
 
-export default function SubjectSettings({ subjects, topics, stageBusy, onStageDone, onMessage, onChanged }: {
+export default function SubjectSettings({ subjects, topics, stageBusy, reviewPace, onStageDone, onMessage, onChanged, onPaceSaved }: {
   subjects: Subject[];
   topics: Topic[];
   /** The `subjectId|stage` mid-write, so only that chip goes busy. */
   stageBusy: string | null;
+  /** The learner's own gaps between reviews, set from this screen. */
+  reviewPace: ReviewPace;
   onStageDone: (subject: Subject, stage: string, done: boolean) => void;
   onMessage: (message: string) => void;
   onChanged: (subjects: Subject[]) => void;
+  onPaceSaved: (pace: ReviewPace) => void;
 }) {
   const [draft, setDraft] = useState<SubjectInput>(emptyDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -473,6 +478,8 @@ export default function SubjectSettings({ subjects, topics, stageBusy, onStageDo
       </div>
       {!composerOpen && <button className="primary-button" onClick={() => { setEditingId(null); setDraft(emptyDraft()); setPickQualification(""); setPickSubject(""); setImportText(""); setOfficialChapters([]); setImportMode("text"); setComposerOpen(true); }}>+ Add subject</button>}
     </section>
+
+    <ReviewPacePanel pace={reviewPace} onSaved={onPaceSaved} onMessage={onMessage} />
 
     {composerOpen && <section className="subject-composer panel-card">
       <div className="panel-heading">
