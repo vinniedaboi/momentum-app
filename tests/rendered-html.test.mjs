@@ -1450,6 +1450,19 @@ test("the landing page says what Momentum is not, beside what it is", async () =
   );
   // Said again in the reader's own words where they will look for it.
   assert.match(landing, /Does Momentum teach me the content\?/);
+
+  // Students speak for the product in their own words, and no further. The
+  // entries are bare strings: there is no field to put a first name, a year
+  // group or a school in, because none of those has been given and one invented
+  // to make a quote look sourced is a fabricated review. Adding attribution is
+  // a deliberate change to this shape, made when a real student gives theirs.
+  const quotes = landing.match(/const QUOTES = \[[\s\S]*?\n\];/)?.[0] ?? "";
+  assert.ok(quotes, "the quotes are where students speak for the product");
+  const entries = quotes.split("\n").slice(1, -1).filter((line) => line.trim());
+  assert.ok(entries.length > 0, "an empty quote list should be no section at all");
+  for (const entry of entries) {
+    assert.match(entry, /^\s*"[^"]+",\s*$/, `a quote gained a field: ${entry.trim()}`);
+  }
 });
 
 test("the landing page leads with the six features the product is for", async () => {
@@ -1481,7 +1494,7 @@ test("the landing page leads with the six features the product is for", async ()
   // The board itself is the hero picture, so its own section shows the queue
   // underneath it rather than printing the same screen twice.
   assert.equal(shots[0], "review-queue");
-  assert.match(landing, /<Shot name="review-board" priority/);
+  assert.match(landing, /<Shot name="board-top" priority/);
 
   // And the order they are printed in: the three that carry the page, then the
   // loop that runs them, then the planning around it, and the scheduling

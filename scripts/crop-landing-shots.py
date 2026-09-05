@@ -20,6 +20,23 @@ SHOTS = Path(__file__).resolve().parent.parent / "public" / "shots"
 
 # name -> (source, (left, top, right, bottom))
 CROPS = {
+    # The hero. The full 1440x900 capture cannot be used as it stands: at that
+    # height the sidebar's nav is still scrolling behind the auto-scheduling
+    # card, so Subjects is drawn half-height, and the workspace runs out mid-way
+    # through the first chapter row of the queue. Both read as a broken
+    # screenshot on the one picture that has to look right.
+    #
+    # 540 is the only line above the fold that is flat right across the frame in
+    # both themes — sidebar background all the way over its column, page
+    # background all the way over the workspace — so it cuts between Flashcards
+    # and Notes library on the left and between the study-hours strip and the
+    # tasks card on the right, through nothing at all. The queue the crop stops
+    # short of is the full-width picture in the section immediately below it.
+    #
+    # The width is left alone: the landing page's hero callouts are positioned
+    # from where the four counters sit in a 1440 frame, and cropping the sides
+    # would move them.
+    "board-top": ("review-board", (0, 0, 1440, 540)),
     # The past-paper summary cards on their own. A score is the number every
     # tracker already gives you, so the section arguing past the score shows
     # those figures at a size they can be read at.

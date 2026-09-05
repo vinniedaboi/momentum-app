@@ -118,9 +118,10 @@
 }
 
 /* What the hero screenshot is showing, printed under the four counters it is
-   about. The offsets are those cards' own place in the 1440px frame: they start
-   23.75% across it — past the sidebar and the page gutter — and run 71.67% of
-   its width, in four equal columns with the card gap between them, so each
+   about. The offsets are those cards' own place in the frame, measured off the
+   image itself: in its 1440px width the row of cards starts at 341 — past the
+   sidebar and the page gutter — and ends at 1374, four cards of 246 with a 16px
+   gap. As percentages that is 23.68% in, 71.74% wide and a 1.55% gap, so each
    label sits under the number it explains however wide the column gets.
 
    Below 900px the picture is too small to point into, so the row breaks up and
@@ -129,9 +130,9 @@
   list-style: none;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1.75%;
-  width: 71.67%;
-  margin: var(--space-3) 0 0 23.75%;
+  gap: 1.5489%;
+  width: 71.7361%;
+  margin: var(--space-3) 0 0 23.6806%;
   padding: 0;
   text-align: left;
 }
@@ -272,6 +273,31 @@
   text-decoration: none;
 }
 .landing-more:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- What students say ---------- */
+
+/* Set as pull quotes rather than as cards with a face and a name on them: there
+   are no names to put there yet, and the card shape is the one that makes a
+   reader look for the attribution it does not have. */
+.landing-quotes { padding: clamp(var(--space-9), 7vw, var(--space-11)) 0; }
+.landing-quotes ul { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: clamp(var(--space-6), 4vw, var(--space-8)); margin: var(--space-6) 0 0; padding: 0; }
+.landing-quotes blockquote {
+  position: relative;
+  margin: 0;
+  padding-top: var(--space-7);
+  font: 650 clamp(var(--text-xl), 2.4vw, var(--text-3xl))/1.25 var(--font-display);
+  letter-spacing: -.015em;
+  text-wrap: balance;
+}
+.landing-quotes blockquote::before {
+  content: "“";
+  position: absolute;
+  top: -.18em;
+  left: -.06em;
+  color: var(--teal);
+  font: 650 4em/1 var(--font-display);
+  opacity: .35;
+}
 
 /* ---------- Where it sits ---------- */
 

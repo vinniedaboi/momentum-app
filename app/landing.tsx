@@ -24,10 +24,16 @@ import type { LandingStats } from "../lib/landing-stats";
 
 const SHOTS = [
   {
-    file: "review-board",
+    // Cut from the full-screen capture by scripts/crop-landing-shots.py, which
+    // carries the reasoning: at the height the board is photographed, the
+    // sidebar's nav is still scrolling behind the auto-scheduling card and the
+    // workspace runs out mid-row, and neither belongs on the one picture that
+    // has to look right. The queue it stops short of is the full-width shot in
+    // the section directly below it.
+    file: "board-top",
     width: 1440,
-    height: 900,
-    alt: "The Momentum review board, showing six overdue topics, eleven due today, twenty in the next seven days and 58% of the syllabus covered, above a queue of syllabus points grouped by chapter, each row naming the plan that scheduled it and how long it is worth.",
+    height: 540,
+    alt: "The top of the Momentum review board: a sidebar listing the review board, tasks, study hours, past papers, syllabus goals, exams, calendar and flashcards, beside four counters — six overdue, eleven due today, twenty in the next seven days, and 58% of the syllabus covered with six points exam ready — above a strip reading 1h 35m logged today and 13h 15m in the last seven days.",
   },
   {
     file: "review-queue",
@@ -320,6 +326,21 @@ const PILLARS = [
 ];
 
 /**
+ * What students have said, in their own words and no further than them.
+ *
+ * Unattributed on purpose. These are real and were said to us, but nobody has
+ * yet given a name to put under one, and a first name, a year group or a school
+ * invented to make a quote look sourced is a fabricated review — which is worse
+ * than no name at all, because a reader who suspects one stops believing the
+ * rest of the page too. A quote joins this list when someone actually says it,
+ * and gains a name when they say we may use theirs.
+ */
+const QUOTES = [
+  "The best study app I have ever used.",
+  "Everything I need in one place.",
+];
+
+/**
  * Where Momentum sits next to the things a student already has open.
  *
  * The columns are kinds of tool rather than named products, because a table
@@ -521,7 +542,7 @@ export default function Landing({ stats }: { stats: LandingStats }) {
           </p>
           {/* The board, and what to take from it. This is the only picture above
               the fold, so it is the one worth fetching eagerly. */}
-          <Shot name="review-board" priority sizes="(max-width: 1200px) 100vw, 1160px" />
+          <Shot name="board-top" priority sizes="(max-width: 1200px) 100vw, 1160px" />
           <ul className="landing-hero-callouts" aria-label="What the board is showing">
             {CALLOUTS.map((callout) => (
               <li key={callout.card}>
@@ -641,6 +662,15 @@ export default function Landing({ stats }: { stats: LandingStats }) {
             wide
             caption="Set your own gap for each status, or start from a preset — the Intensive pace here, tighter than the defaults in the table."
           />
+        </section>
+
+        <section className="landing-quotes" aria-label="What students have said">
+          <p className="eyebrow">WHAT STUDENTS SAY</p>
+          <ul>
+            {QUOTES.map((quote) => (
+              <li key={quote}><blockquote>{quote}</blockquote></li>
+            ))}
+          </ul>
         </section>
 
         <section className="landing-compare">
