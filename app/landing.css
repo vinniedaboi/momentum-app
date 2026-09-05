@@ -117,12 +117,18 @@
   box-shadow: var(--shadow-md);
 }
 
+/* The whole board is a tall picture — counters, the tasks under them and the
+   queue's own rows — so it is held to a width where it does not stand a screen
+   and a half high. The labels below share the box, because their offsets are
+   fractions of the picture's width and not the page's. */
+.landing-hero-board { max-width: 900px; margin-inline: auto; }
+
 /* What the hero screenshot is showing, printed under the four counters it is
    about. The offsets are those cards' own place in the frame, measured off the
-   image itself: in its 1440px width the row of cards starts at 341 — past the
-   sidebar and the page gutter — and ends at 1374, four cards of 246 with a 16px
-   gap. As percentages that is 23.68% in, 71.74% wide and a 1.55% gap, so each
-   label sits under the number it explains however wide the column gets.
+   image itself: in its 1164px width the row of cards starts at 65 and ends at
+   1098 — four cards of 246 with a 16px gap. As percentages that is 5.58% in,
+   88.75% wide and a 1.55% gap, so each label sits under the number it explains
+   however wide the column gets.
 
    Below 900px the picture is too small to point into, so the row breaks up and
    each label leans on naming its own card instead. */
@@ -131,8 +137,8 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1.5489%;
-  width: 71.7361%;
-  margin: var(--space-3) 0 0 23.6806%;
+  width: 88.7457%;
+  margin: var(--space-3) 0 0 5.5842%;
   padding: 0;
   text-align: left;
 }

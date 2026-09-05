@@ -24,16 +24,13 @@ import type { LandingStats } from "../lib/landing-stats";
 
 const SHOTS = [
   {
-    // Cut from the full-screen capture by scripts/crop-landing-shots.py, which
-    // carries the reasoning: at the height the board is photographed, the
-    // sidebar's nav is still scrolling behind the auto-scheduling card and the
-    // workspace runs out mid-row, and neither belongs on the one picture that
-    // has to look right. The queue it stops short of is the full-width shot in
-    // the section directly below it.
-    file: "board-top",
-    width: 1440,
-    height: 540,
-    alt: "The top of the Momentum review board: a sidebar listing the review board, tasks, study hours, past papers, syllabus goals, exams, calendar and flashcards, beside four counters — six overdue, eleven due today, twenty in the next seven days, and 58% of the syllabus covered with six points exam ready — above a strip reading 1h 35m logged today and 13h 15m in the last seven days.",
+    // The board's whole page, put back together from the two captures of it by
+    // scripts/crop-landing-shots.py — which carries the reasoning, and fails
+    // rather than guessing if a retake stops the two agreeing.
+    file: "board-hero",
+    width: 1164,
+    height: 1187,
+    alt: "The Momentum review board: four counters reading six overdue, eleven due today, twenty in the next seven days and 58% of the syllabus covered, then 1h 35m logged today, a Chemistry coursework task due today, and the queue itself — Deformation of solids opened to show stress and strain two days overdue and rated hard, elastic and plastic behaviour due today for a Physics P2 mock, and the Young modulus due today, each with how long it is worth, its status and a button marking it reviewed.",
   },
   {
     file: "review-queue",
@@ -541,16 +538,21 @@ export default function Landing({ stats }: { stats: LandingStats }) {
             Free. No card, no trial, no limits &mdash; and setup takes about a minute.
           </p>
           {/* The board, and what to take from it. This is the only picture above
-              the fold, so it is the one worth fetching eagerly. */}
-          <Shot name="board-top" priority sizes="(max-width: 1200px) 100vw, 1160px" />
-          <ul className="landing-hero-callouts" aria-label="What the board is showing">
-            {CALLOUTS.map((callout) => (
-              <li key={callout.card}>
-                <b>{callout.card}</b>
-                {callout.note}
-              </li>
-            ))}
-          </ul>
+              the fold, so it is the one worth fetching eagerly. It is held
+              narrower than the page: the whole board is a tall thing, and at
+              full width it would stand a screen and a half high before the
+              labels under it were reached. */}
+          <div className="landing-hero-board">
+            <Shot name="board-hero" priority sizes="(max-width: 940px) 100vw, 900px" />
+            <ul className="landing-hero-callouts" aria-label="What the board is showing">
+              {CALLOUTS.map((callout) => (
+                <li key={callout.card}>
+                  <b>{callout.card}</b>
+                  {callout.note}
+                </li>
+              ))}
+            </ul>
+          </div>
           <ul className="landing-pillar-strip" aria-label="What Momentum does">
             {PILLARS.map((pillar) => (
               <li key={pillar.eyebrow}>{pillar.eyebrow.toLowerCase().replace(/^./, (c) => c.toUpperCase())}</li>

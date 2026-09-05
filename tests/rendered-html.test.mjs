@@ -1494,7 +1494,7 @@ test("the landing page leads with the six features the product is for", async ()
   // The board itself is the hero picture, so its own section shows the queue
   // underneath it rather than printing the same screen twice.
   assert.equal(shots[0], "review-queue");
-  assert.match(landing, /<Shot name="board-top" priority/);
+  assert.match(landing, /<Shot name="board-hero" priority/);
 
   // And the order they are printed in: the three that carry the page, then the
   // loop that runs them, then the planning around it, and the scheduling
