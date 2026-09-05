@@ -321,6 +321,43 @@ input, select, textarea { color: var(--ink); }
 .priority-badge.medium { background: var(--c-amber-soft); color: var(--c-amber-ink); }
 .priority-badge.high { background: var(--c-red-soft); color: var(--c-rose); }
 .task-row-actions button, .task-edit-row > div button:not(.primary-button) { color: var(--c-muted); font-size: var(--text-3xs); }
+
+/* ---------- The row while it is being edited ----------
+   An edit form carries both `.task-row` and `.task-edit-row`. features.css
+   gives the form its own five-track template, but the rule above restates
+   `.task-row` at the same specificity and later in the cascade, so the form was
+   taking the display row's columns instead: a 32px checkbox track for the title
+   box, an 8px pin track for the subject select. Two classes pin the form's own
+   shape so no later `.task-row` rule can take it back. */
+.task-row.task-edit-row {
+  grid-template-columns: minmax(200px, 2fr) minmax(150px, 1fr) 160px 128px;
+  align-items: end;
+  gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-4) 0;
+}
+/* features.css sends the title full width from 1120px down, which left an empty
+   track beside the three controls under it. The form has its own breakpoints
+   below, so the title stays in its own column until they say otherwise. */
+.task-row.task-edit-row > input:first-child { grid-column: auto; }
+/* The label picker and the buttons take a line each rather than being squeezed
+   into a track sized for a date box. */
+.task-row.task-edit-row > .task-edit-labels,
+.task-row.task-edit-row > div:last-child { grid-column: 1 / -1; }
+.task-row.task-edit-row > div:last-child { justify-content: flex-end; }
+/* The display row drops its last two cells on a phone. On the form those are
+   the labels and Save/Cancel, and a form with no save button is not a layout. */
+.task-row.task-edit-row > :nth-child(5),
+.task-row.task-edit-row > :nth-child(6) { display: flex; }
+
+@media (max-width: 900px) {
+  .task-row.task-edit-row { grid-template-columns: 1fr 1fr; }
+  .task-row.task-edit-row > input:first-child { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+  .task-row.task-edit-row { grid-template-columns: 1fr; }
+}
+
 .due-task-panel article { min-height: 68px; border-color: var(--c-surface-tint); }
 .due-task-panel article strong { font-size: var(--text-sm); }
 .due-task-panel article small { font-size: var(--text-3xs); }
