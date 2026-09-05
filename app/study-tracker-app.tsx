@@ -335,6 +335,33 @@ export default function StudyTrackerApp() {
   );
   const studiedTodayIds = useMemo(() => new Set(studiedToday.map((topic) => topic.id)), [studiedToday]);
 
+  /**
+   * Which of today's reviews were marked by logging study time.
+   *
+   * Both routes end in the same thing — a point reviewed today — so the band
+   * cannot tell them apart from the point alone, and "did I actually cover
+   * that, or just tick it here?" is the question it is read to answer. A
+   * session records the topics that were ticked, and ticking a chapter reviews
+   * every point beneath it; the board never shows the chapter, so the children
+   * are what has to carry the mark.
+   */
+  const loggedTodayIds = useMemo(() => {
+    const picked = new Set<string>();
+    for (const session of studySessions) {
+      if (session.studyDate !== today) continue;
+      for (const item of session.topics) picked.add(item.id);
+    }
+    if (!picked.size) return picked;
+    for (const topic of topics) {
+      if (topic.parentId && picked.has(topic.parentId)) picked.add(topic.id);
+    }
+    return picked;
+  }, [studySessions, topics, today]);
+  const studiedFromLog = useMemo(
+    () => studiedToday.reduce((count, topic) => count + (loggedTodayIds.has(topic.id) ? 1 : 0), 0),
+    [studiedToday, loggedTodayIds],
+  );
+
   // The subject filter is applied here rather than to the queue, so the three
   // counters above the queue and the queue itself are answering the same
   // question. Counters that disagree with the list under them are how a board
@@ -1017,7 +1044,7 @@ export default function StudyTrackerApp() {
                       Go again while it’s fresh
                       {subjectFilter ? <span className="queue-subject">{subjectName(subjectLookup, subjectFilter)}</span> : null}
                     </h3>
-                    <span className="queue-total">{studiedToday.length} point{studiedToday.length === 1 ? "" : "s"} worked today · their next review is set, and a repeat keeps them here until tomorrow</span>
+                    <span className="queue-total">{studiedToday.length} point{studiedToday.length === 1 ? "" : "s"} worked today{studiedFromLog > 0 ? `, ${studiedFromLog} of them marked by logging time` : ""} · their next review is set, and a repeat keeps them here until tomorrow</span>
                   </div>
                   <div className="queue-heading-actions">
                     {studiedGroups.length > 1 && <button className="ghost-button" onClick={() => setOpenStudiedGroups(openStudied.size === studiedGroups.length ? new Set() : new Set(studiedGroups.map((group) => group.key)))}>{openStudied.size === studiedGroups.length ? "Collapse all" : "Expand all"}</button>}
@@ -1046,7 +1073,7 @@ export default function StudyTrackerApp() {
                         {isOpen && (
                           <div className="review-list">
                             {group.items.map((topic) => (
-                              <TopicRow key={topic.id} topic={topic} subjects={subjectLookup} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} selected={selectedStudied.has(topic.id)} onSelect={() => toggleStudiedSelection([topic.id])} onOpenTimeline={setTimelineTopicId} exam={examDue.get(topic.id)} primaryLabel="Review again" />
+                              <TopicRow key={topic.id} topic={topic} subjects={subjectLookup} today={today} updating={updating.has(topic.id)} updateTopic={updateTopic} selected={selectedStudied.has(topic.id)} onSelect={() => toggleStudiedSelection([topic.id])} onOpenTimeline={setTimelineTopicId} exam={examDue.get(topic.id)} primaryLabel="Review again" fromLog={loggedTodayIds.has(topic.id)} />
                             ))}
                           </div>
                         )}
@@ -1206,7 +1233,7 @@ function DifficultySelect({ value, label, disabled, onChange }: {
   );
 }
 
-function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onOpenTimeline, subjects, exam, minutes, primaryLabel = "Reviewed now" }: {
+function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onOpenTimeline, subjects, exam, minutes, primaryLabel = "Reviewed now", fromLog = false }: {
   topic: Topic;
   subjects: Map<string, Subject>;
   /** The exam wanting this topic soonest, where one does. */
@@ -1221,6 +1248,8 @@ function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onO
   onOpenTimeline: (id: string) => void;
   /** What the log-a-review button says. "Review again" for a point already worked today. */
   primaryLabel?: string;
+  /** Today's review came from logging study time rather than from the board. */
+  fromLog?: boolean;
 }) {
   const dueDate = scheduledDate(topic, exam?.date);
   const source = dueSource(topic, dueDate, exam);
@@ -1233,6 +1262,7 @@ function TopicRow({ topic, today, updating, updateTopic, selected, onSelect, onO
           {/* An exam's own title can run long, so the chip is capped and carries
               the full name for anyone who hovers or reads it out. */}
           {source ? <b className={`review-source ${source.kind}`} title={source.label}>{source.label}</b> : null}
+          {fromLog ? <b className="review-source logged" title="Marked reviewed by logging study time, not from this board">Logged</b> : null}
           {minutes ? <b className="review-minutes">{formatStudyTime(minutes)}</b> : null}
         </span>
         <strong>{topic.title}</strong>
