@@ -1414,9 +1414,42 @@ test("the landing page's loop starts where a learner starts, and shows each step
   const names = [...landing.matchAll(/file: "([\w-]+)"/g)].map((match) => match[1]);
   for (const shot of shots) assert.ok(names.includes(shot), `${shot} needs an entry in SHOTS`);
 
-  // And it closes: four numbered steps with no way back read as a finish line,
-  // which is the opposite of what the section is called.
+  // And it closes: numbered steps with no way back read as a finish line, which
+  // is the opposite of what the section is called.
   assert.match(landing, /landing-loop-back/);
+
+  // The heading promises three moves. Numbering the one-off setup as step one
+  // of them is what made that heading print four steps underneath itself.
+  assert.match(landing, /After that it is the same three moves/);
+  assert.match(landing, /"once" in step \? "Setup" : `Step \$\{index\}`/);
+  assert.equal(titles.length - 1, 3, "the loop is three repeating moves plus setup");
+  assert.match(landing, /it is step 1 again/);
+});
+
+test("the landing page says what Momentum is not, beside what it is", async () => {
+  const landing = await read("app/landing.tsx");
+  const compare = landing.match(/const COMPARE = \{[\s\S]*?\n\};/)?.[0] ?? "";
+  assert.ok(compare, "the comparison table is where the page places itself");
+
+  // Kinds of tool, never a named product: a table putting a competitor's name
+  // above a row of crosses is a claim about their roadmap this page cannot
+  // stand behind.
+  for (const rival of [/save ?my ?exams/i, /\bknowt\b/i, /\banki\b/i, /\bquizlet\b/i, /\badapt\b/i]) {
+    assert.ok(!rival.test(landing), `the comparison names a competitor: ${rival}`);
+  }
+
+  // And at least one row where Momentum is not the answer. A table that wins
+  // every row is an advertisement; this one has to survive a reader who already
+  // pays for somewhere to learn the content from, which Momentum is not.
+  const ours = [...compare.matchAll(/us: "([^"]+)"/g)].map((match) => match[1]);
+  const rows = [...compare.matchAll(/feature: "([^"]+)"/g)].map((match) => match[1]);
+  assert.equal(ours.length, rows.length, "every row needs an answer in every column");
+  assert.ok(
+    ours.some((answer) => !/^yes/i.test(answer) && !/dates/i.test(answer)),
+    "the comparison never concedes a row",
+  );
+  // Said again in the reader's own words where they will look for it.
+  assert.match(landing, /Does Momentum teach me the content\?/);
 });
 
 test("the landing page leads with the six features the product is for", async () => {
@@ -1426,48 +1459,63 @@ test("the landing page leads with the six features the product is for", async ()
   // Named because they are the pitch. A page that gives twelve features equal
   // weight tells a reader nothing about which one to come for, which is what
   // the first version of this page did.
+  // The first three are the argument and are printed before anything else: what
+  // you open daily, what its numbers are measured against, and the one nothing
+  // else does. Past papers used to sit fifth, past where most readers stop.
   const pillars = [...landing.matchAll(/eyebrow: "([A-Z ]+)"/g)].map((match) => match[1]);
   assert.deepEqual(pillars, [
     "REVIEW BOARD",
     "SYLLABUS IMPORT",
+    "PAST PAPERS",
     "SYLLABUS GOALS",
     "EXAM PLANNING",
-    "PAST PAPERS",
     "STUDY LOG",
   ]);
 
-  // Each carries a screenshot of its own screen, and the review board leads:
-  // it is the screen the rest of the product feeds. Scoped to the array, as the
+  // Each carries a screenshot of its own screen. Scoped to the array, as the
   // loop above it names its screens the same way and counting both put this
   // page four screenshots over its own list of features.
   const pillarBlock = landing.match(/const PILLARS = \[[\s\S]*?\n\];/)?.[0] ?? "";
   const shots = [...pillarBlock.matchAll(/shot: "([\w-]+)" as const/g)].map((match) => match[1]);
   assert.equal(shots.length, pillars.length, "every pillar needs its own screenshot");
-  assert.equal(shots[0], "review-board");
+  // The board itself is the hero picture, so its own section shows the queue
+  // underneath it rather than printing the same screen twice.
+  assert.equal(shots[0], "review-queue");
+  assert.match(landing, /<Shot name="review-board" priority/);
 
-  // And it is printed first, ahead of everything the page has to say about it:
-  // the board is the screen the rest of the product feeds, so the intervals
-  // that fill it and the loop that runs it both come after it, and the other
-  // five sections after those.
+  // And the order they are printed in: the three that carry the page, then the
+  // loop that runs them, then the planning around it, and the scheduling
+  // mechanics last — nobody cares how the intervals work until they believe the
+  // intervals will help, which is why that table is no longer the second thing
+  // on the page.
   let at = -1;
-  for (const marker of ["{pillars[0]}", "landing-schedule", 'className="landing-loop"', "{pillars.slice(1)}"]) {
+  for (const marker of [
+    "{pillars.slice(0, 3)}",
+    'className="landing-loop"',
+    "{pillars.slice(3)}",
+    "landing-schedule",
+    "landing-compare",
+  ]) {
     const found = landing.indexOf(marker);
     assert.ok(found > at, `${marker} is out of order on the page`);
     at = found;
   }
+  // The section the mechanics moved to is reachable from the one that raises
+  // them: moving detail down the page only works if it is still findable.
+  assert.match(landing, /href: "#scheduling"/);
+  assert.match(landing, /id="scheduling"/);
 
   // Any pillar may claim the full width — the paper catalogue is a table, and a
   // table in half a column is unreadable.
   assert.match(landing, /index === 0 \|\| "wide" in pillar \? "lead"/);
   assert.match(landing, /shot2: "paper-catalogue" as const,\s*\n\s*wide: true,/);
 
-  // The three a single frame cannot make the case for: the board's counters
-  // mean nothing without the queue they are counting, a goal's summary is a
-  // summary of a chapter timeline the first shot stops above, and a paper
-  // catalogue says nothing about the marks your own attempts lost. Each gets a
+  // The two a single frame cannot make the case for: a paper catalogue says
+  // nothing about the marks your own attempts lost, and a goal's summary is a
+  // summary of a chapter timeline the first shot stops above. Each gets a
   // second frame, and each therefore has to run full width.
   const paired = [...pillarBlock.matchAll(/shot2: "([\w-]+)" as const/g)].map((match) => match[1]);
-  assert.deepEqual(paired, ["review-queue", "goal-detail", "paper-catalogue"]);
+  assert.deepEqual(paired, ["paper-catalogue", "goal-detail"]);
   for (const name of paired) {
     assert.ok(names.includes(name), `${name} needs an entry in SHOTS`);
   }

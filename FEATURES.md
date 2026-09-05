@@ -1,6 +1,6 @@
 # Momentum — Feature Guide
 
-> **Know exactly what to review next.**
+> **Know exactly what to revise today.**
 > Momentum turns a Cambridge syllabus into a day-by-day revision schedule, then
 > keeps it honest as the exam gets closer.
 
@@ -301,9 +301,17 @@ performance back to the specific spec points that lost the marks.
 
 ### Three lines that carry the product
 
-1. **Know exactly what to review next.** No planning session required.
+1. **Know exactly what to revise today.** No planning session required.
 2. **Your syllabus, already loaded.** Every chapter and spec point, on day one.
 3. **Log it once.** Study time, reviews and the schedule all update together.
+
+### Where Momentum sits
+
+It is not somewhere to learn from: there are no notes, no videos and no practice
+questions in it, and the landing page says so outright. Say instead that a
+student keeps whatever they already learn from and Momentum decides which of it
+needs opening tonight — that is a much easier thing to adopt than asking anyone
+to leave a revision site they already pay for.
 
 ---
 

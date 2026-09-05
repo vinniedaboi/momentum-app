@@ -32,7 +32,9 @@ export async function generateMetadata(): Promise<Metadata> {
   // deployment describes itself rather than pointing search engines and link
   // previews at production.
   const origin = `${protocol}://${host}`;
-  const title = "Momentum — Know exactly what to review next";
+  // What someone searching would type, not the motto: the page's own headline
+  // carries that, and a title tag is read in a results list beside nine others.
+  const title = "Momentum — Free A Level, IGCSE & IB Revision Planner";
   const description =
     "A revision planner for A Level, IGCSE and IB students. Momentum loads your official "
     + "syllabus, schedules every spec point, and tells you what to revise today. Free.";

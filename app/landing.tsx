@@ -161,6 +161,28 @@ function Shot({ name, priority = false, wide = false, caption, sizes }: {
 }
 
 /**
+ * The boards a visitor can arrive with. Named once: the strip at the top counts
+ * them, the line under it prints them and the FAQ answers with them, so the
+ * three cannot drift into disagreeing about how many there are.
+ */
+const BOARDS = ["Cambridge International", "Edexcel", "AQA", "OCR", "IB Diploma"];
+
+/**
+ * What the hero screenshot is showing, said out loud.
+ *
+ * The board is the one picture that has to land in about three seconds, and on
+ * its own it asks to be inspected: four numbers on four cards, none of which
+ * explain why they are worth having. These sit under the cards they belong to —
+ * see the offsets in landing.css — so the page does the inspecting instead.
+ */
+const CALLOUTS = [
+  { card: "Overdue", note: "What slipped. Start here." },
+  { card: "Due today", note: "Worked out before you opened it." },
+  { card: "Next 7 days", note: "Reviews, goals and exam revision in one queue." },
+  { card: "Syllabus progress", note: "Measured against the board's own spec points." },
+];
+
+/**
  * What a learner actually does, in the order they actually do it.
  *
  * It used to open on logging time, which is nobody's first move: you cannot log
@@ -206,21 +228,28 @@ const LOOP = [
  * screenshot of the real screen; everything else is listed further down as
  * what comes with them, because a landing page that gives twelve features
  * equal weight tells a reader nothing about which one to come for.
+ *
+ * The first three are the argument, and are printed before anything else: the
+ * board says what you do daily, the syllabus says what the numbers are measured
+ * against, and past papers is the one nothing else on the market does — it used
+ * to sit fifth, two thirds of the way down, which is past where most readers
+ * stop. The three that follow are the planning around them.
  */
 const PILLARS = [
   {
-    shot: "review-board" as const,
-    shot2: "review-queue" as const,
-    caption: "What is overdue, what is due today, how much you have covered.",
-    caption2: "And the queue itself — every point with its date, what it is worth, and how hard you find it.",
+    // The board itself is the hero picture now, so this section shows the queue
+    // underneath it rather than printing the same screen again.
+    shot: "review-queue" as const,
+    caption: "The queue itself — every point with its date, what it is worth, and how hard you find it.",
     eyebrow: "REVIEW BOARD",
     title: "Stop deciding what to study",
     body: "Every spec point already has a date, so the day's list is worked out before you open it. Nothing falls off the syllabus because you forgot it was there.",
     ticks: [
       "Reviews, goal work and exam revision in one queue",
-      "Overdue, due today and the week ahead, counted",
+      "Rate one hard and it comes back sooner; easy, and it waits",
       "Narrow it to one subject when you only have an hour",
     ],
+    more: { href: "#scheduling", label: "See how the scheduling works" },
   },
   {
     shot: "syllabus-import" as const,
@@ -231,6 +260,24 @@ const PILLARS = [
       "Cambridge, IB, Edexcel, AQA and OCR",
       "Nothing to type in: pick the subject, get the syllabus",
       "Or bring your own by pasting an outline",
+    ],
+  },
+  {
+    // The figures lead, at a size they can be read at, because the argument
+    // here is about a number. The catalogue under them is cut below those same
+    // cards, so the two frames are not the same picture twice.
+    shot: "paper-figures" as const,
+    shot2: "paper-catalogue" as const,
+    wide: true,
+    caption: "What your own attempts come to — and the catalogue they came out of.",
+    caption2: "Every Cambridge paper, with the thresholds it was marked against and the files to sit it.",
+    eyebrow: "PAST PAPERS",
+    title: "Stop recording the score. Find out where the marks went.",
+    body: "78.8% is the number every tracker will give you, and there is nothing you can do with it. Log the attempt against the spec points that lost the marks and they are ranked by how many papers they have cost you — usually the same three — then go straight back on the review board. Every Cambridge paper is here too, each rated by where its grade boundaries actually landed: a hard paper is one the examiners had to drop the A threshold for.",
+    ticks: [
+      "Weak topics tagged to the syllabus point that lost them",
+      "Difficulty read from the paper's own grade thresholds",
+      "Question papers, mark schemes and examiner reports, linked",
     ],
   },
   {
@@ -260,24 +307,6 @@ const PILLARS = [
     ],
   },
   {
-    // The figures lead, at a size they can be read at, because the argument
-    // here is about a number. The catalogue under them is cut below those same
-    // cards, so the two frames are not the same picture twice.
-    shot: "paper-figures" as const,
-    shot2: "paper-catalogue" as const,
-    wide: true,
-    caption: "What your own attempts come to — and the catalogue they came out of.",
-    caption2: "Every Cambridge paper, with the thresholds it was marked against and the files to sit it.",
-    eyebrow: "PAST PAPERS",
-    title: "Stop recording the score. Find out where the marks went.",
-    body: "78.8% is the number every tracker will give you, and there is nothing you can do with it. Log the attempt against the spec points that lost the marks and they are ranked by how many papers they have cost you — usually the same three — then go straight back on the review board. Every Cambridge paper is here too, each rated by where its grade boundaries actually landed: a hard paper is one the examiners had to drop the A threshold for.",
-    ticks: [
-      "Weak topics tagged to the syllabus point that lost them",
-      "Difficulty read from the paper's own grade thresholds",
-      "Question papers, mark schemes and examiner reports, linked",
-    ],
-  },
-  {
     shot: "study-log" as const,
     eyebrow: "STUDY LOG",
     title: "Log it once, and everything else stays current",
@@ -289,6 +318,29 @@ const PILLARS = [
     ],
   },
 ];
+
+/**
+ * Where Momentum sits next to the things a student already has open.
+ *
+ * The columns are kinds of tool rather than named products, because a table
+ * that puts a competitor's name above a row of crosses is a claim about their
+ * roadmap this page cannot stand behind. The last row is the point of the
+ * table: Momentum has no notes and no practice questions in it, and saying so
+ * is what makes the rows above it worth reading.
+ */
+const COMPARE = {
+  columns: ["A planner or calendar", "A revision-notes site"],
+  rows: [
+    { feature: "Your exam board's syllabus, loaded for you", them: ["You type it in", "To read"], us: "To revise, with dates" },
+    { feature: "Schedules individual spec points", them: ["No", "Not usually"], us: "Yes" },
+    { feature: "Brings a topic back on its own", them: ["No", "Sometimes"], us: "Yes" },
+    { feature: "Plans a mock covering only part of the course", them: ["Not usually", "Not usually"], us: "Yes" },
+    { feature: "Ties a lost mark to the spec point behind it", them: ["No", "Not usually"], us: "Yes" },
+    { feature: "Rates a paper by where its boundaries landed", them: ["No", "No"], us: "Yes" },
+    { feature: "Logging your hours moves the plan", them: ["No", "No"], us: "Yes" },
+    { feature: "Notes, videos and practice questions", them: ["No", "Yes"], us: "Bring your own" },
+  ],
+};
 
 /**
  * Where each of the six sits. A section runs full width when one column is too
@@ -320,6 +372,10 @@ const FAQ = [
   {
     q: "Which exam boards does Momentum support?",
     a: "Cambridge International AS & A Level and IGCSE, the IB Diploma Programme, Edexcel International A Level and International GCSE, and the AQA, OCR and Edexcel A levels. You can also add any subject of your own and paste or import its syllabus.",
+  },
+  {
+    q: "Does Momentum teach me the content?",
+    a: "No, and it does not try to. There are no notes, videos or practice questions in it. Keep whatever you already learn from — your textbook, your teacher's slides, a revision site — and let Momentum work out which of them you should have open tonight, and what your last paper says you got wrong.",
   },
   {
     q: "Do I have to type my syllabus in?",
@@ -397,16 +453,17 @@ export default function Landing({ stats }: { stats: LandingStats }) {
         <ul className="landing-ticks">
           {pillar.ticks.map((tick) => <li key={tick}>{tick}</li>)}
         </ul>
+        {/* The mechanics live at the bottom of the page now, so the section
+            that raises them carries the way down to them. */}
+        {pillar.more ? (
+          <a className="landing-more" href={pillar.more.href}>
+            {pillar.more.label}
+            <span aria-hidden="true">→</span>
+          </a>
+        ) : null}
       </div>
       <div className="landing-shot-stack">
-        {/* The board is the first picture in the document now, and the only one
-            near the fold, so it is the one worth fetching eagerly. */}
-        <Shot
-          name={pillar.shot}
-          priority={index === 0}
-          wide={LAYOUTS[index] === "lead"}
-          caption={pillar.caption}
-        />
+        <Shot name={pillar.shot} wide={LAYOUTS[index] === "lead"} caption={pillar.caption} />
         {pillar.shot2 ? (
           <Shot name={pillar.shot2} wide={LAYOUTS[index] === "lead"} caption={pillar.caption2} />
         ) : null}
@@ -436,24 +493,43 @@ export default function Landing({ stats }: { stats: LandingStats }) {
         <div className="landing-nav-actions">
           <ThemeToggle />
           <Link href="/login" className="landing-signin">Sign in</Link>
-          <Link href="/signup" className="landing-cta">Create free account</Link>
+          <Link href="/signup" className="landing-cta">Build my plan</Link>
         </div>
       </header>
 
       <main>
         <section className="landing-hero">
           <p className="eyebrow">FOR A LEVEL, IGCSE AND IB STUDENTS</p>
-          {/* The motto. It was buried two screens down as the setup for a
-              paragraph nobody needed: it is the whole argument, so it leads. */}
-          <h1>Revision planning eats the time you meant to spend revising.</h1>
+          {/*
+            * The question a student actually has at half seven in the evening,
+            * answered in the words they would use to ask it. It led on the cost
+            * of planning before, which is the reason the product exists rather
+            * than the thing it gives you — an argument you have to follow, in
+            * the one place on the page that has to land without being followed.
+            */}
+          <h1>Know exactly what to revise today.</h1>
           <p className="landing-lede">
-            Momentum does the planning. Open it, and you know what to review next.
+            Momentum loads your exam board&rsquo;s own syllabus, puts a date on every spec
+            point, and has the day&rsquo;s list ready before you open it.
           </p>
           <div className="landing-hero-actions">
-            <Link href="/signup" className="landing-cta large">Create a free account</Link>
-            <Link href="/login" className="landing-ghost large">I already have one</Link>
+            <Link href="/signup" className="landing-cta large">Build my revision plan</Link>
+            <Link href="/login" className="landing-ghost large">I already have an account</Link>
           </div>
-          <p className="landing-hero-note">Free, no limits, syllabus loaded at sign-up.</p>
+          <p className="landing-hero-note">
+            Free. No card, no trial, no limits &mdash; and setup takes about a minute.
+          </p>
+          {/* The board, and what to take from it. This is the only picture above
+              the fold, so it is the one worth fetching eagerly. */}
+          <Shot name="review-board" priority sizes="(max-width: 1200px) 100vw, 1160px" />
+          <ul className="landing-hero-callouts" aria-label="What the board is showing">
+            {CALLOUTS.map((callout) => (
+              <li key={callout.card}>
+                <b>{callout.card}</b>
+                {callout.note}
+              </li>
+            ))}
+          </ul>
           <ul className="landing-pillar-strip" aria-label="What Momentum does">
             {PILLARS.map((pillar) => (
               <li key={pillar.eyebrow}>{pillar.eyebrow.toLowerCase().replace(/^./, (c) => c.toUpperCase())}</li>
@@ -461,20 +537,63 @@ export default function Landing({ stats }: { stats: LandingStats }) {
           </ul>
         </section>
 
+        {/*
+          * What is loaded in. The subject count used to lead it and was read as
+          * a contradiction — 484 subjects against 233 syllabuses reads as "only
+          * half of them work" to anyone who does not already know that a subject
+          * without a parsed tree still takes an imported one. So the boards lead
+          * instead, and the two figures that are genuinely large follow.
+          */}
         <section className="landing-stats" aria-label="What is loaded in">
-          <div><strong>{number(stats.subjects)}</strong><span>subjects</span></div>
-          <div><strong>{number(stats.syllabuses)}</strong><span>syllabuses loaded in full</span></div>
-          <div><strong>{number(stats.specPoints)}</strong><span>spec points parsed</span></div>
-          <div><strong>{number(stats.papers)}</strong><span>past papers</span></div>
+          <div className="landing-stats-row">
+            <div><strong>{BOARDS.length}</strong><span>exam boards</span></div>
+            <div><strong>{number(stats.syllabuses)}</strong><span>syllabuses loaded in full</span></div>
+            <div><strong>{number(stats.specPoints)}</strong><span>spec points parsed</span></div>
+            <div><strong>{number(stats.papers)}</strong><span>past papers, with mark schemes</span></div>
+          </div>
+          <p>{BOARDS.join(" · ")} — and {number(stats.subjects)} subjects to pick from.</p>
         </section>
 
-        {/* The board leads: it is the screen the rest of the product feeds, and
-            the one a reader has to see to know what any of this is. The
-            intervals that fill it come next, then the loop that runs it, and
-            the other five sections after those. */}
-        {pillars[0]}
+        {/* The three the product is for, before anything else: the board you
+            open daily, the syllabus its numbers are measured against, and the
+            past papers that feed it. Then the loop that runs them, then the
+            planning around it, and the mechanics last. */}
+        {pillars.slice(0, 3)}
 
-        <section className="landing-schedule">
+        <section id="how-it-works" className="landing-loop">
+          <p className="eyebrow">THE LOOP</p>
+          <h2>Set it up once. After that it is the same three moves.</h2>
+          <p className="landing-loop-lede">
+            Nobody starts by logging time. You start by saying what you study — and
+            from then on it is the app holding the plan, not you.
+          </p>
+          <ol>
+            {LOOP.map((step, index) => (
+              <li key={step.title}>
+                <div className="landing-loop-copy">
+                  <span className="landing-loop-mark" aria-hidden="true"><Icon name={step.icon} /></span>
+                  {/* The one-off is not step one of three: numbering it as such
+                      is what made a list of three moves print four steps. */}
+                  <p className="landing-loop-index">
+                    {"once" in step ? "Setup" : `Step ${index}`}
+                    {"once" in step ? <span className="landing-loop-once">once</span> : null}
+                  </p>
+                  <strong>{step.title}</strong>
+                  <p>{step.body}</p>
+                </div>
+                <Shot name={step.shot} sizes="(max-width: 900px) 100vw, 620px" />
+              </li>
+            ))}
+          </ol>
+          <p className="landing-loop-back">
+            <span aria-hidden="true"><Icon name="review" /></span>
+            Then it is step 1 again, on a board that has already counted what you did.
+          </p>
+        </section>
+
+        {pillars.slice(3)}
+
+        <section id="scheduling" className="landing-schedule">
           <div>
             <p className="eyebrow">GOOD DEFAULTS, YOURS TO CHANGE</p>
             <h2>Set a status. The next review is scheduled from it.</h2>
@@ -524,36 +643,43 @@ export default function Landing({ stats }: { stats: LandingStats }) {
           />
         </section>
 
-        <section id="how-it-works" className="landing-loop">
-          <p className="eyebrow">THE LOOP</p>
-          <h2>Set it up once. After that it is the same three moves.</h2>
-          <p className="landing-loop-lede">
-            Nobody starts by logging time. You start by saying what you study — and
-            from then on it is the app holding the plan, not you.
+        <section className="landing-compare">
+          <p className="eyebrow">WHERE IT SITS</p>
+          <h2>Keep what you study from. Momentum decides what needs studying.</h2>
+          <p className="landing-compare-lede">
+            It is not a replacement for your textbook, your teacher&rsquo;s slides or the site
+            you get practice questions from. It is the layer above them — the one that
+            says which to open tonight, and puts what your last paper got wrong back in
+            the queue.
           </p>
-          <ol>
-            {LOOP.map((step, index) => (
-              <li key={step.title}>
-                <div className="landing-loop-copy">
-                  <span className="landing-loop-mark" aria-hidden="true"><Icon name={step.icon} /></span>
-                  <p className="landing-loop-index">
-                    Step {index + 1}
-                    {"once" in step ? <span className="landing-loop-once">once</span> : null}
-                  </p>
-                  <strong>{step.title}</strong>
-                  <p>{step.body}</p>
-                </div>
-                <Shot name={step.shot} sizes="(max-width: 900px) 100vw, 620px" />
-              </li>
-            ))}
-          </ol>
-          <p className="landing-loop-back">
-            <span aria-hidden="true"><Icon name="review" /></span>
-            Then it is step 2 again, on a board that has already counted what you did.
-          </p>
+          <div className="landing-compare-scroll">
+            <table>
+              <caption className="sr-only">
+                What a planner, a revision-notes site and Momentum each do
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">
+                    <span className="sr-only">What it does</span>
+                  </th>
+                  {COMPARE.columns.map((column) => <th key={column} scope="col">{column}</th>)}
+                  <th scope="col" className="us">Momentum</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARE.rows.map((row) => (
+                  <tr key={row.feature}>
+                    <th scope="row">{row.feature}</th>
+                    {row.them.map((cell, index) => (
+                      <td key={COMPARE.columns[index]} className={cell === "No" ? "no" : undefined}>{cell}</td>
+                    ))}
+                    <td className="us">{row.us}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
-
-        {pillars.slice(1)}
 
         <section className="landing-features">
           <p className="eyebrow">AND THE REST OF IT</p>
@@ -586,9 +712,10 @@ export default function Landing({ stats }: { stats: LandingStats }) {
           <h2>Open the app. Work the list.</h2>
           <p>About a minute to set up. Pick your subjects, and the syllabus loads itself.</p>
           <div className="landing-hero-actions">
-            <Link href="/signup" className="landing-cta large">Create a free account</Link>
+            <Link href="/signup" className="landing-cta large">Build my revision plan</Link>
             <Link href="/login" className="landing-ghost large">Sign in</Link>
           </div>
+          <p className="landing-hero-note">Free. No card, no trial, no limits.</p>
         </section>
       </main>
 

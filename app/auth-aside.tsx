@@ -23,9 +23,10 @@ export default function AuthAside() {
       </div>
 
       <div className="auth-pitch">
-        <h2>Know exactly what to review next.</h2>
+        <h2>Know exactly what to revise today.</h2>
         <p>
-          Momentum does the planning. Open it, and you know what to review next.
+          Momentum loads your exam board&rsquo;s own syllabus, puts a date on every spec
+          point, and has the day&rsquo;s list ready before you open it.
         </p>
 
         <ul className="auth-highlights">
