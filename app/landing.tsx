@@ -578,11 +578,57 @@ export default function Landing({ stats }: { stats: LandingStats }) {
           <p>{BOARDS.join(" · ")} — and {number(stats.subjects)} subjects to pick from.</p>
         </section>
 
-        {/* The three the product is for, before anything else: the board you
-            open daily, the syllabus its numbers are measured against, and the
-            past papers that feed it. Then the loop that runs them, then the
-            planning around it, and the mechanics last. */}
-        {pillars.slice(0, 3)}
+        {/* The board first: it is the screen the rest of the product feeds, and
+            the one a reader has to see to know what any of this is. */}
+        {pillars[0]}
+
+        {/* Then where Momentum sits, answered before the feature list rather
+            than after it. "Why do I need this when I already have somewhere to
+            revise from" is the question standing between the board and reading
+            any further, and a reader who has not had it answered reads the
+            sections below as a pitch for something replacing what they use. */}
+        <section className="landing-compare">
+          <p className="eyebrow">WHERE IT SITS</p>
+          <h2>Keep what you study from. Momentum decides what needs studying.</h2>
+          <p className="landing-compare-lede">
+            It is not a replacement for your textbook, your teacher&rsquo;s slides or the site
+            you get practice questions from. It is the layer above them — the one that
+            says which to open tonight, and puts what your last paper got wrong back in
+            the queue.
+          </p>
+          <div className="landing-compare-scroll">
+            <table>
+              <caption className="sr-only">
+                What a planner, a revision-notes site and Momentum each do
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">
+                    <span className="sr-only">What it does</span>
+                  </th>
+                  {COMPARE.columns.map((column) => <th key={column} scope="col">{column}</th>)}
+                  <th scope="col" className="us">Momentum</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARE.rows.map((row) => (
+                  <tr key={row.feature}>
+                    <th scope="row">{row.feature}</th>
+                    {row.them.map((cell, index) => (
+                      <td key={COMPARE.columns[index]} className={cell === "No" ? "no" : undefined}>{cell}</td>
+                    ))}
+                    <td className="us">{row.us}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* And the other two that carry the page — the syllabus its numbers are
+            measured against, and the past papers that feed it — then the loop
+            that runs them, the planning around it, and the mechanics last. */}
+        {pillars.slice(1, 3)}
 
         <section id="how-it-works" className="landing-loop">
           <p className="eyebrow">THE LOOP</p>
@@ -674,44 +720,6 @@ export default function Landing({ stats }: { stats: LandingStats }) {
               <li key={quote}><blockquote>{quote}</blockquote></li>
             ))}
           </ul>
-        </section>
-
-        <section className="landing-compare">
-          <p className="eyebrow">WHERE IT SITS</p>
-          <h2>Keep what you study from. Momentum decides what needs studying.</h2>
-          <p className="landing-compare-lede">
-            It is not a replacement for your textbook, your teacher&rsquo;s slides or the site
-            you get practice questions from. It is the layer above them — the one that
-            says which to open tonight, and puts what your last paper got wrong back in
-            the queue.
-          </p>
-          <div className="landing-compare-scroll">
-            <table>
-              <caption className="sr-only">
-                What a planner, a revision-notes site and Momentum each do
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">
-                    <span className="sr-only">What it does</span>
-                  </th>
-                  {COMPARE.columns.map((column) => <th key={column} scope="col">{column}</th>)}
-                  <th scope="col" className="us">Momentum</th>
-                </tr>
-              </thead>
-              <tbody>
-                {COMPARE.rows.map((row) => (
-                  <tr key={row.feature}>
-                    <th scope="row">{row.feature}</th>
-                    {row.them.map((cell, index) => (
-                      <td key={COMPARE.columns[index]} className={cell === "No" ? "no" : undefined}>{cell}</td>
-                    ))}
-                    <td className="us">{row.us}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </section>
 
         <section className="landing-features">

@@ -1496,18 +1496,21 @@ test("the landing page leads with the six features the product is for", async ()
   assert.equal(shots[0], "review-queue");
   assert.match(landing, /<Shot name="board-hero" priority/);
 
-  // And the order they are printed in: the three that carry the page, then the
-  // loop that runs them, then the planning around it, and the scheduling
+  // And the order they are printed in: the board, then where Momentum sits
+  // against what the reader already has open, then the other two that carry the
+  // page, the loop that runs them, the planning around it, and the scheduling
   // mechanics last — nobody cares how the intervals work until they believe the
   // intervals will help, which is why that table is no longer the second thing
   // on the page.
   let at = -1;
   for (const marker of [
-    "{pillars.slice(0, 3)}",
+    "{pillars[0]}",
+    "landing-compare",
+    "{pillars.slice(1, 3)}",
     'className="landing-loop"',
     "{pillars.slice(3)}",
     "landing-schedule",
-    "landing-compare",
+    "landing-quotes",
   ]) {
     const found = landing.indexOf(marker);
     assert.ok(found > at, `${marker} is out of order on the page`);
