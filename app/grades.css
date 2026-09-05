@@ -385,6 +385,20 @@
   cursor: pointer;
 }
 .grade-threshold-reset:hover { text-decoration: underline; }
+
+/* Filling those boxes from a session the board has already graded. Tinted like
+   the syllabus strip on the paper list, because it is the same kind of claim:
+   these figures are the board's, not ours. */
+.grade-threshold-prefill {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--c-blue-line);
+  border-radius: var(--radius-md);
+  background: var(--c-blue-white);
+}
+.grade-threshold-prefill > p { margin: 0; font-size: var(--text-3xs); color: var(--muted); line-height: 1.55; }
+.grade-threshold-prefill > p b { color: var(--ink); font-weight: 900; }
 .grade-paper-add { justify-self: start; min-height: 36px; font-size: var(--text-3xs); }
 .grade-paper-reset {
   flex: 0 0 auto;

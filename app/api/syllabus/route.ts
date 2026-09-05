@@ -1,4 +1,5 @@
 import {
+  getSessionBoundaries,
   getSyllabusAssessment,
   getSyllabusContent,
   getSyllabusSource,
@@ -28,6 +29,15 @@ export async function GET(request: Request) {
           getSyllabusSource(code),
         ]);
         return Response.json({ assessment, source });
+      }
+      // What each grade took in past sessions of a syllabus, so the grade
+      // screen can offer the board's own boundaries rather than only the
+      // standard bands. Scoped to one award, because AS and A Level are
+      // different qualifications made of different papers.
+      const boundaryCode = params.get("boundaries");
+      if (boundaryCode) {
+        const award = params.get("award") || "A Level";
+        return Response.json({ sessions: await getSessionBoundaries(boundaryCode, award) });
       }
       return Response.json({ versions: await getSyllabusVersions() });
     } catch (error) {

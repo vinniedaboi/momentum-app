@@ -171,6 +171,80 @@ export async function getSyllabusAssessment(syllabusCode: string): Promise<Asses
 }
 
 /**
+ * One past session's grade boundaries, as a share of the whole award.
+ *
+ * `weight` is how much of the award the papers behind the figures add up to;
+ * only a session that covers the lot is offered, because a boundary averaged
+ * over half a course is not that course's boundary.
+ */
+export type SessionBoundaries = {
+  year: number;
+  season: string;
+  variant: string | null;
+  a: number;
+  b: number;
+  c: number;
+};
+
+/**
+ * What each grade actually took in past sessions of a syllabus.
+ *
+ * The catalogue carries the board's published thresholds as raw marks per
+ * paper; `syllabus_assessment` carries what each paper is marked out of and
+ * what it is worth. Together they give the only figure the grade screens can
+ * use: the share of the whole award a grade started at.
+ *
+ * Two approximations are worth naming, because the screen offering these says
+ * so. Cambridge awards on a total scaled mark rather than by averaging its
+ * components, so a weighted mean of component thresholds lands near the real
+ * award boundary rather than on it. And the weightings are the syllabus's
+ * current ones, which a revision between sessions can move.
+ */
+export async function getSessionBoundaries(
+  syllabusCode: string,
+  award: string,
+): Promise<SessionBoundaries[]> {
+  const sql = getSql();
+  const rows = await sql<Record<string, unknown>[]>`
+    WITH paper AS (
+      SELECT c.year, c.season, c.variant,
+             a.weighting_percent AS weight,
+             100.0 * c.threshold_a / a.marks AS pct_a,
+             100.0 * c.threshold_b / a.marks AS pct_b,
+             100.0 * c.threshold_c / a.marks AS pct_c
+      FROM catalogue_papers c
+      JOIN syllabus_assessment a
+        ON a.syllabus_code = c.syllabus_code
+       AND a.component_number::text = c.component
+      WHERE c.syllabus_code = ${syllabusCode}
+        AND a.award = ${award}
+        AND a.marks > 0
+        AND c.threshold_a IS NOT NULL
+        AND c.threshold_b IS NOT NULL
+        AND c.threshold_c IS NOT NULL
+    )
+    SELECT year, season, variant,
+           SUM(pct_a * weight) / SUM(weight) AS a,
+           SUM(pct_b * weight) / SUM(weight) AS b,
+           SUM(pct_c * weight) / SUM(weight) AS c
+    FROM paper
+    GROUP BY year, season, variant
+    HAVING SUM(weight) >= 99 AND SUM(weight) <= 101
+    ORDER BY year DESC, season, variant
+    LIMIT 40
+  `;
+
+  return rows.map((row) => ({
+    year: Number(row.year),
+    season: String(row.season),
+    variant: row.variant ? String(row.variant) : null,
+    a: Math.round(Number(row.a) * 10) / 10,
+    b: Math.round(Number(row.b) * 10) / 10,
+    c: Math.round(Number(row.c) * 10) / 10,
+  }));
+}
+
+/**
  * The document a syllabus's assessment figures were read from.
  *
  * A code can be listed for more than one exam window — 9702 runs 2025–2027 and

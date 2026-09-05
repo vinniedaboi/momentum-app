@@ -134,6 +134,53 @@ export function normaliseThresholds(
   return cleaned;
 }
 
+/**
+ * A whole ladder from the three boundaries a board actually publishes.
+ *
+ * Cambridge and Edexcel publish A, B and C per paper and nothing else, so the
+ * grades above and below are stepped by the average gap between the three that
+ * are known — which is roughly how the boards space them, and is the only
+ * honest thing to do with a grade nobody published. The screen offering this
+ * says which three are real and which are inferred.
+ *
+ * Null for a scale with no A, B and C to anchor on: the 9-to-1 ladder is a
+ * different set of names, and guessing a mapping onto it would be inventing the
+ * conversion rather than reading one.
+ */
+export function thresholdsFromPublished(
+  scale: GradeScale,
+  published: { a: number; b: number; c: number },
+): GradeThresholds | null {
+  const grades = gradesFor(scale);
+  const aIndex = grades.indexOf("A");
+  const cIndex = grades.indexOf("C");
+  if (aIndex === -1 || cIndex === -1 || !grades.includes("B")) return null;
+  if (!(published.a > published.b && published.b > published.c)) return null;
+
+  const step = Math.round(((published.a - published.c) / 2) * 10) / 10;
+  const anchored: Record<string, number> = { A: published.a, B: published.b, C: published.c };
+
+  const filled: GradeThresholds = {};
+  let previous: number | null = null;
+  for (let index = 0; index < grades.length; index += 1) {
+    const grade = grades[index];
+    const known = anchored[grade];
+    const raw = known != null
+      ? known
+      : index < aIndex
+        ? published.a + step * (aIndex - index)
+        : published.c - step * (index - cIndex);
+    let value = Math.min(MAX_THRESHOLD, Math.max(MIN_THRESHOLD, Math.round(raw * 10) / 10));
+    // Clamping at either end can flatten two grades onto the same figure, and a
+    // ladder that does not descend is one the arithmetic cannot read.
+    if (previous != null && value >= previous) value = Math.round((previous - 0.1) * 10) / 10;
+    if (value < MIN_THRESHOLD) return null;
+    filled[grade] = value;
+    previous = value;
+  }
+  return filled;
+}
+
 /** The percentage a grade starts at, on this course's own boundaries. */
 export function gradeMinimum(scale: GradeScale, grade: string, thresholds?: GradeThresholds | null) {
   return gradeBands(scale, thresholds).find(([name]) => name === grade)?.[1] ?? 0;

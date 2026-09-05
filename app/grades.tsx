@@ -6,7 +6,7 @@ import { apiMessage } from "./data/api";
 import { studyApi } from "./data/endpoints";
 import type { PastPaper } from "./past-papers";
 import { subjectName, type Subject } from "./subjects";
-import type { AssessmentComponent, SyllabusSource } from "../lib/syllabus-db";
+import type { AssessmentComponent, SessionBoundaries, SyllabusSource } from "../lib/syllabus-db";
 import {
   bankedFromComponents,
   componentPercent,
@@ -34,6 +34,7 @@ import {
   remainingFromComponents,
   resultGrades,
   thresholdsDiffer,
+  thresholdsFromPublished,
   type ComponentStatus,
   type GradeReach,
   type GradeScale,
@@ -217,6 +218,9 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
   const [assessmentCode, setAssessmentCode] = useState<string | null>(null);
   /** The document those figures were read out of, so the screen can cite it. */
   const [source, setSource] = useState<SyllabusSource | null>(null);
+  /** What each grade took in past sessions of this syllabus and award. */
+  const [sessions, setSessions] = useState<SessionBoundaries[]>([]);
+  const [sessionsKey, setSessionsKey] = useState<string | null>(null);
 
   const active = targets.find((target) => target.subjectId === chosenId) ?? targets[0] ?? null;
 
@@ -261,6 +265,25 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
       .finally(() => { if (live) setAssessmentCode(syllabusCode); });
     return () => { live = false; };
   }, [syllabusCode, assessmentCode]);
+
+  /**
+   * What each grade took in past sessions, so the boundaries the learner is
+   * asked to type can be filled from the board's own thresholds instead. Keyed
+   * on the award as well as the syllabus, because AS and A Level are graded on
+   * different papers and so on different boundaries.
+   */
+  const boundaryKey = syllabusCode ? `${syllabusCode}|${draft.award}` : null;
+  useEffect(() => {
+    if (!boundaryKey || boundaryKey === sessionsKey) return;
+    const [code, award] = boundaryKey.split("|");
+    let live = true;
+    studyApi.syllabus
+      .boundaries<{ sessions: SessionBoundaries[] }>(code, award)
+      .then((data) => { if (live) setSessions(data.sessions ?? []); })
+      .catch(() => { if (live) setSessions([]); })
+      .finally(() => { if (live) setSessionsKey(boundaryKey); });
+    return () => { live = false; };
+  }, [boundaryKey, sessionsKey]);
 
   /** The awards this syllabus is weighted against, best-known order first. */
   const awards = useMemo(() => {
@@ -489,6 +512,7 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
         stages={stages}
         awards={awards}
         assessment={assessment}
+        sessions={boundaryKey && boundaryKey === sessionsKey ? sessions : []}
         source={syllabusCode && assessmentCode === syllabusCode && assessment.length ? source : null}
         subjects={editing && targets.some((target) => target.subjectId === draft.subjectId) ? eligible : untargeted}
         existing={targets.some((target) => target.subjectId === draft.subjectId)}
@@ -519,11 +543,13 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
   </div>;
 }
 
-function ResultForm({ draft, stages, awards, assessment, source, subjects, existing, percent, preview, outcome, settledWeight, busy, onChange, onChooseSubject, onSubmit, onCancel }: {
+function ResultForm({ draft, stages, awards, assessment, sessions, source, subjects, existing, percent, preview, outcome, settledWeight, busy, onChange, onChooseSubject, onSubmit, onCancel }: {
   draft: Draft;
   stages: string[];
   awards: string[];
   assessment: AssessmentComponent[];
+  /** Past sessions of this syllabus, to fill the boundaries from. */
+  sessions: SessionBoundaries[];
   /** The syllabus the board's own figures were read from, where we have one. */
   source: SyllabusSource | null;
   subjects: Subject[];
@@ -637,6 +663,18 @@ function ResultForm({ draft, stages, awards, assessment, source, subjects, exist
         sourceMax: component.marks,
       })),
     });
+  }
+
+  const sessionKey = (entry: SessionBoundaries) => `${entry.year}|${entry.season}|${entry.variant ?? ""}`;
+  const sessionLabel = (entry: SessionBoundaries) =>
+    `${entry.season} ${entry.year}${entry.variant ? ` · variant ${entry.variant}` : ""}`;
+
+  /** Fills the whole ladder from what one past session actually took. */
+  function fillFromSession(key: string) {
+    const found = sessions.find((entry) => sessionKey(entry) === key);
+    if (!found) return;
+    const filled = thresholdsFromPublished(draft.gradeScale, found);
+    if (filled) onChange({ ...draft, thresholds: filled });
   }
 
   /** One boundary of the learner's own set, leaving the rest alone. */
@@ -923,6 +961,28 @@ function ResultForm({ draft, stages, awards, assessment, source, subjects, exist
           </label>
         </div>
         {ownBands ? <>
+          {/* The boards publish what every grade actually took, and the
+              catalogue already holds it. Typing six numbers off a PDF is the
+              worst way to get them in. */}
+          {sessions.length > 0 && <div className="grade-threshold-prefill">
+            <label>
+              <span>Fill from a past session</span>
+              <select defaultValue="" onChange={(event) => fillFromSession(event.target.value)}>
+                <option value="">Choose a session…</option>
+                {sessions.map((entry) => <option key={sessionKey(entry)} value={sessionKey(entry)}>
+                  {sessionLabel(entry)} — A {entry.a}%, B {entry.b}%, C {entry.c}%
+                </option>)}
+              </select>
+            </label>
+            <p>
+              The board&rsquo;s own thresholds for that session, weighted across this
+              award&rsquo;s papers. <b>A, B and C are published figures</b>; A*, D and E
+              are stepped from the gap between them, because no board prints those
+              per paper. A grade is awarded on a total scaled mark rather than by
+              averaging papers, so treat these as close rather than exact — and
+              change any of them below.
+            </p>
+          </div>}
           <ul className="grade-threshold-rows">
             {gradesFor(draft.gradeScale).map((grade) => {
               const standard = standardFor(grade);

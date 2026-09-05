@@ -17,6 +17,7 @@ import {
   requiredPercent,
   resultGrades,
   thresholdsDiffer,
+  thresholdsFromPublished,
 } from "../app/grade-targets.ts";
 
 /** An AS result, weighted the way every AS/A2 A Level is. */
@@ -232,4 +233,50 @@ test("boundaries matching the standard bands are not reported as the learner's o
   assert.ok(!thresholdsDiffer("a-level", null));
   assert.ok(!thresholdsDiffer("a-level", defaultThresholds("a-level")));
   assert.ok(thresholdsDiffer("a-level", { ...defaultThresholds("a-level"), A: 76 }));
+});
+
+/*
+ * A ladder from the three boundaries a board actually publishes. The figures
+ * below are Physics 9702's real weighted boundaries for Summer 2024 variant 2,
+ * computed from the catalogue's own published thresholds.
+ */
+
+test("the published A, B and C are kept, and the rest are stepped from them", () => {
+  const filled = thresholdsFromPublished("a-level", { a: 70.8, b: 59.8, c: 49.3 });
+  // The three the board printed survive untouched.
+  assert.equal(filled.A, 70.8);
+  assert.equal(filled.B, 59.8);
+  assert.equal(filled.C, 49.3);
+  // The rest step by the average gap between them, 10.8 here.
+  assert.equal(filled["A*"], 81.6);
+  assert.equal(filled.D, 38.5);
+  assert.equal(filled.E, 27.7);
+  // And the whole set is one the ladder can read.
+  assert.deepEqual(normaliseThresholds("a-level", filled), filled);
+});
+
+test("a longer ladder keeps stepping, and a shorter one is refused", () => {
+  // An IGCSE runs to G, which is four steps below the published C.
+  const igcse = thresholdsFromPublished("igcse", { a: 70.8, b: 59.8, c: 49.3 });
+  assert.equal(igcse.F, 16.9);
+  assert.equal(igcse.G, 6.1);
+  assert.ok(normaliseThresholds("igcse", igcse));
+
+  // 9 to 1 has no A, B or C to anchor on. Guessing a mapping onto it would be
+  // inventing the conversion rather than reading one.
+  assert.equal(thresholdsFromPublished("numeric", { a: 70.8, b: 59.8, c: 49.3 }), null);
+});
+
+test("published figures that do not descend are refused rather than stepped", () => {
+  assert.equal(thresholdsFromPublished("a-level", { a: 50, b: 60, c: 40 }), null);
+  assert.equal(thresholdsFromPublished("a-level", { a: 60, b: 60, c: 40 }), null);
+});
+
+test("a low set still lands on a ladder the arithmetic can read", () => {
+  // Stepping down from a C of 10 would put an E under zero; it is held at the
+  // floor instead, and the set still descends.
+  const filled = thresholdsFromPublished("a-level", { a: 20, b: 15, c: 10 });
+  assert.ok(filled.E >= 1);
+  assert.ok(filled.D > filled.E);
+  assert.deepEqual(normaliseThresholds("a-level", filled), filled);
 });
