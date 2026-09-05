@@ -84,6 +84,12 @@ const SHOTS = [
     alt: "Four syllabus points in the Momentum queue, one at each status: stress and strain rated hard, set to Learning and two days overdue; elastic and plastic behaviour set to Practising and due today; the Young modulus set to Covered and due today; strain energy set to Exam Ready and due tomorrow.",
   },
   {
+    file: "review-pace",
+    width: 1044,
+    height: 538,
+    alt: "Momentum's review pace panel set to the Intensive preset, with Standard and Relaxed presets beside it, and the gap for each status set by hand: Learning coming back after 2 days, Practising after 4, Covered after 6 and Exam Ready after 9.",
+  },
+  {
     file: "paper-figures",
     width: 1055,
     height: 140,
@@ -321,7 +327,7 @@ const FAQ = [
   },
   {
     q: "How does the scheduling work?",
-    a: "It is deterministic, not a guess. Each status carries an interval, a rating you give a topic stretches or shortens it, and a finish date or exam spreads the outstanding work across the days you said you study. The app shows you the rule it is following.",
+    a: "It is deterministic, not a guess. Each status carries an interval — the sensible default, or a gap you set yourself, from a preset or one status at a time — a rating you give a topic stretches or shortens it, and a finish date or exam spreads the outstanding work across the days you said you study. The app shows you the rule it is following.",
   },
   {
     q: "What does it cost?",
@@ -470,15 +476,19 @@ export default function Landing({ stats }: { stats: LandingStats }) {
 
         <section className="landing-schedule">
           <div>
-            <p className="eyebrow">NOTHING TO CONFIGURE</p>
+            <p className="eyebrow">GOOD DEFAULTS, YOURS TO CHANGE</p>
             <h2>Set a status. The next review is scheduled from it.</h2>
             <p>
-              These are the real intervals, not an illustration of them. Mark a topic
-              hard and its review comes forward; mark one easy and it goes back.
+              These are the intervals a new account starts with — real gaps, not an
+              illustration. Mark a topic hard and its review comes forward; mark one
+              easy and it goes back. And the gaps are yours to set: tighten them for an
+              exam three weeks out, or loosen them for a slow burn — each status by hand,
+              or from an Intensive, Standard or Relaxed preset. Change it and everything
+              you have studied is re-planned, without a thing turning overdue.
             </p>
           </div>
           <table>
-            <caption className="sr-only">How long each status parks a topic for</caption>
+            <caption className="sr-only">How long each status parks a topic for, by default</caption>
             <thead>
               <tr><th scope="col">Status</th><th scope="col">Means</th><th scope="col">Comes back in</th></tr>
             </thead>
@@ -506,6 +516,11 @@ export default function Landing({ stats }: { stats: LandingStats }) {
             name="status-rows"
             wide
             caption="One row at each status that parks a topic, with the rating that stretches or shortens its next date."
+          />
+          <Shot
+            name="review-pace"
+            wide
+            caption="Set your own gap for each status, or start from a preset — the Intensive pace here, tighter than the defaults in the table."
           />
         </section>
 
