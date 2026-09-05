@@ -24,13 +24,14 @@ import type { LandingStats } from "../lib/landing-stats";
 
 const SHOTS = [
   {
-    // The board's whole page, put back together from the two captures of it by
-    // scripts/crop-landing-shots.py — which carries the reasoning, and fails
-    // rather than guessing if a retake stops the two agreeing.
+    // One capture, not a crop of one: the board is photographed at the height
+    // its own content ends at, so the sidebar finishes on Sign out and the
+    // queue finishes on a chapter rather than part-way through a row. See
+    // scripts/capture-board.md for how to retake it.
     file: "board-hero",
-    width: 1164,
-    height: 1187,
-    alt: "The Momentum review board: four counters reading six overdue, eleven due today, twenty in the next seven days and 58% of the syllabus covered, then 1h 35m logged today, a Chemistry coursework task due today, and the queue itself — Deformation of solids opened to show stress and strain two days overdue and rated hard, elastic and plastic behaviour due today for a Physics P2 mock, and the Young modulus due today, each with how long it is worth, its status and a button marking it reviewed.",
+    width: 1440,
+    height: 1340,
+    alt: "The Momentum review board: a sidebar of screens and four tracked subjects, beside counters reading 28 overdue, 62 due today, 46 in the next seven days and 10% of the syllabus covered, then 2h logged today, a Mathematics homework task due today, and the queue itself — the Series chapter opened to show four syllabus points, each six or eight days overdue, with what it is worth, its difficulty, its status and a button marking it reviewed.",
   },
   {
     file: "review-queue",
