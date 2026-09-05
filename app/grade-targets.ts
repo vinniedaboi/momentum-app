@@ -65,8 +65,78 @@ export function gradesFor(scale: GradeScale): string[] {
   return GRADE_SCALES[scale].grades.map(([grade]) => grade);
 }
 
-export function gradeMinimum(scale: GradeScale, grade: string) {
-  return GRADE_SCALES[scale].grades.find(([name]) => name === grade)?.[1] ?? 0;
+/**
+ * A learner's own boundaries: each grade against the overall percentage it
+ * starts at. Partial is allowed — a grade the map does not name keeps the
+ * standard band, so a learner who only knows what an A took can say just that.
+ */
+export type GradeThresholds = Record<string, number>;
+
+/** The narrowest and widest a boundary can sensibly be. */
+export const MIN_THRESHOLD = 1;
+export const MAX_THRESHOLD = 100;
+
+/** The standard bands as a map, which is what the form opens on. */
+export function defaultThresholds(scale: GradeScale): GradeThresholds {
+  return Object.fromEntries(GRADE_SCALES[scale].grades.map(([grade, minimum]) => [grade, minimum]));
+}
+
+/**
+ * The bands this course is actually graded on: the learner's own where they
+ * have set them, and the standard uniform-mark bands everywhere else.
+ *
+ * Always in the scale's own order, best first, because every reading below
+ * walks it top-down and takes the first grade the percentage clears.
+ */
+export function gradeBands(scale: GradeScale, thresholds?: GradeThresholds | null) {
+  return GRADE_SCALES[scale].grades.map(([grade, minimum]) => {
+    const own = thresholds?.[grade];
+    return [grade, typeof own === "number" && Number.isFinite(own) ? own : minimum] as const;
+  });
+}
+
+/**
+ * Whether a set of boundaries actually says anything the standard bands do not.
+ * A map that agrees with the scale at every grade is not worth reporting as the
+ * learner's own, and the screens say "standard" rather than "yours" for it.
+ */
+export function thresholdsDiffer(scale: GradeScale, thresholds?: GradeThresholds | null) {
+  if (!thresholds) return false;
+  return GRADE_SCALES[scale].grades.some(([grade, minimum]) => {
+    const own = thresholds[grade];
+    return typeof own === "number" && Number.isFinite(own) && own !== minimum;
+  });
+}
+
+/**
+ * Boundaries the ladder can be trusted to read.
+ *
+ * Every grade of the scale, rounded to a tenth and held inside the range, and
+ * each one strictly below the grade above it — an A that took less than a B is
+ * not a boundary set, it is a typo, and reading it would rank the grades wrong.
+ * Returns null when the input names nothing usable, which is the same as saying
+ * "use the standard bands".
+ */
+export function normaliseThresholds(
+  scale: GradeScale,
+  input: Partial<Record<string, unknown>> | null | undefined,
+): GradeThresholds | null {
+  if (!input || typeof input !== "object") return null;
+  const cleaned: GradeThresholds = {};
+  let previous = Infinity;
+  for (const [grade, standard] of GRADE_SCALES[scale].grades) {
+    const raw = Number(input[grade]);
+    const value = Number.isFinite(raw) ? Math.round(raw * 10) / 10 : standard;
+    if (value < MIN_THRESHOLD || value > MAX_THRESHOLD || value >= previous) return null;
+    cleaned[grade] = value;
+    previous = value;
+  }
+  return cleaned;
+}
+
+/** The percentage a grade starts at, on this course's own boundaries. */
+export function gradeMinimum(scale: GradeScale, grade: string, thresholds?: GradeThresholds | null) {
+  return gradeBands(scale, thresholds).find(([name]) => name === grade)?.[1] ?? 0;
 }
 
 export function isGradeOnScale(scale: GradeScale, grade: unknown): grade is string {
@@ -121,6 +191,12 @@ export type GradeTarget = {
   targetGrade: string;
   /** Null follows the target grade; a number is a learner aiming elsewhere. */
   paperTargetPercent: number | null;
+  /**
+   * The boundaries this course is graded on, where the learner has supplied
+   * them — their board's published thresholds for the session, or their
+   * school's own. Null is the standard uniform-mark bands for the scale.
+   */
+  thresholds: GradeThresholds | null;
   /**
    * The papers of the award, where the learner has chosen a route. Empty for a
    * target typed in by hand, which is every subject whose syllabus the parser
@@ -288,7 +364,7 @@ export function courseOutcome(target: Weighed & { components: TargetComponent[] 
   if (weight <= 0) return null;
 
   const percent = Math.round((earned / weight) * 1000) / 10;
-  return { percent, grade: overallGrade(target.gradeScale, percent), settled };
+  return { percent, grade: overallGrade(target.gradeScale, percent, target.thresholds), settled };
 }
 
 /** How much of the award the chosen papers add up to. 100 means a full route. */
@@ -311,7 +387,7 @@ export function componentRequirement(
   const settled = bankedFromComponents(others);
   const share = component.weighting;
   if (share <= 0) return null;
-  const needed = gradeMinimum(target.gradeScale, grade) * 100
+  const needed = gradeMinimum(target.gradeScale, grade, target.thresholds) * 100
     - settled.completedPercent * settled.completedWeight;
   const rest = 100 - settled.completedWeight - share;
   // Anything else still to come is assumed to match this paper, which is the
@@ -348,7 +424,12 @@ export function markPercent(mark: number | null, max: number | null) {
   return Math.round((mark / max) * 1000) / 10;
 }
 
-type Weighed = Pick<GradeTarget, "completedPercent" | "completedWeight" | "gradeScale">;
+/**
+ * Optional rather than required, so a caller weighing a draft that has not
+ * chosen boundaries yet still type-checks; absent means the standard bands.
+ */
+type Weighed = Pick<GradeTarget, "completedPercent" | "completedWeight" | "gradeScale">
+  & { thresholds?: GradeThresholds | null };
 
 /** Where a finished course lands, given what each part scored. */
 export function overallPercent(target: Weighed, remainingPercent: number) {
@@ -357,8 +438,12 @@ export function overallPercent(target: Weighed, remainingPercent: number) {
 }
 
 /** The grade an overall percentage earns. Below the lowest band is U. */
-export function overallGrade(scale: GradeScale, percent: number): string {
-  return gradesFor(scale).find((grade) => percent >= gradeMinimum(scale, grade)) ?? "U";
+export function overallGrade(
+  scale: GradeScale,
+  percent: number,
+  thresholds?: GradeThresholds | null,
+): string {
+  return gradeBands(scale, thresholds).find(([, minimum]) => percent >= minimum)?.[0] ?? "U";
 }
 
 /**
@@ -372,7 +457,7 @@ export function overallGrade(scale: GradeScale, percent: number): string {
  */
 export function requiredPercent(target: Weighed, grade: string) {
   const remainingWeight = 100 - target.completedWeight;
-  const outstanding = gradeMinimum(target.gradeScale, grade) * 100
+  const outstanding = gradeMinimum(target.gradeScale, grade, target.thresholds) * 100
     - target.completedPercent * target.completedWeight;
   // Nothing left to sit. The grade is either already earned or already missed,
   // and there is no percentage that would change it — which the infinities say
@@ -398,7 +483,7 @@ export function gradeLadder(target: Weighed): GradeRung[] {
     const raw = requiredPercent(target, grade);
     return {
       grade,
-      minimum: gradeMinimum(target.gradeScale, grade),
+      minimum: gradeMinimum(target.gradeScale, grade, target.thresholds),
       required: Math.min(100, Math.max(0, Math.ceil(raw))),
       raw,
       // A hair over 100 is arithmetic noise rather than an unreachable grade:
@@ -413,8 +498,8 @@ export function gradeLadder(target: Weighed): GradeRung[] {
 /** The best and worst a banked result still allows, scoring 100 and 0. */
 export function gradeRange(target: Weighed) {
   return {
-    best: overallGrade(target.gradeScale, overallPercent(target, 100)),
-    worst: overallGrade(target.gradeScale, overallPercent(target, 0)),
+    best: overallGrade(target.gradeScale, overallPercent(target, 100), target.thresholds),
+    worst: overallGrade(target.gradeScale, overallPercent(target, 0), target.thresholds),
   };
 }
 

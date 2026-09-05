@@ -13,6 +13,7 @@ import {
   coveredWeight,
   DEFAULT_COMPLETED_WEIGHT,
   defaultScale,
+  defaultThresholds,
   GRADE_SCALE_KEYS,
   GRADE_SCALES,
   gradeArticle,
@@ -23,6 +24,8 @@ import {
   gradeTargetSubjects,
   isBanked,
   markPercent,
+  MAX_THRESHOLD,
+  MIN_THRESHOLD,
   MOCK_WEIGHT,
   overallGrade,
   overallPercent,
@@ -30,10 +33,12 @@ import {
   paperTarget,
   remainingFromComponents,
   resultGrades,
+  thresholdsDiffer,
   type ComponentStatus,
   type GradeReach,
   type GradeScale,
   type GradeTarget,
+  type GradeThresholds,
   type TargetComponent,
 } from "./grade-targets";
 
@@ -119,6 +124,8 @@ type Draft = {
   max: string;
   weight: string;
   targetGrade: string;
+  /** The learner's own boundaries, or null for the scale's standard bands. */
+  thresholds: GradeThresholds | null;
 };
 
 function draftFor(target: GradeTarget): Draft {
@@ -135,6 +142,7 @@ function draftFor(target: GradeTarget): Draft {
     max: String(target.completedMax ?? 100),
     weight: String(target.completedWeight),
     targetGrade: target.targetGrade,
+    thresholds: target.thresholds,
   };
 }
 
@@ -174,6 +182,7 @@ function blankDraft(subject: Subject | undefined): Draft {
     weight: String(banked ? DEFAULT_COMPLETED_WEIGHT : MOCK_WEIGHT),
     // The second rung: an A on both letter ladders, an 8 on the numeric one.
     targetGrade: grades[1] ?? grades[0],
+    thresholds: null,
   };
 }
 
@@ -319,8 +328,12 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
   // case the form most needs to report.
   const draftPreview = draftPercent == null || !Number.isFinite(draftWeight) || draftWeight < 0 || draftWeight > 100
     ? null
-    : gradeLadder({ completedPercent: draftPercent, completedWeight: draftWeight, gradeScale: draft.gradeScale })
-      .find((rung) => rung.grade === draft.targetGrade) ?? null;
+    : gradeLadder({
+      completedPercent: draftPercent,
+      completedWeight: draftWeight,
+      gradeScale: draft.gradeScale,
+      thresholds: draft.thresholds,
+    }).find((rung) => rung.grade === draft.targetGrade) ?? null;
 
   /**
    * What the marks on the form already come to, while it is still open.
@@ -334,6 +347,7 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
       completedPercent: fromPapers.completedPercent,
       completedWeight: fromPapers.completedWeight,
       gradeScale: draft.gradeScale,
+      thresholds: draft.thresholds,
       components: chosenComponents,
     })
     : null;
@@ -394,6 +408,7 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
         // Editing the result should not silently drop a paper target the
         // learner set by hand on the screen behind this form.
         paperTargetPercent: existing?.paperTargetPercent ?? null,
+        thresholds: draft.thresholds,
       });
       await onChanged();
       setChosenId(target.subjectId);
@@ -425,6 +440,7 @@ export default function GradesView({ targets, subjects, papers, onMessage, onCha
         completedWeight: next.completedWeight,
         targetGrade: next.targetGrade,
         paperTargetPercent: next.paperTargetPercent,
+        thresholds: next.thresholds,
       });
       await onChanged();
     } catch (error) {
@@ -533,6 +549,18 @@ function ResultForm({ draft, stages, awards, assessment, source, subjects, exist
   const splits = stages.length > 1;
   const covered = coveredWeight(chosen);
   const settled = bankedFromComponents(chosen);
+  /** This course is priced on boundaries the learner supplied, not the bands. */
+  const ownBands = draft.thresholds != null;
+  const standardFor = (grade: string) => scale.grades.find(([name]) => name === grade)?.[1] ?? 0;
+  const bandValues = gradesFor(draft.gradeScale).map((grade) => draft.thresholds?.[grade] ?? standardFor(grade));
+  /**
+   * Each grade has to start below the one above it. A set that does not is a
+   * typo rather than a boundary — the ladder would rank the grades wrong — so
+   * the form says so and holds the save rather than letting the server refuse.
+   */
+  const bandsOrdered = bandValues.every((value, index) =>
+    Number.isFinite(value) && value >= MIN_THRESHOLD && value <= MAX_THRESHOLD
+    && (index === 0 || value < bandValues[index - 1]));
   /** Whether anything on the form now disagrees with what the syllabus said. */
   const edited = draft.components.some((component) =>
     (component.source != null && component.source !== component.weighting)
@@ -611,6 +639,14 @@ function ResultForm({ draft, stages, awards, assessment, source, subjects, exist
     });
   }
 
+  /** One boundary of the learner's own set, leaving the rest alone. */
+  function setBand(grade: string, value: number) {
+    onChange({
+      ...draft,
+      thresholds: { ...(draft.thresholds ?? defaultThresholds(draft.gradeScale)), [grade]: value },
+    });
+  }
+
   return <section className="goal-setup grade-setup panel-card">
     <div className="goal-setup-copy">
       <p className="eyebrow">{existing ? "EDIT RESULT" : papers ? "WHICH PAPERS ARE YOURS?" : banked ? "ALREADY SAT ONE HALF?" : "GOT A MOCK BACK?"}</p>
@@ -640,9 +676,12 @@ function ResultForm({ draft, stages, awards, assessment, source, subjects, exist
           ]).map(([step, detail]) => <li key={step}><b>{step}</b><span>{detail}</span></li>)}
       </ol>
       <p className="grade-setup-note">
-        Grades are priced against the standard {scale.detail} boundaries. Real
-        boundaries shift a mark or two each session, so treat every number here
-        as close rather than exact.
+        {ownBands
+          ? <>Grades are priced against the boundaries you set below, not the
+            standard {scale.detail} bands.</>
+          : <>Grades are priced against the standard {scale.detail} boundaries.
+            Real boundaries shift a mark or two each session, so treat every
+            number here as close rather than exact — or set your own below.</>}
       </p>
     </div>
     <form className="goal-form grade-form" onSubmit={onSubmit}>
@@ -659,8 +698,11 @@ function ResultForm({ draft, stages, awards, assessment, source, subjects, exist
           onChange({
             ...draft,
             gradeScale,
-            // A grade from the old ladder means nothing on the new one.
+            // A grade from the old ladder means nothing on the new one — and
+            // neither do boundaries keyed by its grades, so they restart from
+            // the new scale's own bands rather than carrying names it lacks.
             targetGrade: grades.includes(draft.targetGrade) ? draft.targetGrade : grades[1] ?? grades[0],
+            thresholds: draft.thresholds ? defaultThresholds(gradeScale) : null,
             completedGrade: resultGrades(gradeScale, banked).includes(draft.completedGrade) ? draft.completedGrade : "",
           });
         }}>
@@ -861,6 +903,66 @@ function ResultForm({ draft, stages, awards, assessment, source, subjects, exist
           <b>% of the grade</b>
         </div>
       </label>}
+      {/* The bands the app ships are the standard uniform-mark ones: the right
+          default, and a real approximation. A board publishes its own for every
+          session and a school sets its own for a mock, so a learner holding
+          those numbers should not have to watch the screen disagree with them. */}
+      <div className="grade-thresholds">
+        <div className="grade-thresholds-head">
+          <span>Grade boundaries</span>
+          <label className="grade-thresholds-toggle">
+            <input
+              type="checkbox"
+              checked={ownBands}
+              onChange={(event) => onChange({
+                ...draft,
+                thresholds: event.target.checked ? defaultThresholds(draft.gradeScale) : null,
+              })}
+            />
+            <b>Use my own</b>
+          </label>
+        </div>
+        {ownBands ? <>
+          <ul className="grade-threshold-rows">
+            {gradesFor(draft.gradeScale).map((grade) => {
+              const standard = standardFor(grade);
+              const value = draft.thresholds?.[grade] ?? standard;
+              return <li key={grade}>
+                <span className={`grade-badge ${gradeTone(grade)}`}>{grade}</span>
+                <span className="grade-threshold-field">
+                  <input
+                    type="number"
+                    min={MIN_THRESHOLD}
+                    max={MAX_THRESHOLD}
+                    step="0.1"
+                    value={value}
+                    aria-label={`Percentage ${gradeArticle(grade)} ${grade} starts at`}
+                    onChange={(event) => setBand(grade, Number(event.target.value))}
+                  />
+                  <i>%</i>
+                </span>
+                {/* A figure we supplied and the learner has since changed says
+                    so, and offers the way back — the same bargain the papers
+                    strike with the syllabus's own weightings. */}
+                {value !== standard && <button
+                  type="button"
+                  className="grade-threshold-reset"
+                  onClick={() => setBand(grade, standard)}
+                >standard {standard}%</button>}
+              </li>;
+            })}
+          </ul>
+          <p className="grade-papers-note">
+            {bandsOrdered
+              ? `Percentages of the whole award rather than raw marks. Every figure on this screen is read against these instead of the standard ${scale.detail} bands.`
+              : "Each grade has to start below the one above it. A boundary sitting above the grade over it cannot be read as a ladder, so check the order."}
+          </p>
+        </> : <p className="grade-papers-note">
+          Priced against the standard {scale.detail} bands. Your board publishes its
+          own for every session and they move a mark or two — switch this on and
+          type the ones your course was really graded against.
+        </p>}
+      </div>
       <fieldset className="grade-target-picker">
         <legend>Overall grade you want</legend>
         <div>
@@ -908,8 +1010,11 @@ function ResultForm({ draft, stages, awards, assessment, source, subjects, exist
         </div>}
       <div className="goal-form-actions">
         {onCancel && <button type="button" className="ghost-button" onClick={onCancel}>Cancel</button>}
-        <button className="primary-button" disabled={busy || !draft.subjectId || (papers && !chosen.length)}>
-          {busy ? "Saving…" : papers && !chosen.length ? "Tick the papers you sit" : existing ? "Save result" : "Set my target"}
+        <button className="primary-button" disabled={busy || !draft.subjectId || (papers && !chosen.length) || !bandsOrdered}>
+          {busy ? "Saving…"
+            : papers && !chosen.length ? "Tick the papers you sit"
+            : !bandsOrdered ? "Check your boundaries"
+            : existing ? "Save result" : "Set my target"}
         </button>
       </div>
     </form>
@@ -930,6 +1035,8 @@ function TargetDetail({ target, subject, source, papers, busy, targetDraft, onTa
   onPatch: (changes: Partial<GradeTarget>) => Promise<void>;
 }) {
   const ladder = gradeLadder(target);
+  /** Whether this course is priced on figures the learner supplied. */
+  const ownBands = thresholdsDiffer(target.gradeScale, target.thresholds);
   const chosen = ladder.find((rung) => rung.grade === target.targetGrade)!;
   const range = gradeRange(target);
   const wanted = paperTarget(target);
@@ -968,7 +1075,7 @@ function TargetDetail({ target, subject, source, papers, busy, targetDraft, onTa
    * what they got in A2.
    */
   const remaining = remainingFromComponents(target.components);
-  const remainingGrade = remaining ? overallGrade(target.gradeScale, remaining.percent) : null;
+  const remainingGrade = remaining ? overallGrade(target.gradeScale, remaining.percent, target.thresholds) : null;
   /**
    * Every paper of the award has a mark against it, so the course is over and
    * the screen owes a grade rather than a target. Nothing else on this page
@@ -1004,7 +1111,7 @@ function TargetDetail({ target, subject, source, papers, busy, targetDraft, onTa
     ?? form
     ?? (banked || target.components.length ? null : target.completedPercent);
   const projected = standing == null ? null : overallPercent(target, standing);
-  const projectedGrade = projected == null ? null : overallGrade(target.gradeScale, projected);
+  const projectedGrade = projected == null ? null : overallGrade(target.gradeScale, projected, target.thresholds);
   const gap = standing == null || wanted == null ? null : wanted - standing;
 
   return <>
@@ -1044,6 +1151,7 @@ function TargetDetail({ target, subject, source, papers, busy, targetDraft, onTa
               <span>Sat in one go</span>
               <span>The mock counts for nothing</span>
             </>}
+          {ownBands && <span>Your own boundaries</span>}
         </div>
         <div className="grade-hero-actions">
           <button onClick={onEdit}>Edit result</button>
@@ -1064,7 +1172,7 @@ function TargetDetail({ target, subject, source, papers, busy, targetDraft, onTa
         : <div className={`grade-headline ${chosen.reach}`}>
           <span className={`grade-badge ${gradeTone(target.targetGrade)}`}>{target.targetGrade}</span>
           {chosen.reach === "out-of-reach"
-            ? <><strong>Out of reach</strong><small>even a perfect {ahead} lands on {reachLabel(overallGrade(target.gradeScale, overallPercent(target, 100)))}</small></>
+            ? <><strong>Out of reach</strong><small>even a perfect {ahead} lands on {reachLabel(overallGrade(target.gradeScale, overallPercent(target, 100), target.thresholds))}</small></>
             : chosen.reach === "secured"
               ? <><strong>Secured</strong><small>{gradeArticle(target.targetGrade)} {target.targetGrade} stands whatever {ahead} does</small></>
               : <><strong>{chosen.required}%</strong><small>needed across {ahead} for {gradeArticle(target.targetGrade)} {target.targetGrade}</small></>}
@@ -1132,8 +1240,8 @@ function TargetDetail({ target, subject, source, papers, busy, targetDraft, onTa
         {banked && !finished && <article>
           <span>{target.completedStage ?? "Banked"}</span>
           <strong>{formatPercent(target.completedPercent)}</strong>
-          <b className={`grade-badge ${gradeTone(overallGrade(target.gradeScale, target.completedPercent))}`}>
-            {overallGrade(target.gradeScale, target.completedPercent)}
+          <b className={`grade-badge ${gradeTone(overallGrade(target.gradeScale, target.completedPercent, target.thresholds))}`}>
+            {overallGrade(target.gradeScale, target.completedPercent, target.thresholds)}
           </b>
           <small>{Math.round(target.completedWeight * 10) / 10}% of the grade, already sat</small>
         </article>}
@@ -1160,10 +1268,14 @@ function TargetDetail({ target, subject, source, papers, busy, targetDraft, onTa
           saying so is the difference between a useful figure and a wrong one. */}
       <p className="grade-outcome-note">
         {outcome
-          ? `Every paper's mark, weighted the way the syllabus weights it, read against the standard boundaries. Real boundaries move a mark or two each session, so a result this close to one could land either side of it.`
+          ? ownBands
+            ? "Every paper's mark, weighted the way the syllabus weights it, read against the boundaries you set."
+            : "Every paper's mark, weighted the way the syllabus weights it, read against the standard boundaries. Real boundaries move a mark or two each session, so a result this close to one could land either side of it."
           : named
             ? `${target.remainingStage} is not certificated on its own — the board awards the ${target.award === "qualification" ? "qualification" : target.award}. This is what those papers came to, read against the same boundaries.`
-            : "Read against the standard boundaries, which move a mark or two each session."}
+            : ownBands
+              ? "Read against the boundaries you set."
+              : "Read against the standard boundaries, which move a mark or two each session."}
       </p>
     </section>}
 
@@ -1192,7 +1304,9 @@ function TargetDetail({ target, subject, source, papers, busy, targetDraft, onTa
           </button>
         </li>)}
       </ul>
-      <p className="grade-ladder-note">Boundaries move between sessions, so these are estimates. {chosen.reach === "reachable" && <>{gradeArticle(target.targetGrade) === "an" ? "An" : "A"} {target.targetGrade} needs {chosen.required}% across {ahead} — every paper of it, not one.</>}</p>
+      <p className="grade-ladder-note">{ownBands
+        ? "Priced against the boundaries you set rather than the standard bands."
+        : "Boundaries move between sessions, so these are estimates."} {chosen.reach === "reachable" && <>{gradeArticle(target.targetGrade) === "an" ? "An" : "A"} {target.targetGrade} needs {chosen.required}% across {ahead} — every paper of it, not one.</>}</p>
     </section>
 
     <section className="grade-paper-target panel-card">

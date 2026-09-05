@@ -7,7 +7,9 @@ import {
   isGradeOnScale,
   isGradeScale,
   markPercent,
+  normaliseThresholds,
   resultGrades,
+  type GradeThresholds,
   type TargetComponent,
 } from "../../grade-targets";
 
@@ -27,6 +29,7 @@ type TargetBody = Partial<{
   paperTargetPercent: number | null;
   award: string;
   components: unknown;
+  thresholds: unknown;
 }>;
 
 /** How many papers one award of one syllabus can reasonably be made of. */
@@ -196,6 +199,24 @@ export async function POST(request: Request) {
         return Response.json({ error: "Enter a paper target between 0 and 100 per cent." }, { status: 400 });
       }
 
+      // The learner's own boundaries, where they have supplied them. Null and
+      // an absent key both mean the standard bands; anything else has to be a
+      // set the ladder can read, so a typo that ranks a B above an A is
+      // refused rather than stored and quietly believed.
+      let thresholds: GradeThresholds | null = null;
+      if (body.thresholds != null) {
+        if (typeof body.thresholds !== "object" || Array.isArray(body.thresholds)) {
+          return Response.json({ error: "Enter a percentage for each grade boundary." }, { status: 400 });
+        }
+        thresholds = normaliseThresholds(scale, body.thresholds as Record<string, unknown>);
+        if (!thresholds) {
+          return Response.json(
+            { error: "Grade boundaries have to fall from the top grade down, each between 1 and 100 per cent." },
+            { status: 400 },
+          );
+        }
+      }
+
       // The award the papers are weighted against. Free text rather than a
       // fixed set, because it is whatever `syllabus_assessment` says — and a
       // learner typing their own route in names it themselves.
@@ -217,6 +238,7 @@ export async function POST(request: Request) {
         remainingStage,
         targetGrade: body.targetGrade,
         paperTargetPercent,
+        thresholds,
       });
       return Response.json({ target });
     } catch (error) {

@@ -4,16 +4,19 @@ import test from "node:test";
 import {
   canTakeGradeTarget,
   defaultScale,
+  defaultThresholds,
   gradeLadder,
   gradeRange,
   gradesFor,
   isBanked,
   markPercent,
+  normaliseThresholds,
   overallGrade,
   overallPercent,
   paperTarget,
   requiredPercent,
   resultGrades,
+  thresholdsDiffer,
 } from "../app/grade-targets.ts";
 
 /** An AS result, weighted the way every AS/A2 A Level is. */
@@ -166,4 +169,67 @@ test("any course with a syllabus can carry a target, except the IB's", () => {
   // A subject with no syllabus split at all, and an archived one.
   assert.ok(!canTakeGradeTarget(subject([])));
   assert.ok(!canTakeGradeTarget({ ...subject(["AS", "A2"]), archived: true }));
+});
+
+/*
+ * Boundaries the learner supplies.
+ *
+ * The standard uniform-mark bands are a default rather than a fact: a board
+ * publishes its own for every session, and they move. A learner holding those
+ * numbers should get an answer read against them, not against ours.
+ */
+
+/** One session's real A Level boundaries, all lower than the standard bands. */
+const ownBands = { "A*": 84, A: 72, B: 62, C: 52, D: 40, E: 30 };
+
+test("a learner's own boundaries are what the ladder prices against", () => {
+  const target = { ...banked(82), thresholds: ownBands };
+  // The standard bands want 80 overall for an A, so A2 has to average 78.
+  assert.equal(requiredPercent(banked(82), "A"), 78);
+  // This session's A came at 72, which is ten points of A2 back.
+  assert.equal(requiredPercent(target, "A"), 62);
+  assert.equal(rung(target, "A").minimum, 72);
+});
+
+test("a percentage is graded on the boundaries the course actually uses", () => {
+  // 74 is a B against the standard bands and an A against this course's own.
+  assert.equal(overallGrade("a-level", 74), "B");
+  assert.equal(overallGrade("a-level", 74, ownBands), "A");
+  // A grade the map does not name keeps its standard band: only the A moves
+  // here, so 65 is still the C the scale says it is.
+  assert.equal(overallGrade("a-level", 65, { A: 72 }), "C");
+});
+
+test("the best and worst a banked result allows follow the course's own boundaries", () => {
+  // 82 banked over half the award: a perfect A2 lands on 91, a blank one on 41.
+  assert.deepEqual(gradeRange(banked(82)), { best: "A*", worst: "E" });
+  // 41 clears this session's D at 40, which the standard band at 50 does not.
+  assert.deepEqual(gradeRange({ ...banked(82), thresholds: ownBands }), { best: "A*", worst: "D" });
+});
+
+test("boundaries that do not fall from the top grade down are refused", () => {
+  // A B above the A it sits under is a typo, not a boundary set — reading it
+  // would rank the grades wrong, so nothing is stored.
+  assert.equal(normaliseThresholds("a-level", { "A*": 90, A: 60, B: 70, C: 55, D: 45, E: 35 }), null);
+  // And out of range at either end.
+  assert.equal(normaliseThresholds("a-level", { "A*": 101 }), null);
+  assert.equal(normaliseThresholds("a-level", { E: 0 }), null);
+  assert.equal(normaliseThresholds("a-level", null), null);
+});
+
+test("a partial set keeps the standard band for every grade it does not name", () => {
+  // A learner usually knows what the A took and nothing else.
+  const cleaned = normaliseThresholds("a-level", { A: 76 });
+  assert.equal(cleaned.A, 76);
+  assert.equal(cleaned["A*"], 90);
+  assert.equal(cleaned.B, 70);
+  // Tenths survive, because a boundary is published as a raw mark and the
+  // share of an award it comes to rarely lands on a whole number.
+  assert.equal(normaliseThresholds("a-level", { A: 76.44 }).A, 76.4);
+});
+
+test("boundaries matching the standard bands are not reported as the learner's own", () => {
+  assert.ok(!thresholdsDiffer("a-level", null));
+  assert.ok(!thresholdsDiffer("a-level", defaultThresholds("a-level")));
+  assert.ok(thresholdsDiffer("a-level", { ...defaultThresholds("a-level"), A: 76 }));
 });

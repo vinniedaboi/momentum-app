@@ -5,6 +5,7 @@ import {
   isGradeScale,
   type GradeTarget,
   type GradeTargetInput,
+  type GradeThresholds,
   type TargetComponent,
 } from "../app/grade-targets";
 
@@ -29,6 +30,30 @@ function mapComponent(row: Record<string, unknown>): TargetComponent {
   };
 }
 
+/**
+ * The learner's own boundaries, read back defensively.
+ *
+ * The column is jsonb, so the driver hands back a parsed object — but a row
+ * written before this column existed, or by hand, can be anything. Only numeric
+ * entries survive; nothing usable reads as "the standard bands".
+ */
+function mapThresholds(value: unknown): GradeThresholds | null {
+  const source = typeof value === "string" ? safeParse(value) : value;
+  if (!source || typeof source !== "object" || Array.isArray(source)) return null;
+  const entries = Object.entries(source as Record<string, unknown>)
+    .filter(([, entry]) => Number.isFinite(Number(entry)))
+    .map(([grade, entry]) => [grade, Number(entry)] as const);
+  return entries.length ? Object.fromEntries(entries) : null;
+}
+
+function safeParse(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
 function mapTarget(row: Record<string, unknown>): GradeTarget {
   return {
     subjectId: String(row.subject_id),
@@ -44,6 +69,7 @@ function mapTarget(row: Record<string, unknown>): GradeTarget {
     remainingStage: String(row.remaining_stage),
     targetGrade: String(row.target_grade),
     paperTargetPercent: row.paper_target_percent == null ? null : Number(row.paper_target_percent),
+    thresholds: mapThresholds(row.thresholds),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };
@@ -149,12 +175,14 @@ async function upsertTarget(
     INSERT INTO grade_targets (
       workspace_id, subject_id, grade_scale, award, completed_stage, completed_grade,
       completed_mark, completed_max, completed_percent, completed_weight,
-      remaining_stage, target_grade, paper_target_percent, created_at, updated_at
+      remaining_stage, target_grade, paper_target_percent, thresholds, created_at, updated_at
     ) VALUES (
       ${workspaceId}, ${input.subjectId}, ${input.gradeScale}, ${input.award},
       ${input.completedStage}, ${input.completedGrade}, ${input.completedMark},
       ${input.completedMax}, ${input.completedPercent}, ${input.completedWeight},
-      ${input.remainingStage}, ${input.targetGrade}, ${input.paperTargetPercent}, ${now}, ${now}
+      ${input.remainingStage}, ${input.targetGrade}, ${input.paperTargetPercent},
+      ${input.thresholds == null ? null : JSON.stringify(input.thresholds)}::jsonb,
+      ${now}, ${now}
     )
     ON CONFLICT (workspace_id, subject_id) DO UPDATE SET
       grade_scale = excluded.grade_scale,
@@ -168,6 +196,7 @@ async function upsertTarget(
       remaining_stage = excluded.remaining_stage,
       target_grade = excluded.target_grade,
       paper_target_percent = excluded.paper_target_percent,
+      thresholds = excluded.thresholds,
       updated_at = excluded.updated_at
     RETURNING *
   `;

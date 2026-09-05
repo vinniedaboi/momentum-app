@@ -307,7 +307,7 @@ const LAYOUTS = PILLARS.map((pillar, index) =>
 
 /** What comes with them. Named, not sold. */
 const ALSO = [
-  { icon: "grades" as const, title: "Grade calculator", body: "Turn an AS result or a mock into the mark every paper still has to hit." },
+  { icon: "grades" as const, title: "Grade calculator", body: "Turn an AS result or a mock into the mark every paper still has to hit — on the standard bands, or boundaries you type in yourself." },
   { icon: "calendar" as const, title: "Calendar", body: "Reviews, deadlines, sessions and exam days in one month." },
   { icon: "flashcards" as const, title: "Flashcards", body: "Decks scoped to a subject or chapter, with CSV import." },
   { icon: "tasks" as const, title: "Tasks", body: "Homework and coursework, with a due date and a priority." },
